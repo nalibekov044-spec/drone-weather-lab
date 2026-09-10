@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Интерактивная модель влияния погоды, массы, винтов и двигателей на мультикоптер.">
+  <title>Drone Weather Lab</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">FLIGHT DYNAMICS / MODEL 04 · CFD</p>
+        <h1>Drone Weather Lab</h1>
+      </div>
+      <div class="simulation-actions">
+        <button id="toggleSimulation" class="button button-primary" type="button">Пауза</button>
+        <button id="resetSimulation" class="button" type="button">Сбросить</button>
+      </div>
+    </header>
+
+    <nav class="mode-tabs" aria-label="Режим визуализации" role="tablist">
+      <button class="mode-tab active" id="flightTab" type="button" role="tab" aria-selected="true" aria-controls="flightView" data-view="flight">Полёт</button>
+      <button class="mode-tab" id="graphTab" type="button" role="tab" aria-selected="false" aria-controls="graphView" data-view="graph">Графики</button>
+      <button class="mode-tab" id="airflowTab" type="button" role="tab" aria-selected="false" aria-controls="airflowView" data-view="airflow">Обтекание</button>
+    </nav>
+
+    <section class="metrics" aria-label="Основные результаты">
+      <article class="metric"><span>Запас тяги</span><strong id="thrustReserve">—</strong><small id="thrustRatio">—</small></article>
+      <article class="metric"><span>Наклон</span><strong id="tiltAngle">—</strong><small>для удержания точки</small></article>
+      <article class="metric"><span>Время полёта</span><strong id="flightTime">—</strong><small id="powerDraw">—</small></article>
+      <article class="metric"><span>Ток батареи</span><strong id="batteryCurrent">—</strong><small id="batteryLoad">—</small></article>
+      <article class="metric"><span>Предел ветра</span><strong id="maxWind">—</strong><small>при выбранных RPM</small></article>
+    </section>
+
+    <section class="workspace">
+      <section class="visual-panel">
+        <section id="flightView" class="view-panel active" role="tabpanel" aria-labelledby="flightTab">
+          <div class="visual-header">
+            <div><span class="panel-label">3D POSITION HOLD</span><h2>Положение и реакция контроллера</h2><small class="scene-hint">Тяни мышью — вращение · колесо — масштаб</small></div>
+            <div id="flightStatus" class="status" role="status" aria-live="polite"><span></span> Стабильно</div>
+          </div>
+          <canvas id="flightCanvas" aria-label="Интерактивная трёхмерная модель дрона, ветра, траектории и точки зависания">Ваш браузер не поддерживает Canvas.</canvas>
+          <div class="visual-footer">
+            <span>Смещение: <strong id="displacement">0,00 м</strong></span>
+            <span>Плотность: <strong id="airDensity">—</strong></span>
+            <span>Пиковый ветер: <strong id="peakWind">—</strong></span>
+            <span>Баланс: <strong id="motorBalance">—</strong></span>
+            <span>RPM: <strong id="effectiveRpm">—</strong></span>
+            <span>Моторы: <strong id="motorThermal">—</strong></span>
+          </div>
+        </section>
+
+        <section id="graphView" class="view-panel" role="tabpanel" aria-labelledby="graphTab" hidden>
+          <div class="visual-header graph-header">
+            <div><span class="panel-label">PARAMETRIC ANALYSIS</span><h2>График функции</h2></div>
+            <div class="inline-controls">
+              <label>Меняем
+                <select id="graphVariable">
+                  <option value="windSpeed">Скорость ветра</option><option value="rpm">Обороты винтов</option><option value="mass">Масса дрона</option><option value="payload">Полезная нагрузка</option><option value="diameter">Диаметр винта</option><option value="motorMaxPower">Мощность мотора</option><option value="altitude">Высота</option><option value="temperature">Температура</option><option value="rainRate">Интенсивность дождя</option>
+                </select>
+              </label>
+              <label>Смотрим
+                <select id="graphMetric">
+                  <option value="reserve">Запас тяги</option><option value="tilt">Наклон</option><option value="flightMinutes">Время полёта</option><option value="electricalPower">Мощность</option><option value="powerLoad">Загрузка моторов</option><option value="rpmPowerLimit">Доступный RPM</option><option value="availableThrust">Доступная тяга</option><option value="windForce">Сила ветра</option><option value="maxWind">Предел ветра</option><option value="thrustToWeight">Тяга / вес</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="graph-stage">
+            <canvas id="graphCanvas" aria-label="График зависимости выбранной величины от параметра"></canvas>
+            <div id="graphTooltip" class="graph-tooltip" hidden></div>
+          </div>
+          <div class="graph-range">
+            <label>От <input id="graphFrom" type="number" step="any"></label>
+            <label>До <input id="graphTo" type="number" step="any"></label>
+            <span id="graphFormula">—</span>
+          </div>
+        </section>
+
+        <section id="airflowView" class="view-panel" role="tabpanel" aria-labelledby="airflowTab" hidden>
+          <div class="visual-header airflow-header">
+            <div><span class="panel-label">3D CFD · D3Q19 LATTICE BOLTZMANN</span><h2>Численное поле потока вокруг дрона</h2><small class="scene-hint">Тяни мышью — вращение · колесо — масштаб</small></div>
+            <div class="inline-controls">
+              <label>Слой <select id="airflowLayer"><option value="volume">Объёмное 3D-поле</option><option value="horizontal">Горизонтальный срез</option><option value="vertical">Вертикальный срез</option></select></label>
+              <label>Линии <output id="streamlineCountValue">42</output><input id="streamlineCount" type="range" min="12" max="80" value="42" step="2"></label>
+              <label>Масштаб <output id="airflowZoomValue">1,0×</output><input id="airflowZoom" type="range" min="0.6" max="1.8" value="1" step="0.1"></label>
+            </div>
+          </div>
+          <canvas id="airflowCanvas" aria-label="Интерактивные трёхмерные линии тока воздуха вокруг корпуса и винтов дрона">Ваш браузер не поддерживает Canvas.</canvas>
+          <div class="visual-footer">
+            <span>Скорость потока: <strong id="flowSpeed">—</strong></span>
+            <span>Плотность линий: <strong id="flowDensity">—</strong></span>
+            <span>Downwash: <strong id="downwashSpeed">—</strong></span>
+            <span>CFD: <strong id="cfdStatus">ожидание</strong></span>
+            <span>Сетка: <strong id="cfdCells">—</strong></span>
+            <span>Re: <strong id="reynoldsNumber">—</strong></span>
+            <span class="legend"><i></i><strong id="flowLegend">скорость</strong></span>
+          </div>
+        </section>
+      </section>
+
+      <aside class="controls-panel" aria-label="Параметры симуляции">
+        <details class="control-group" open>
+          <summary><span>01</span><strong>Дрон и геометрия</strong></summary>
+          <div class="control-body">
+            <label class="control wide" for="dronePreset"><span>Тип дрона</span><select id="dronePreset"><option value="survey">Камерный квадрокоптер</option><option value="racing">Гоночный FPV</option><option value="industrialHex">Промышленный гексакоптер</option><option value="cargoOcto">Грузовой октокоптер</option></select></label>
+            <label class="control" for="mass"><span>Масса корпуса <output id="massValue">2,4 кг</output></span><input id="mass" type="range" min="0.2" max="20" value="2.4" step="0.1"></label>
+            <label class="control" for="payload"><span>Полезная нагрузка <output id="payloadValue">0,7 кг</output></span><input id="payload" type="range" min="0" max="15" value="0.7" step="0.1"></label>
+            <label class="control" for="frameSize"><span>Диагональ рамы <output id="frameSizeValue">520 мм</output></span><input id="frameSize" type="range" min="120" max="1600" value="520" step="10"></label>
+            <label class="control" for="rotors"><span>Количество винтов</span><select id="rotors"><option value="4">4</option><option value="6">6</option><option value="8">8</option></select></label>
+            <label class="control" for="diameter"><span>Диаметр винта <output id="diameterValue">15,0″</output></span><input id="diameter" type="range" min="3" max="32" value="15" step="0.5"></label>
+            <label class="control" for="pitch"><span>Шаг винта <output id="pitchValue">5,2″</output></span><input id="pitch" type="range" min="2" max="12" value="5.2" step="0.1"></label>
+            <label class="control" for="dragArea"><span>Лобовая площадь <output id="dragAreaValue">0,13 м²</output></span><input id="dragArea" type="range" min="0.01" max="0.8" value="0.13" step="0.01"></label>
+            <label class="control" for="dragCoefficient"><span>Коэф. сопротивления <output id="dragCoefficientValue">0,95</output></span><input id="dragCoefficient" type="range" min="0.3" max="1.8" value="0.95" step="0.05"></label>
+            <label class="control wide" for="propEfficiency"><span>Состояние винтов <output id="propEfficiencyValue">86%</output></span><input id="propEfficiency" type="range" min="50" max="100" value="86" step="1"></label>
+          </div>
+        </details>
+
+        <details class="control-group" open>
+          <summary><span>02</span><strong>Двигатели и RPM</strong></summary>
+          <div class="control-body">
+            <label class="control wide" for="rpm"><span>Команда / доступные обороты <output id="rpmValue">4 800 об/мин</output></span><input id="rpm" type="range" min="1000" max="24000" value="4800" step="100"></label>
+            <label class="control" for="maxRpm"><span>Предел двигателя <output id="maxRpmValue">7 200 об/мин</output></span><input id="maxRpm" type="range" min="1500" max="28000" value="7200" step="100"></label>
+            <label class="control" for="motorMaxPower"><span>Мощность мотора <output id="motorMaxPowerValue">420 Вт</output></span><input id="motorMaxPower" type="range" min="80" max="2500" value="420" step="20"></label>
+            <label class="control wide" for="motorEfficiency"><span>КПД мотор + ESC <output id="motorEfficiencyValue">88%</output></span><input id="motorEfficiency" type="range" min="50" max="96" value="88" step="1"></label>
+            <label class="check-control wide"><input id="individualMotors" type="checkbox"> Настраивать RPM каждого двигателя отдельно</label>
+            <div id="motorGrid" class="motor-grid wide" hidden></div>
+            <button id="repairMotors" class="button wide" type="button">Заменить повреждённые моторы</button>
+          </div>
+        </details>
+
+        <details class="control-group" open>
+          <summary><span>03</span><strong>Погода и атмосфера</strong></summary>
+          <div class="control-body">
+            <label class="control wide" for="windSpeed"><span>Средний ветер <output id="windSpeedValue">6,0 м/с</output></span><input id="windSpeed" type="range" min="0" max="40" value="6" step="0.5"></label>
+            <label class="control wide" for="windDirection"><span>Направление <output id="windDirectionValue">35°</output></span><input id="windDirection" type="range" min="0" max="359" value="35" step="1"></label>
+            <label class="control" for="gusts"><span>Амплитуда порывов <output id="gustsValue">25%</output></span><input id="gusts" type="range" min="0" max="100" value="25" step="5"></label>
+            <label class="control" for="gustFrequency"><span>Частота порывов <output id="gustFrequencyValue">0,8 Гц</output></span><input id="gustFrequency" type="range" min="0.1" max="3" value="0.8" step="0.1"></label>
+            <label class="control" for="turbulence"><span>Турбулентность <output id="turbulenceValue">20%</output></span><input id="turbulence" type="range" min="0" max="100" value="20" step="5"></label>
+            <label class="control" for="verticalWind"><span>Вертикальный поток <output id="verticalWindValue">0,0 м/с</output></span><input id="verticalWind" type="range" min="-12" max="12" value="0" step="0.5"></label>
+            <label class="control" for="rainRate"><span>Дождь <output id="rainRateValue">0 мм/ч</output></span><input id="rainRate" type="range" min="0" max="80" value="0" step="1"></label>
+            <label class="control" for="temperature"><span>Температура <output id="temperatureValue">15 °C</output></span><input id="temperature" type="range" min="-40" max="55" value="15" step="1"></label>
+            <label class="control" for="altitude"><span>Высота <output id="altitudeValue">500 м</output></span><input id="altitude" type="range" min="0" max="6000" value="500" step="100"></label>
+            <label class="control" for="humidity"><span>Влажность <output id="humidityValue">45%</output></span><input id="humidity" type="range" min="0" max="100" value="45" step="5"></label>
+            <label class="control" for="pressureMode"><span>Давление</span><select id="pressureMode"><option value="auto">По высоте</option><option value="manual">Задать вручную</option></select></label>
+            <label class="control" for="pressureHpa"><span>Давление <output id="pressureHpaValue">954 гПа</output></span><input id="pressureHpa" type="range" min="500" max="1050" value="954" step="1" disabled></label>
+            <label class="control" for="icing"><span>Обледенение</span><select id="icing"><option value="none">Нет</option><option value="trace">Слабое</option><option value="moderate">Умеренное</option></select></label>
+          </div>
+        </details>
+
+        <details class="control-group">
+          <summary><span>04</span><strong>Батарея</strong></summary>
+          <div class="control-body">
+            <label class="control" for="voltage"><span>Напряжение <output id="voltageValue">22,2 В</output></span><input id="voltage" type="range" min="7.4" max="52" value="22.2" step="0.1"></label>
+            <label class="control" for="capacity"><span>Ёмкость <output id="capacityValue">10 000 мА·ч</output></span><input id="capacity" type="range" min="500" max="30000" value="10000" step="250"></label>
+            <label class="control" for="stateOfCharge"><span>Заряд <output id="stateOfChargeValue">100%</output></span><input id="stateOfCharge" type="range" min="10" max="100" value="100" step="5"></label>
+            <label class="control" for="batteryTemp"><span>Температура батареи <output id="batteryTempValue">20 °C</output></span><input id="batteryTemp" type="range" min="-30" max="60" value="20" step="1"></label>
+          </div>
+        </details>
+
+        <details class="control-group">
+          <summary><span>05</span><strong>Баланс и управление</strong></summary>
+          <div class="control-body">
+            <label class="control" for="payloadX"><span>Смещение груза X <output id="payloadXValue">0 см</output></span><input id="payloadX" type="range" min="-30" max="30" value="0" step="1"></label>
+            <label class="control" for="payloadY"><span>Смещение груза Y <output id="payloadYValue">0 см</output></span><input id="payloadY" type="range" min="-30" max="30" value="0" step="1"></label>
+            <label class="control wide" for="controlResponse"><span>Время реакции контроллера <output id="controlResponseValue">0,7 с</output></span><input id="controlResponse" type="range" min="0.2" max="2" value="0.7" step="0.1"></label>
+            <label class="control wide" for="maxTilt"><span>Предел наклона <output id="maxTiltValue">35°</output></span><input id="maxTilt" type="range" min="10" max="60" value="35" step="1"></label>
+          </div>
+        </details>
+
+        <details class="control-group" open>
+          <summary><span>06</span><strong>CFD и визуализация</strong></summary>
+          <div class="control-body">
+            <label class="control" for="cfdQuality"><span>Качество сетки</span><select id="cfdQuality"><option value="fast">Быстрое</option><option value="balanced" selected>Сбалансированное</option><option value="fine">Точное</option></select></label>
+            <label class="control" for="flowColor"><span>Окраска потока</span><select id="flowColor"><option value="speed">Скорость</option><option value="pressure">Давление</option><option value="vorticity">Завихрение</option></select></label>
+            <label class="control wide" for="flowObstacle"><span>Дополнительный объект</span><select id="flowObstacle"><option value="none">Нет</option><option value="sphere">Сфера справа</option><option value="wall">Вертикальная стенка</option><option value="payload">Груз под корпусом</option></select></label>
+            <label class="control wide" for="obstacleSize"><span>Размер объекта <output id="obstacleSizeValue">1,0×</output></span><input id="obstacleSize" type="range" min="0.5" max="2" value="1" step="0.1"></label>
+          </div>
+        </details>
+      </aside>
+    </section>
+
+    <details class="model-note">
+      <summary>Точность и ограничения модели</summary>
+      <p>Поток решается на трёхмерной воксельной сетке методом D3Q19 Lattice Boltzmann: корпус и добавленные объекты задаются твёрдыми границами без проникновения, внешние границы открыты для выхода потока, а винты представлены источниками импульса с downwash и закруткой. Тяга и мощность считаются через Cₜ/Cₚ; температура и повреждение каждого мотора уменьшают его доступную мощность и RPM. Сетка предназначена для интерактивного анализа: для финального проектирования геометрию и коэффициенты винтов нужно сверять с испытаниями или расчётом высокой точности.</p>
+    </details>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
