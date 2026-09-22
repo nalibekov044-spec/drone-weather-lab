@@ -31,9 +31,9 @@ function palette() {
   };
 }
 
-function resizeCanvas(canvas) {
+function resizeCanvas(canvas, pixelRatio = 1.5) {
   const rect = canvas.getBoundingClientRect();
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const dpr = Math.min(pixelRatio, window.devicePixelRatio || 1);
   const pixelWidth = Math.max(1, Math.round(rect.width * dpr));
   const pixelHeight = Math.max(1, Math.round(rect.height * dpr));
   if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -160,6 +160,13 @@ export class DroneScene3D {
     this.lastPointer = null;
     this.sliderZoom = 1;
     this.streamlineCache = { key: "", lines: [] };
+    this.colors = palette();
+    this.model = null;
+    this.modelRevision = 0;
+    this.staticCanvas = document.createElement("canvas");
+    this.staticKey = "";
+    this.projectedLines = [];
+    this.traceRequestedKey = "";
     this.cfd = { status: "idle", desiredKey: "", fieldKey: "", field: null, progress: 0, error: "" };
     this.workerBusy = false;
     this.workerTimer = null;
@@ -284,18 +291,18 @@ export class DroneScene3D {
       ctx.strokeStyle = colors.lineBright;
       ctx.globalAlpha = 0.7;
       ctx.lineWidth = 0.8;
-      ctx.stroke();
+      if (!this.model) ctx.stroke();
       ctx.globalAlpha = 1;
     });
   }
 
   droneGeometry(parameters, result, pose, time, systemState) {
-    const colors = palette();
+    const colors = this.colors;
     const faces = [];
     const lines = [];
     const rotorCount = Number(parameters.rotors);
     const rotors = rotorPositions(rotorCount, 0.72);
-    const propRadius = clamp(parameters.diameter * 25.4 / Math.max(200, parameters.frameSize) * 0.36, 0.16, 0.34);
+    const propRadius = parameters.diameter * 25.4 * 0.72 / parameters.frameSize;
     rotors.forEach((rotor, index) => {
       const angle = Math.atan2(rotor.y, rotor.x);
       const motorTemperature = systemState?.motorTemps?.[index] ?? parameters.temperature;
@@ -304,8 +311,10 @@ export class DroneScene3D {
         ? colors.danger
         : motorTemperature > 90 ? colors.warning : index % 2 ? colors.cyan : colors.accent;
       const propColor = parameters.icing === "none" ? (index % 2 ? colors.cyan : colors.accent) : "#c9efff";
-      faces.push(...boxFaces([rotor.x * 0.5, 0, rotor.y * 0.5], [0.72, 0.055, 0.075], angle, colors.surface, pose));
-      faces.push(...cylinderFaces([rotor.x, 0.07, rotor.y], 0.095, 0.14, 10, motorColor, pose));
+      if (!this.model) {
+        faces.push(...boxFaces([rotor.x * 0.5, 0, rotor.y * 0.5], [0.72, 0.055, 0.075], angle, colors.surface, pose));
+        faces.push(...cylinderFaces([rotor.x, 0.07, rotor.y], 0.095, 0.14, 10, motorColor, pose));
+      }
       lines.push({ points: circlePoints([rotor.x, 0, rotor.y], propRadius, 0.17, 32, pose), color: propColor, width: parameters.icing === "none" ? 1.4 : 2.4, alpha: 0.82 });
       const spin = time * Math.min(18, (result.effectiveRpms?.[index] || parameters.rpm) / 900) * (index % 2 ? -1 : 1);
       const bladeA = posePoint(add([rotor.x, 0, rotor.y], [Math.cos(spin) * propRadius, 0.175, Math.sin(spin) * propRadius]), pose);
@@ -313,7 +322,13 @@ export class DroneScene3D {
       lines.push({ points: [bladeA, bladeB], color: colors.text, width: 2, alpha: 0.75 });
     });
 
-    if (parameters.dronePreset === "racing") {
+    if (this.model) {
+      const triangles = this.modelPreview || this.model;
+      // Coherent clustered preview only; CFD receives the complete imported mesh.
+      for (let i = 0; i < triangles.length; i += 9) {
+        faces.push({ points: [0, 3, 6].map(o => posePoint([triangles[i + o], triangles[i + o + 1], triangles[i + o + 2]], pose)), color: colors.muted });
+      }
+    } else if (parameters.dronePreset === "racing") {
       faces.push(...boxFaces([0, 0.03, 0], [0.42, 0.18, 0.58], 0, colors.surface, pose));
       faces.push(...boxFaces([0, 0.12, -0.08], [0.28, 0.08, 0.3], 0, colors.danger, pose));
     } else if (parameters.dronePreset === "industrialHex") {
@@ -341,7 +356,7 @@ export class DroneScene3D {
 
   drawDrone(ctx, basis, parameters, result, pose, time, systemState) {
     const geometry = this.droneGeometry(parameters, result, pose, time, systemState);
-    const colors = palette();
+    const colors = this.colors;
     this.drawFaces(ctx, geometry.faces, basis, colors);
     geometry.lines.forEach(line => this.drawPolyline(ctx, line.points, basis, line.color, line.width, line.alpha));
     if (systemState) this.drawMotorHazards(ctx, basis, geometry.rotors, pose, systemState, time, colors);
@@ -425,8 +440,8 @@ export class DroneScene3D {
   }
 
   renderFlight(state, parameters, result, format) {
-    const { ctx, width, height } = resizeCanvas(this.canvas);
-    const colors = palette();
+    const { ctx, width, height } = resizeCanvas(this.canvas, this.pixelRatio || 1.5);
+    const colors = this.colors;
     this.sliderZoom = 1;
     const basis = this.cameraBasis(width, height);
     this.clear(ctx, width, height, colors);
@@ -453,9 +468,10 @@ export class DroneScene3D {
       this.drawPolyline(ctx, trail, basis, colors.accent, 2, 0.62);
     }
 
-    const windAngle = parameters.windDirection * Math.PI / 180;
+    const windAngle = state.windVector ? Math.atan2(state.windVector[1], state.windVector[0]) : parameters.windDirection * Math.PI / 180;
     const windVector = [Math.cos(windAngle) * 1.2, 0, Math.sin(windAngle) * 1.2];
     for (let row = -2; row <= 2; row += 1) {
+      if (state.windNow < 0.1) continue;
       const phase = (state.t * Math.max(0.2, state.windNow) * 0.18 + row * 0.37) % 1;
       const start = [-2.8 + phase * 4.8, 0.72 + row * 0.18, -1.4 + row * 0.65];
       this.drawArrow3D(ctx, basis, start, mul(windVector, 0.32), colors.cyan, "");
@@ -481,6 +497,13 @@ export class DroneScene3D {
   }
 
   handleWorkerMessage(message) {
+    if (message.type === "lines") {
+      if (message.key === this.cfd.fieldKey && message.traceKey === this.traceRequestedKey) {
+        this.streamlineCache = { key: message.traceKey, lines: message.lines };
+        this.staticKey = "";
+      }
+      return;
+    }
     if (message.type === "progress") {
       if (message.key === this.cfd.desiredKey) {
         this.cfd.status = "solving";
@@ -503,6 +526,7 @@ export class DroneScene3D {
       this.cfd.progress = 1;
       this.cfd.error = "";
       this.streamlineCache.key = "";
+      this.traceRequestedKey = "";
       this.emitCFDStatus();
     }
     if (this.pendingCFD && this.pendingCFD.key !== message.key) this.startCFD(this.pendingCFD);
@@ -519,7 +543,7 @@ export class DroneScene3D {
 
   ensureCFD(parameters, result, settings) {
     const roundedDownwash = Math.round(result.downwashSpeed * 2) / 2;
-    const propRadius = clamp(parameters.diameter * 25.4 / Math.max(200, parameters.frameSize) * 0.36, 0.16, 0.34);
+    const propRadius = parameters.diameter * 25.4 * 0.72 / parameters.frameSize;
     const config = {
       quality: settings.quality,
       dronePreset: parameters.dronePreset,
@@ -535,13 +559,17 @@ export class DroneScene3D {
       propRadius,
       flowObstacle: parameters.flowObstacle,
       obstacleSize: parameters.obstacleSize
+      , worldScale: parameters.frameSize / 1440,
+      rotorThrusts: result.rotorThrusts.map(t => Math.round(t * 10) / 10),
+      modelRevision: this.modelRevision,
+      meshEnabled: Boolean(this.meshCFD && this.model)
     };
     const key = JSON.stringify(config);
     if (key === this.cfd.desiredKey) return;
     this.cfd.desiredKey = key;
     this.cfd.status = "queued";
     this.cfd.progress = 0;
-    this.pendingCFD = { key, config };
+    this.pendingCFD = { key, config: { ...config, meshTriangles: this.meshCFD ? this.model : null } };
     clearTimeout(this.workerTimer);
     this.workerTimer = setTimeout(() => {
       if (!this.worker) {
@@ -551,145 +579,64 @@ export class DroneScene3D {
       } else if (!this.workerBusy) {
         this.startCFD(this.pendingCFD);
       }
-    }, 140);
+    }, 300);
     this.emitCFDStatus();
   }
 
-  sampleCFD(point, field) {
-    const { xMin, xMax, yMin, yMax, zMin, zMax } = field.bounds;
-    if (point[0] <= xMin || point[0] >= xMax || point[1] <= yMin || point[1] >= yMax || point[2] <= zMin || point[2] >= zMax) return null;
-    const gx = (point[0] - xMin) / (xMax - xMin) * (field.nx - 1);
-    const gy = (point[1] - yMin) / (yMax - yMin) * (field.ny - 1);
-    const gz = (point[2] - zMin) / (zMax - zMin) * (field.nz - 1);
-    const x0 = Math.floor(gx); const y0 = Math.floor(gy); const z0 = Math.floor(gz);
-    const x1 = Math.min(field.nx - 1, x0 + 1); const y1 = Math.min(field.ny - 1, y0 + 1); const z1 = Math.min(field.nz - 1, z0 + 1);
-    const tx = gx - x0; const ty = gy - y0; const tz = gz - z0;
-    const nearest = Math.round(gx) + field.nx * (Math.round(gz) + field.nz * Math.round(gy));
-    if (field.solid[nearest]) return null;
-    const interpolate = array => {
-      let value = 0;
-      for (let corner = 0; corner < 8; corner += 1) {
-        const ix = corner & 1 ? x1 : x0;
-        const iy = corner & 2 ? y1 : y0;
-        const iz = corner & 4 ? z1 : z0;
-        const wx = corner & 1 ? tx : 1 - tx;
-        const wy = corner & 2 ? ty : 1 - ty;
-        const wz = corner & 4 ? tz : 1 - tz;
-        value += array[ix + field.nx * (iz + field.nz * iy)] * wx * wy * wz;
-      }
-      return value;
-    };
-    const velocity = [interpolate(field.velocityX), interpolate(field.velocityY), interpolate(field.velocityZ)];
-    return { velocity, speed: length(velocity), pressure: interpolate(field.pressure), vorticity: interpolate(field.vorticity) };
-  }
-
-  makeStreamlines(field, parameters, result, count, layer) {
-    const angle = parameters.windDirection * Math.PI / 180;
-    const wind = [Math.cos(angle), 0, Math.sin(angle)];
-    const lateral = [-Math.sin(angle), 0, Math.cos(angle)];
-    const rotors = rotorPositions(parameters.rotors, 0.72);
-    const propRadius = clamp(parameters.diameter * 25.4 / Math.max(200, parameters.frameSize) * 0.36, 0.16, 0.34);
-    const lines = [];
-    const ambientCount = parameters.windSpeed < 0.2 ? 0 : Math.round(count * (layer === "volume" ? 0.76 : 1));
-    for (let index = 0; index < count; index += 1) {
-      let point;
-      if (index >= ambientCount) {
-        const rotor = rotors[(index - ambientCount) % rotors.length];
-        const seedAngle = index * 2.399963;
-        const radial = propRadius * (0.18 + 0.66 * ((index % 5) / 4));
-        point = [rotor.x + Math.cos(seedAngle) * radial, 1.42, rotor.y + Math.sin(seedAngle) * radial];
-      } else if (layer === "horizontal") {
-        const offset = -1.25 + 2.5 * index / Math.max(1, ambientCount - 1);
-        point = add(mul(wind, -2.05), add(mul(lateral, offset), [0, 0.12, 0]));
-      } else if (layer === "vertical") {
-        const vertical = -1.22 + 2.42 * index / Math.max(1, ambientCount - 1);
-        point = add(mul(wind, -2.05), [0, vertical, 0]);
-      } else {
-        const columns = Math.ceil(Math.sqrt(ambientCount * 1.75));
-        const rows = Math.ceil(ambientCount / columns);
-        const offset = -1.25 + 2.5 * (index % columns) / Math.max(1, columns - 1);
-        const vertical = -0.9 + 1.9 * Math.floor(index / columns) / Math.max(1, rows - 1);
-        point = add(mul(wind, -2.05), add(mul(lateral, offset), [0, vertical, 0]));
-      }
-      const path = [];
-      for (let step = 0; step < 190; step += 1) {
-        const sample = this.sampleCFD(point, field);
-        if (!sample || sample.speed < 0.025) break;
-        path.push({ point: [...point], speed: sample.speed, pressure: sample.pressure, vorticity: sample.vorticity });
-        let velocity = [...sample.velocity];
-        if (layer === "horizontal") velocity[1] = 0;
-        if (layer === "vertical") velocity = sub(velocity, mul(lateral, dot(velocity, lateral)));
-        const midpoint = add(point, mul(normalize(velocity), 0.027));
-        const middleSample = this.sampleCFD(midpoint, field);
-        if (!middleSample) break;
-        let middleVelocity = [...middleSample.velocity];
-        if (layer === "horizontal") middleVelocity[1] = 0;
-        if (layer === "vertical") middleVelocity = sub(middleVelocity, mul(lateral, dot(middleVelocity, lateral)));
-        point = add(point, mul(normalize(middleVelocity), 0.054));
-        if (layer === "horizontal") point[1] = 0.12;
-      }
-      if (path.length > 5) lines.push(path);
-    }
-    return lines;
-  }
-
-  streamlineColor(sample, field, mode, colors) {
-    if (mode === "pressure") {
-      const scale = Math.max(1, Math.abs(field.stats.minPressure), Math.abs(field.stats.maxPressure));
-      const ratio = clamp(Math.abs(sample.pressure) / scale, 0, 1);
-      return sample.pressure >= 0
-        ? `rgba(255,209,102,${0.55 + ratio * 0.4})`
-        : `rgba(109,141,255,${0.55 + ratio * 0.4})`;
-    }
-    if (mode === "vorticity") {
-      const ratio = clamp(sample.vorticity / Math.max(0.001, field.stats.maxVorticity), 0, 1);
-      return ratio > 0.55 ? `rgba(255,107,117,${0.58 + ratio * 0.38})` : `rgba(117,243,200,${0.48 + ratio * 0.42})`;
-    }
-    const ratio = clamp(sample.speed / Math.max(0.1, field.stats.maxSpeed), 0, 1);
-    return ratio > 0.58 ? colors.cyan : colors.blue;
-  }
-
-  drawStreamlines(ctx, basis, lines, colors, time, field, colorMode) {
-    lines.forEach((line, lineIndex) => {
-      for (let index = 1; index < line.length; index += 1) {
-        const previous = this.project(line[index - 1].point, basis);
-        const current = this.project(line[index].point, basis);
-        if (!previous || !current) continue;
-        const ratio = clamp(line[index].speed / Math.max(0.1, field.stats.maxSpeed), 0, 1);
-        ctx.strokeStyle = this.streamlineColor(line[index], field, colorMode, colors);
-        ctx.globalAlpha = 0.32 + ratio * 0.48;
-        ctx.lineWidth = 0.8 + ratio * 1.25;
-        ctx.beginPath(); ctx.moveTo(previous.x, previous.y); ctx.lineTo(current.x, current.y); ctx.stroke();
-      }
-      const beadIndex = Math.floor((time * 18 + lineIndex * 7) % line.length);
-      const bead = this.project(line[beadIndex].point, basis);
-      if (bead) {
-        ctx.fillStyle = colors.accent;
-        ctx.globalAlpha = 0.9;
-        ctx.beginPath(); ctx.arc(bead.x, bead.y, 2.2, 0, TAU); ctx.fill();
-      }
-    });
-    ctx.globalAlpha = 1;
-  }
-
   renderAirflow(parameters, result, settings, time, format) {
-    const { ctx, width, height } = resizeCanvas(this.canvas);
-    const colors = palette();
+    const { ctx, width, height } = resizeCanvas(this.canvas, this.pixelRatio || 1.5);
+    const colors = this.colors;
     this.sliderZoom = settings.zoom;
     const basis = this.cameraBasis(width, height);
-    this.clear(ctx, width, height, colors);
-    this.drawGrid(ctx, basis, colors, -1.05, 3.5, 0.5);
-
     this.ensureCFD(parameters, result, settings);
     const fieldReady = this.cfd.field && this.cfd.fieldKey === this.cfd.desiredKey;
     if (fieldReady) {
       const cacheKey = [this.cfd.fieldKey, settings.count, settings.layer].join("|");
-      if (cacheKey !== this.streamlineCache.key) {
-        this.streamlineCache = { key: cacheKey, lines: this.makeStreamlines(this.cfd.field, parameters, result, settings.count, settings.layer) };
+      if (cacheKey !== this.traceRequestedKey) {
+        this.traceRequestedKey = cacheKey;
+        this.worker.postMessage({ type: "trace", key: this.cfd.fieldKey, trace: { key: cacheKey, count: settings.count, layer: settings.layer } });
       }
-      this.drawStreamlines(ctx, basis, this.streamlineCache.lines, colors, time, this.cfd.field, settings.colorMode);
     }
-    this.drawDrone(ctx, basis, parameters, result, { position: [0, 0, 0], pitch: 0, roll: 0, yaw: 0 }, time, settings.systemState);
+    const staticKey = JSON.stringify([this.streamlineCache.key, this.canvas.width, this.canvas.height, this.camera, settings.zoom, settings.colorMode, parameters.dronePreset, parameters.diameter, parameters.frameSize, parameters.rotors, parameters.flowObstacle, parameters.obstacleSize, this.modelRevision]);
+    if (staticKey !== this.staticKey) {
+      this.staticKey = staticKey;
+      this.staticCanvas.width = this.canvas.width; this.staticCanvas.height = this.canvas.height;
+      const background = this.staticCanvas.getContext("2d");
+      background.setTransform(this.canvas.width / width, 0, 0, this.canvas.height / height, 0, 0);
+      this.clear(background, width, height, colors);
+      this.drawGrid(background, basis, colors, -1.4, 3.5, 0.5);
+      const geometry = this.droneGeometry(parameters, result, { position: [0, 0, 0] }, 0, null);
+      this.buildDepthMask(geometry.faces, basis, width, height);
+      this.drawDrone(background, basis, parameters, result, { position: [0, 0, 0] }, 0, null);
+      this.projectedLines = [];
+      const field = this.cfd.field;
+      if (field && this.streamlineCache.lines.length) {
+        // One continuous stroke per colour band, rather than a draw call per segment.
+        this.streamlineCache.lines.forEach(line => {
+          const projected = line.map(p => this.project(p.point, basis));
+          this.projectedLines.push({ projected, line });
+          for (let band = 0; band < 6; band++) {
+            background.beginPath();
+            for (let i = 1; i < line.length; i++) {
+              const sample = line[i], previous = projected[i - 1], current = projected[i];
+              const ratio = settings.colorMode === "vorticity" ? sample.vorticity / Math.max(0.001, field.stats.maxVorticity) : settings.colorMode === "pressure" ? (sample.pressure / Math.max(1, Math.abs(field.stats.minPressure), Math.abs(field.stats.maxPressure)) + 1) / 2 : sample.speed / Math.max(0.1, field.stats.maxSpeed);
+              if (!previous || !current || Math.min(5, Math.max(0, Math.floor(ratio * 6))) !== band) continue;
+              if (!this.depthVisible(previous) || !this.depthVisible(current)) continue;
+              background.moveTo(previous.x, previous.y); background.lineTo(current.x, current.y);
+            }
+            const speedColours = ["#49739d", "#508db5", "#55abc5", "#5bc4d7", "#66d9ff", "#b0f5ef"];
+            background.strokeStyle = settings.colorMode === "pressure" ? ["#6d8dff", "#899def", "#82b9d1", "#bac79b", "#e2c67a", "#ffd166"][band] : settings.colorMode === "vorticity" ? ["#4f9589", "#65bca5", "#75f3c8", "#cbc992", "#ed917f", "#ff6b75"][band] : speedColours[band];
+            background.lineWidth = 1.1;
+            background.globalAlpha = 0.48 + band * 0.065;
+            background.stroke();
+          }
+        });
+      }
+      background.globalAlpha = 1;
+    }
+    ctx.drawImage(this.staticCanvas, 0, 0, width, height);
+    this.drawFlowParticles(ctx, time, colors);
+    this.drawMotorHazards(ctx, basis, rotorPositions(parameters.rotors, 0.72), { position: [0, 0, 0] }, settings.systemState, time, colors);
 
     const windAngle = parameters.windDirection * Math.PI / 180;
     this.drawArrow3D(ctx, basis, [-2.5, 1.65, -2], [Math.cos(windAngle) * 1.25, 0, Math.sin(windAngle) * 1.25], colors.cyan, `${format(parameters.windSpeed, 1)} m/s`);
@@ -699,7 +646,66 @@ export class DroneScene3D {
     ctx.fillStyle = colors.text;
     const cfdLabel = fieldReady
       ? `${this.cfd.field.stats.method} · ${this.cfd.field.stats.cells.toLocaleString("ru-RU")} CELLS`
-      : this.cfd.status === "error" ? "CFD ERROR" : `CFD SOLVING · ${Math.round(this.cfd.progress * 100)}%`;
+      : this.cfd.status === "error" ? "CFD ERROR" : `UPDATING · ${Math.round(this.cfd.progress * 100)}% · PREVIOUS FIELD`;
     ctx.fillText(`${settings.layer.toUpperCase()} · ${cfdLabel}`, 18, 24);
+  }
+
+  drawFlowParticles(ctx, time, colors) {
+    ctx.fillStyle = colors.accent; ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    for (let k = 0; k < this.projectedLines.length; k++) {
+      const { line, projected } = this.projectedLines[k];
+      const duration = line[line.length - 1].travelTime;
+      if (!(duration > 0)) continue;
+      // The bead advances continuously according to local velocity, not point indices.
+      const phase = (time * 0.35 + k * 0.618033 * duration) % duration;
+      let lo = 0, hi = line.length - 1;
+      while (lo + 1 < hi) { const mid = (lo + hi) >> 1; if (line[mid].travelTime <= phase) lo = mid; else hi = mid; }
+      const a = projected[lo], b = projected[hi];
+      if (!a || !b) continue;
+      const s = (phase - line[lo].travelTime) / Math.max(1e-9, line[hi].travelTime - line[lo].travelTime);
+      const x = a.x + (b.x - a.x) * s, y = a.y + (b.y - a.y) * s;
+      if (!this.depthVisible({ x, y, depth: a.depth + (b.depth - a.depth) * s })) continue;
+      ctx.moveTo(x + 1.6, y); ctx.arc(x, y, 1.6, 0, TAU);
+    }
+    ctx.fill(); ctx.globalAlpha = 1;
+  }
+
+  setModel(triangles, useInCFD = false, preview = null) {
+    this.model = triangles; this.modelPreview = preview; this.meshCFD = useInCFD;
+    this.modelRevision++;
+    this.staticKey = "";
+  }
+
+  buildDepthMask(faces, basis, width, height) {
+    const w = 256, h = Math.max(64, Math.round(w * height / width));
+    const depth = new Float32Array(w * h); depth.fill(Infinity);
+    const sx = w / width, sy = h / height;
+    for (const face of faces) {
+      const projected = face.points.map(p => this.project(p, basis));
+      if (projected.some(p => !p)) continue;
+      for (let i = 1; i < projected.length - 1; i++) {
+        const [a,b,c] = [projected[0], projected[i], projected[i+1]].map(p => ({ x:p.x*sx, y:p.y*sy, depth:p.depth }));
+        const det = (b.y-c.y)*(a.x-c.x)+(c.x-b.x)*(a.y-c.y);
+        if (Math.abs(det) < 1e-8) continue;
+        const x0=Math.max(0,Math.floor(Math.min(a.x,b.x,c.x))), x1=Math.min(w-1,Math.ceil(Math.max(a.x,b.x,c.x)));
+        const y0=Math.max(0,Math.floor(Math.min(a.y,b.y,c.y))), y1=Math.min(h-1,Math.ceil(Math.max(a.y,b.y,c.y)));
+        for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++) {
+          const u=((b.y-c.y)*(x+0.5-c.x)+(c.x-b.x)*(y+0.5-c.y))/det;
+          const v=((c.y-a.y)*(x+0.5-c.x)+(a.x-c.x)*(y+0.5-c.y))/det;
+          if (u<0||v<0||u+v>1) continue;
+          const z=1/(u/a.depth+v/b.depth+(1-u-v)/c.depth), index=x+y*w;
+          depth[index]=Math.min(depth[index],z);
+        }
+      }
+    }
+    this.depthMask={depth,w,h,sx,sy};
+  }
+
+  depthVisible(p) {
+    if (!this.depthMask) return true;
+    const {depth,w,h,sx,sy}=this.depthMask;
+    const x=Math.floor(p.x*sx),y=Math.floor(p.y*sy);
+    return x<0||x>=w||y<0||y>=h||p.depth<=depth[x+y*w]+0.04;
   }
 }

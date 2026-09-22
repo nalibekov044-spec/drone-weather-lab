@@ -1,3 +1,4 @@
+import { voxelizeMesh } from "./mesh-import.js";
 const CX = [0, 1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0];
 const CY = [0, 0, 0, 1, -1, 0, 0, 1, -1, -1, 1, 0, 0, 0, 0, 1, -1, 1, -1];
 const CZ = [0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1, -1, 1, 1, -1, -1, 1];
@@ -6,9 +7,9 @@ const WEIGHT = [1 / 3, 1 / 18, 1 / 18, 1 / 18, 1 / 18, 1 / 18, 1 / 18,
   1 / 36, 1 / 36, 1 / 36, 1 / 36, 1 / 36, 1 / 36, 1 / 36, 1 / 36, 1 / 36, 1 / 36, 1 / 36, 1 / 36];
 
 const QUALITY = {
-  fast: { nx: 32, ny: 18, nz: 24, steps: 42 },
-  balanced: { nx: 40, ny: 22, nz: 30, steps: 64 },
-  fine: { nx: 48, ny: 26, nz: 36, steps: 86 }
+  fast: { nx: 31, ny: 17, nz: 25, steps: 100 },
+  balanced: { nx: 41, ny: 23, nz: 33, steps: 220 },
+  fine: { nx: 51, ny: 29, nz: 41, steps: 360 }
 };
 
 const BOUNDS = { xMin: -3, xMax: 3, yMin: -1.6, yMax: 1.6, zMin: -2.4, zMax: 2.4 };
@@ -33,15 +34,15 @@ function segmentDistanceSquared(px, pz, ax, az, bx, bz) {
 function isSolidPoint(x, y, z, config, rotors) {
   const preset = config.dronePreset;
   let body = false;
-  if (preset === "racing") body = (x / 0.3) ** 2 + (y / 0.18) ** 2 + (z / 0.38) ** 2 <= 1;
-  else if (preset === "industrialHex") body = x * x + z * z <= 0.35 ** 2 && Math.abs(y - 0.03) <= 0.18;
-  else if (preset === "cargoOcto") body = Math.abs(x) <= 0.35 && Math.abs(y + 0.09) <= 0.32 && Math.abs(z) <= 0.39;
-  else body = (x / 0.34) ** 2 + (y / 0.22) ** 2 + (z / 0.42) ** 2 <= 1;
+  if (preset === "racing") body = (Math.abs(x) <= 0.21 && Math.abs(y - 0.03) <= 0.09 && Math.abs(z) <= 0.29) || (Math.abs(x) <= 0.14 && Math.abs(y - 0.12) <= 0.04 && Math.abs(z + 0.08) <= 0.15);
+  else if (preset === "industrialHex") body = x * x + z * z <= 0.31 ** 2 && Math.abs(y - 0.04) <= 0.12;
+  else if (preset === "cargoOcto") body = (Math.abs(x) <= 0.29 && Math.abs(y - 0.02) <= 0.11 && Math.abs(z) <= 0.33) || (Math.abs(x) <= 0.25 && Math.abs(y + 0.25) <= 0.16 && Math.abs(z) <= 0.275);
+  else if (preset !== "empty") body = Math.abs(x) <= 0.24 && Math.abs(y - 0.03) <= 0.12 && Math.abs(z) <= 0.31;
   if (body) return true;
 
   for (const rotor of rotors) {
-    if (Math.abs(y) < 0.11 && segmentDistanceSquared(x, z, 0, 0, rotor.x, rotor.z) < 0.075 ** 2) return true;
-    if ((x - rotor.x) ** 2 + (z - rotor.z) ** 2 < 0.13 ** 2 && y > -0.06 && y < 0.22) return true;
+    if (Math.abs(y) < 0.0275 && segmentDistanceSquared(x, z, 0, 0, rotor.x, rotor.z) < 0.0375 ** 2) return true;
+    if ((x - rotor.x) ** 2 + (z - rotor.z) ** 2 < 0.095 ** 2 && y > 0 && y < 0.14) return true;
   }
 
   const size = clamp(config.obstacleSize || 1, 0.5, 2);
@@ -63,71 +64,69 @@ function equilibrium(q, density, ux, uy, uz) {
   return WEIGHT[q] * density * (1 + 3 * cu + 4.5 * cu * cu - 1.5 * uu);
 }
 
-function makeGeometry(config, nx, ny, nz) {
+function makeGeometry(config, nx, ny, nz, bounds) {
   const count = nx * ny * nz;
-  const solid = new Uint8Array(count);
+  const solid = config.meshTriangles ? voxelizeMesh(config.meshTriangles, nx, ny, nz, bounds) : new Uint8Array(count);
   const rotors = rotorPositions(Number(config.rotors));
-  const dx = (BOUNDS.xMax - BOUNDS.xMin) / (nx - 1);
-  const dy = (BOUNDS.yMax - BOUNDS.yMin) / (ny - 1);
-  const dz = (BOUNDS.zMax - BOUNDS.zMin) / (nz - 1);
+  const dx = (bounds.xMax - bounds.xMin) / (nx - 1);
+  const dy = (bounds.yMax - bounds.yMin) / (ny - 1);
+  const dz = (bounds.zMax - bounds.zMin) / (nz - 1);
   let solidCells = 0;
   for (let iy = 0; iy < ny; iy += 1) {
-    const y = BOUNDS.yMin + iy * dy;
+    const y = bounds.yMin + iy * dy;
     for (let iz = 0; iz < nz; iz += 1) {
       const z = BOUNDS.zMin + iz * dz;
       for (let ix = 0; ix < nx; ix += 1) {
         const x = BOUNDS.xMin + ix * dx;
         const index = ix + nx * (iz + nz * iy);
-        if (isSolidPoint(x, y, z, config, rotors)) {
+        // Imported geometry replaces the preset, but not an optional obstacle.
+        if ((!config.meshTriangles && isSolidPoint(x, y, z, config, rotors)) ||
+            (config.meshTriangles && isSolidPoint(x, y, z, { ...config, dronePreset: "empty" }, []))) {
           solid[index] = 1;
-          solidCells += 1;
         }
+        solidCells += solid[index];
       }
     }
   }
   return { solid, solidCells, rotors, dx, dy, dz };
 }
 
-function makeBodyForce(config, nx, ny, nz, rotors, referenceSpeed) {
+function makeBodyForce(config, nx, ny, nz, rotors, referenceSpeed, solid, bounds, spacing) {
   const count = nx * ny * nz;
   const fx = new Float32Array(count);
   const fy = new Float32Array(count);
   const fz = new Float32Array(count);
-  const dx = (BOUNDS.xMax - BOUNDS.xMin) / (nx - 1);
-  const dy = (BOUNDS.yMax - BOUNDS.yMin) / (ny - 1);
-  const dz = (BOUNDS.zMax - BOUNDS.zMin) / (nz - 1);
-  const propRadius = clamp(config.propRadius || 0.25, 0.16, 0.34);
-  const downwashRatio = clamp((config.downwashSpeed || 0) / referenceSpeed, 0, 3);
-  const turbulence = clamp((config.turbulence || 0) / 100, 0, 1);
-  for (let iy = 1; iy < ny - 1; iy += 1) {
-    const y = BOUNDS.yMin + iy * dy;
-    for (let iz = 1; iz < nz - 1; iz += 1) {
-      const z = BOUNDS.zMin + iz * dz;
-      for (let ix = 1; ix < nx - 1; ix += 1) {
-        const x = BOUNDS.xMin + ix * dx;
+  const propRadius = config.propRadius || 0.25;
+  const rho = config.density || 1.225;
+  const velocityScale = referenceSpeed / 0.065;
+  let appliedThrust = 0;
+  rotors.forEach((rotor, rotorIndex) => {
+    const nodes = [];
+    let totalWeight = 0;
+    // The actuator injects momentum only near the disk, not along the entire wake.
+    for (let iy = 1; iy < ny - 1; iy++) {
+      const y = bounds.yMin + iy * spacing;
+      if (Math.abs(y - 0.17) > spacing * 1.1) continue;
+      for (let iz = 1; iz < nz - 1; iz++) for (let ix = 1; ix < nx - 1; ix++) {
+        const x = bounds.xMin + ix * spacing, z = bounds.zMin + iz * spacing;
+        const radial = Math.hypot(x - rotor.x, z - rotor.z);
         const index = ix + nx * (iz + nz * iy);
-        let forceX = turbulence * 0.000035 * Math.sin(y * 5.7 + z * 3.1);
-        let forceY = turbulence * 0.000022 * Math.sin(x * 4.3 - z * 3.7);
-        let forceZ = turbulence * 0.000035 * Math.cos(x * 3.4 + y * 5.1);
-        rotors.forEach((rotor, rotorIndex) => {
-          const rx = x - rotor.x;
-          const rz = z - rotor.z;
-          const radial = Math.exp(-(rx * rx + rz * rz) / Math.max(0.004, propRadius ** 2 * 0.56));
-          const disk = Math.exp(-1 * ((y - 0.18) / 0.16) ** 2);
-          const column = y < 0.18 ? Math.exp((y - 0.18) * 0.28) : Math.exp(-(y - 0.18) * 3.4);
-          const strength = radial * (0.7 * disk + 0.3 * column);
-          forceY -= 0.022 * downwashRatio * strength;
-          const swirl = (rotorIndex % 2 ? -1 : 1) * 0.00034 * downwashRatio * strength / Math.max(0.08, propRadius);
-          forceX -= rz * swirl;
-          forceZ += rx * swirl;
-        });
-        fx[index] = forceX;
-        fy[index] = forceY;
-        fz[index] = forceZ;
+        if (solid[index] || radial > propRadius) continue;
+        const weight = Math.exp(-2 * (radial / propRadius) ** 2) * Math.exp(-2 * ((y - 0.17) / spacing) ** 2);
+        nodes.push({ index, weight }); totalWeight += weight;
       }
     }
-  }
-  return { fx, fy, fz };
+    const thrust = Math.max(0, config.rotorThrusts?.[rotorIndex] ?? 0);
+    if (!totalWeight || !thrust) return;
+    appliedThrust += thrust;
+    // F_lattice = F_SI / (rho * h_SI² * velocityScale²); weights sum to one.
+    const force = thrust / (rho * (spacing * config.worldScale) ** 2 * velocityScale ** 2);
+    for (const node of nodes) {
+      const f = -force * node.weight / totalWeight;
+      fy[node.index] += f;
+    }
+  });
+  return { fx, fy, fz, appliedThrust };
 }
 
 function dynamicViscosity(temperatureK) {
@@ -138,8 +137,11 @@ export function solveCFD(config, onProgress) {
   const started = typeof performance !== "undefined" ? performance.now() : Date.now();
   const quality = QUALITY[config.quality] || QUALITY.balanced;
   const { nx, ny, nz, steps } = quality;
+  const spacing = 6 / (nx - 1);
+  const bounds = { ...BOUNDS, yMin: -(ny - 1) * spacing / 2, yMax: (ny - 1) * spacing / 2 };
+  config = { ...config, worldScale: config.worldScale || (config.frameSize || 520) / 1440 };
   const count = nx * ny * nz;
-  const { solid, solidCells, rotors, dx, dy, dz } = makeGeometry(config, nx, ny, nz);
+  const { solid, solidCells, rotors, dx, dy, dz } = makeGeometry(config, nx, ny, nz, bounds);
   const windAngle = (config.windDirection || 0) * Math.PI / 180;
   const windX = Math.cos(windAngle) * (config.windSpeed || 0);
   const windY = config.verticalWind || 0;
@@ -147,12 +149,17 @@ export function solveCFD(config, onProgress) {
   const referenceSpeed = Math.max(1, Math.hypot(windX, windY, windZ), config.downwashSpeed || 0);
   const latticeScale = 0.065 / referenceSpeed;
   const inlet = [windX * latticeScale, windY * latticeScale, windZ * latticeScale];
-  const bodyForce = makeBodyForce(config, nx, ny, nz, rotors, referenceSpeed);
-  const tau = 0.61 + (1 - clamp((config.turbulence || 0) / 100, 0, 1)) * 0.055;
+  const bodyForce = makeBodyForce(config, nx, ny, nz, rotors, referenceSpeed, solid, bounds, spacing);
+  // BGK viscosity is intentionally stabilized; it does NOT reproduce high physical Re.
+  const tau = 0.62;
   const omega = 1 / tau;
   let distributions = new Float32Array(count * 19);
   let postCollision = new Float32Array(count * 19);
   let next = new Float32Array(count * 19);
+  const previousVelocity = new Float32Array(count * 3);
+  const residualHistory = [];
+  let residual = Infinity, iterations = 0, clampedCells = 0;
+  let simulatedTime = 0;
 
   for (let q = 0; q < 19; q += 1) {
     const base = q * count;
@@ -161,6 +168,8 @@ export function solveCFD(config, onProgress) {
   }
 
   for (let step = 0; step < steps; step += 1) {
+    let deltaSquared = 0, velocitySquared = 0;
+    const diagnosticStep = step % 20 === 0;
     for (let index = 0; index < count; index += 1) {
       if (solid[index]) {
         for (let q = 0; q < 19; q += 1) postCollision[q * count + index] = WEIGHT[q];
@@ -178,18 +187,32 @@ export function solveCFD(config, onProgress) {
         uz += value * CZ[q];
       }
       density = clamp(density, 0.72, 1.28);
-      ux = ux / density + bodyForce.fx[index];
-      uy = uy / density + bodyForce.fy[index];
-      uz = uz / density + bodyForce.fz[index];
+      const forceX = bodyForce.fx[index], forceY = bodyForce.fy[index], forceZ = bodyForce.fz[index];
+      ux = (ux + forceX * 0.5) / density;
+      uy = (uy + forceY * 0.5) / density;
+      uz = (uz + forceZ * 0.5) / density;
       const speed = Math.hypot(ux, uy, uz);
       if (speed > 0.16) {
+        if (step === steps - 1) clampedCells++;
         const scale = 0.16 / speed;
         ux *= scale; uy *= scale; uz *= scale;
       }
+      if (diagnosticStep) {
+        const a = index * 3;
+        deltaSquared += (ux - previousVelocity[a]) ** 2 + (uy - previousVelocity[a + 1]) ** 2 + (uz - previousVelocity[a + 2]) ** 2;
+        velocitySquared += ux * ux + uy * uy + uz * uz;
+        previousVelocity[a] = ux; previousVelocity[a + 1] = uy; previousVelocity[a + 2] = uz;
+      }
+      const uu = ux * ux + uy * uy + uz * uz;
       for (let q = 0; q < 19; q += 1) {
         const address = q * count + index;
-        const eq = equilibrium(q, density, ux, uy, uz);
-        postCollision[address] = distributions[address] + omega * (eq - distributions[address]);
+        const cu = CX[q] * ux + CY[q] * uy + CZ[q] * uz;
+        const eq = WEIGHT[q] * density * (1 + 3 * cu + 4.5 * cu * cu - 1.5 * uu);
+        // Guo forcing: second-order momentum source with the half-step velocity.
+        const cf = CX[q] * forceX + CY[q] * forceY + CZ[q] * forceZ;
+        const uf = ux * forceX + uy * forceY + uz * forceZ;
+        const forcing = WEIGHT[q] * (1 - omega * 0.5) * (3 * (cf - uf) + 9 * cu * cf);
+        postCollision[address] = distributions[address] + omega * (eq - distributions[address]) + forcing;
       }
     }
 
@@ -230,7 +253,13 @@ export function solveCFD(config, onProgress) {
       }
     }
     [distributions, next] = [next, distributions];
-    if (onProgress && (step === Math.floor(steps / 2) || step === steps - 1)) onProgress((step + 1) / steps);
+    iterations = step + 1;
+    if (diagnosticStep) {
+      residual = Math.sqrt(deltaSquared / Math.max(1e-16, velocitySquared));
+      residualHistory.push({ iteration: iterations, residual });
+      if (onProgress) onProgress((step + 1) / steps);
+      if (step >= 80 && residual < 0.001) break;
+    }
   }
 
   const velocityX = new Float32Array(count);
@@ -256,9 +285,9 @@ export function solveCFD(config, onProgress) {
       uz += value * CZ[q];
     }
     density = Math.max(0.001, density);
-    velocityX[index] = ux / density * physicalVelocityScale;
-    velocityY[index] = uy / density * physicalVelocityScale;
-    velocityZ[index] = uz / density * physicalVelocityScale;
+    velocityX[index] = (ux + 0.5 * bodyForce.fx[index]) / density * physicalVelocityScale;
+    velocityY[index] = (uy + 0.5 * bodyForce.fy[index]) / density * physicalVelocityScale;
+    velocityZ[index] = (uz + 0.5 * bodyForce.fz[index]) / density * physicalVelocityScale;
     pressure[index] = (density - 1) * physicalPressureScale;
     maxSpeed = Math.max(maxSpeed, Math.hypot(velocityX[index], velocityY[index], velocityZ[index]));
     minPressure = Math.min(minPressure, pressure[index]);
@@ -266,19 +295,25 @@ export function solveCFD(config, onProgress) {
   }
 
   const vorticity = new Float32Array(count);
-  let maxVorticity = 0;
+  let maxVorticity = 0, divergenceSquared = 0, diagnosticCells = 0;
   const sample = (array, ix, iy, iz) => array[ix + nx * (iz + nz * iy)];
   for (let iy = 1; iy < ny - 1; iy += 1) {
     for (let iz = 1; iz < nz - 1; iz += 1) {
       for (let ix = 1; ix < nx - 1; ix += 1) {
         const index = ix + nx * (iz + nz * iy);
         if (solid[index]) continue;
-        const dwdy = (sample(velocityZ, ix, iy + 1, iz) - sample(velocityZ, ix, iy - 1, iz)) / (2 * dy);
-        const dvdz = (sample(velocityY, ix, iy, iz + 1) - sample(velocityY, ix, iy, iz - 1)) / (2 * dz);
-        const dudz = (sample(velocityX, ix, iy, iz + 1) - sample(velocityX, ix, iy, iz - 1)) / (2 * dz);
-        const dwdx = (sample(velocityZ, ix + 1, iy, iz) - sample(velocityZ, ix - 1, iy, iz)) / (2 * dx);
-        const dvdx = (sample(velocityY, ix + 1, iy, iz) - sample(velocityY, ix - 1, iy, iz)) / (2 * dx);
-        const dudy = (sample(velocityX, ix, iy + 1, iz) - sample(velocityX, ix, iy - 1, iz)) / (2 * dy);
+        const neighbors = [index - 1, index + 1, index - nx, index + nx, index - nx * nz, index + nx * nz];
+        if (neighbors.some(n => solid[n])) continue;
+        const divergence = ((velocityX[index + 1] - velocityX[index - 1]) / dx +
+          (velocityY[index + nx * nz] - velocityY[index - nx * nz]) / dy +
+          (velocityZ[index + nx] - velocityZ[index - nx]) / dz) / (2 * config.worldScale);
+        divergenceSquared += divergence * divergence; diagnosticCells++;
+        const dwdy = (sample(velocityZ, ix, iy + 1, iz) - sample(velocityZ, ix, iy - 1, iz)) / (2 * dy * config.worldScale);
+        const dvdz = (sample(velocityY, ix, iy, iz + 1) - sample(velocityY, ix, iy, iz - 1)) / (2 * dz * config.worldScale);
+        const dudz = (sample(velocityX, ix, iy, iz + 1) - sample(velocityX, ix, iy, iz - 1)) / (2 * dz * config.worldScale);
+        const dwdx = (sample(velocityZ, ix + 1, iy, iz) - sample(velocityZ, ix - 1, iy, iz)) / (2 * dx * config.worldScale);
+        const dvdx = (sample(velocityY, ix + 1, iy, iz) - sample(velocityY, ix - 1, iy, iz)) / (2 * dx * config.worldScale);
+        const dudy = (sample(velocityX, ix, iy + 1, iz) - sample(velocityX, ix, iy - 1, iz)) / (2 * dy * config.worldScale);
         const curl = Math.hypot(dwdy - dvdz, dudz - dwdx, dvdx - dudy);
         vorticity[index] = curl;
         maxVorticity = Math.max(maxVorticity, curl);
@@ -291,13 +326,21 @@ export function solveCFD(config, onProgress) {
   const characteristicLength = Math.max(0.12, (config.frameSize ?? 520) / 1000);
   const reynoldsSpeed = Math.max(0.01, Math.abs(config.windSpeed ?? 0), Math.abs(config.verticalWind ?? 0), Math.abs(config.downwashSpeed ?? 0));
   const reynolds = (config.density ?? 1.225) * reynoldsSpeed * characteristicLength / viscosity;
+  const numericalViscosity = (tau - 0.5) / 3 * spacing * config.worldScale * physicalVelocityScale;
+  simulatedTime = iterations * spacing * config.worldScale / physicalVelocityScale;
   const finished = typeof performance !== "undefined" ? performance.now() : Date.now();
   return {
-    nx, ny, nz, bounds: BOUNDS, velocityX, velocityY, velocityZ, pressure, vorticity, solid,
+    nx, ny, nz, bounds, velocityX, velocityY, velocityZ, pressure, vorticity, solid,
     stats: {
       cells: count,
       solidCells,
-      iterations: steps,
+      iterations,
+      residual, residualHistory, converged: residual < 0.001, clampedCells,
+      divergenceRms: Math.sqrt(divergenceSquared / Math.max(1, diagnosticCells)),
+      spacingM: spacing * config.worldScale, simulatedTime, worldScale: config.worldScale,
+      appliedThrust: bodyForce.appliedThrust,
+      effectiveReynolds: reynoldsSpeed * characteristicLength / numericalViscosity,
+      numericalViscosity,
       elapsedMs: Math.round(finished - started),
       maxSpeed,
       minPressure: Number.isFinite(minPressure) ? minPressure : 0,

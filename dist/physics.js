@@ -3,7 +3,7 @@ export const INCH = 0.0254;
 
 export const dronePresets = {
   survey: {
-    label: "Камерный квадрокоптер", style: "survey", mass: 2.4, payload: 0.7, frameSize: 520, rotors: 4,
+    label: "Камерный квадрокоптер", style: "survey", mass: 2.4, payload: 0.7, frameSize: 560, rotors: 4,
     diameter: 15, pitch: 5.2, dragArea: 0.13, dragCoefficient: 0.95, propEfficiency: 86,
     rpm: 4800, maxRpm: 7200, motorMaxPower: 420, motorEfficiency: 88,
     voltage: 22.2, capacity: 10000
@@ -49,7 +49,9 @@ export const baseDefaults = {
   payloadX: 0,
   payloadY: 0,
   controlResponse: 0.7,
-  maxTilt: 35
+  maxTilt: 35,
+  windTransition: 1.2, batteryResistance: 0.035, batteryCRating: 25,
+  ct: 0.091, cp: 0.059, calibratedProps: false
 };
 
 export const graphVariables = {
@@ -74,7 +76,10 @@ export const graphMetrics = {
   availableThrust: { label: "Доступная тяга", unit: "Н", formula: "T = Σ Cₜρn²D⁴" },
   windForce: { label: "Сила ветра", unit: "Н", formula: "F = ½ρC𝒹Av²" },
   maxWind: { label: "Предел ветра", unit: "м/с", formula: "vmax = √(2Fгор / ρC𝒹A)" },
-  thrustToWeight: { label: "Тяга / вес", unit: "×", formula: "Tдоступ / mg" }
+  thrustToWeight: { label: "Тяга / вес", unit: "×", formula: "Tдоступ / mg" },
+  diskLoading: { label: "Нагрузка на диск", unit: "Н/м²", formula: "DL = mg / ΣAвинтов" },
+  tipMach: { label: "Число Маха конца лопасти", unit: "×", formula: "Mtip = √((πDn)² + V²) / √(γRT)" },
+  terminalVoltage: { label: "Напряжение под нагрузкой", unit: "В", formula: "U = U₀ − IR; P = UI" }
 };
 
 function clamp(value, min, max) {
@@ -126,8 +131,8 @@ export function calculate(parameters, options = {}) {
   const pitchRatio = clamp(p.pitch / p.diameter, 0.18, 0.95);
   const rainEfficiency = clamp(1 - p.rainRate * 0.0015, 0.86, 1);
   const surfaceEfficiency = p.propEfficiency / 100 * icingEfficiency(p.icing) * rainEfficiency;
-  const thrustCoefficient = (0.078 + 0.038 * pitchRatio) * surfaceEfficiency;
-  const powerCoefficient = (0.045 + 0.04 * pitchRatio) / clamp(surfaceEfficiency, 0.5, 1);
+  const thrustCoefficient = (p.calibratedProps ? p.ct : 0.078 + 0.038 * pitchRatio) * surfaceEfficiency;
+  const powerCoefficient = (p.calibratedProps ? p.cp : 0.045 + 0.04 * pitchRatio) / clamp(surfaceEfficiency, 0.5, 1);
   const motorEfficiency = clamp(p.motorEfficiency / 100, 0.35, 0.98);
   const motorHealths = Array.from({ length: p.rotors }, (_, index) => clamp(options.motorHealths?.[index] ?? 1, 0, 1));
   const motorEfficiencies = motorHealths.map(health => motorEfficiency * (0.72 + 0.28 * health));
@@ -193,7 +198,12 @@ export function calculate(parameters, options = {}) {
   });
   const batteryFactor = batteryTemperatureFactor(p.batteryTemp);
   const usableEnergyWh = p.voltage * (p.capacity / 1000) * 0.80 * (p.stateOfCharge / 100) * batteryFactor;
-  const current = electricalPower / Math.max(1, p.voltage);
+  const resistance = Math.max(0, p.batteryResistance ?? 0.035);
+  const discriminant = p.voltage ** 2 - 4 * resistance * electricalPower;
+  const terminalVoltage = resistance > 1e-9 ? (p.voltage + Math.sqrt(Math.max(0, discriminant))) / 2 : p.voltage;
+  const current = electricalPower / Math.max(0.1, terminalVoltage);
+  const batteryCurrentLimit = p.capacity / 1000 * (p.batteryCRating ?? 25);
+  const batteryFeasible = discriminant >= 0 && current <= batteryCurrentLimit && terminalVoltage >= p.voltage * 0.75;
   const requiredPowerLoad = propulsionPower / Math.max(1, systemPowerLimit) * 100;
   const commandPowerLoad = Math.max(...motorLoadPercents);
   const powerLoad = Math.max(requiredPowerLoad, commandPowerLoad);
@@ -201,12 +211,17 @@ export function calculate(parameters, options = {}) {
   const thrustFeasible = availableThrust >= requiredThrust;
   const powerFeasible = rpmPowerLimits.every(limit => hoverRpm <= Math.min(p.maxRpm, limit) + 1e-6)
     && motorLoadPercents.every(load => load <= 100 + 1e-6);
-  const feasible = thrustFeasible && tiltFeasible && powerFeasible;
+  const feasible = thrustFeasible && tiltFeasible && powerFeasible && batteryFeasible;
   const flightMinutes = feasible ? usableEnergyWh / Math.max(1, electricalPower) * 60 : 0;
   const supportedVerticalThrust = Math.min(requiredVertical, availableThrust);
   const downwashSpeed = Math.sqrt(Math.max(0, supportedVerticalThrust) / Math.max(0.001, 2 * rho * diskArea));
   const commandedElectricalPower = shaftPowers.reduce((sum, value, index) => sum + value / Math.max(0.1, motorEfficiencies[index]), 0) + 18 + p.rainRate * 0.45;
   const requestedElectricalPower = requestedShaftPowers.reduce((sum, value, index) => sum + value / Math.max(0.1, motorEfficiencies[index]), 0) + 18 + p.rainRate * 0.45;
+  const airSoundSpeed = Math.sqrt(1.4 * 287.05 * atmosphereResult.temperatureK);
+  const tipSpeed = Math.hypot(Math.PI * diameterM * Math.max(...effectiveRpms) / 60, windSpeed);
+  const tipMach = tipSpeed / airSoundSpeed;
+  const propOverlap = diameterM > p.frameSize / 1000 * Math.sin(Math.PI / p.rotors);
+  const rotorThrusts = thrusts.map(t => t * Math.min(1, requiredVertical / Math.max(1e-9, availableThrust)));
 
   const positions = rotorPositions(p.rotors, p.frameSize / 2000);
   let rollMoment = 0;
@@ -265,6 +280,11 @@ export function calculate(parameters, options = {}) {
     systemPowerLimit,
     flightMinutes,
     current,
+    terminalVoltage, voltageSag: p.voltage - terminalVoltage, batteryCurrentLimit, batteryFeasible,
+    tipSpeed, tipMach, airSoundSpeed, propOverlap, rotorThrusts,
+    dynamicPressure: 0.5 * rho * windSpeed ** 2,
+    farWakeSpeed: downwashSpeed * 2,
+    batteryHeat: current ** 2 * resistance,
     powerLoad,
     requiredPowerLoad,
     commandPowerLoad,

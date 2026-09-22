@@ -225,3 +225,27 @@ select:disabled, input:disabled { cursor: not-allowed; opacity: 0.46; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+
+.wide { grid-column: 1 / -1; }
+.control-hint { margin: 0; color: var(--muted); font-size: 0.875rem; line-height: 1.5; }
+.control-help { font-size: 0.875rem; color: var(--muted); line-height: 1.5; }
+.control-help summary { cursor: pointer; color: var(--cyan); }
+.control-help p, .inline-help p { margin: 7px 0 0; }
+.inline-help { font-size: 0.875rem; line-height: 1.5; color: var(--muted); }
+.inline-help summary { color: var(--cyan); }
+.calculation-details { padding: 14px 20px; border-top: 1px solid var(--line); font-size: 0.875rem; line-height: 1.6; color: var(--muted); }
+.calculation-details summary { color: var(--text); }
+.diagnostic-grid, .engineering-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 12px; }
+.engineering-grid { padding: 0 18px 18px; }
+.engineering-grid strong, .diagnostic-grid strong { display: block; font: 500 1rem/1.6 ui-monospace, monospace; color: var(--text); }
+.engineering-grid small { display: block; font-size: 0.875rem; line-height: 1.4; }
+.diagnostic-grid small { display: block; font-size: 0.875rem; }
+.preset-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.preset-actions .button { flex: 1; padding: 0 8px; }
+input[type="file"] { width: 100%; font-size: 0.875rem; color: var(--muted); }
+input[type="file"]::file-selector-button { padding: 9px; margin-right: 8px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line-bright); border-radius: 7px; cursor: pointer; }
+.control input[type="number"] { width: 100%; min-height: 39px; padding: 8px; border: 1px solid var(--line-bright); border-radius: 7px; background: var(--surface-2); color: var(--text); }
+.scene-hint, .inline-controls label, .status, .graph-range { font-size: 0.875rem; }
+.model-note a { color: var(--cyan); }
+.simulation-actions { flex-wrap: wrap; }
+@media (max-width: 1120px) { .workspace .controls-panel { order: 0; } }

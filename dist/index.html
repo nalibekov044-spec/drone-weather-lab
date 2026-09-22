@@ -11,12 +11,13 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">FLIGHT DYNAMICS / MODEL 04 · CFD</p>
+        <p class="eyebrow">FLIGHT DYNAMICS / MODEL 05 · CAD + CFD</p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
         <button id="toggleSimulation" class="button button-primary" type="button">Пауза</button>
         <button id="resetSimulation" class="button" type="button">Сбросить</button>
+        <button id="exportReport" class="button" type="button">Отчёт ↓</button>
       </div>
     </header>
 
@@ -63,7 +64,7 @@
               </label>
               <label>Смотрим
                 <select id="graphMetric">
-                  <option value="reserve">Запас тяги</option><option value="tilt">Наклон</option><option value="flightMinutes">Время полёта</option><option value="electricalPower">Мощность</option><option value="powerLoad">Загрузка моторов</option><option value="rpmPowerLimit">Доступный RPM</option><option value="availableThrust">Доступная тяга</option><option value="windForce">Сила ветра</option><option value="maxWind">Предел ветра</option><option value="thrustToWeight">Тяга / вес</option>
+                  <option value="reserve">Запас тяги</option><option value="tilt">Наклон</option><option value="flightMinutes">Время полёта</option><option value="electricalPower">Мощность</option><option value="powerLoad">Загрузка моторов</option><option value="rpmPowerLimit">Доступный RPM</option><option value="availableThrust">Доступная тяга</option><option value="windForce">Сила ветра</option><option value="maxWind">Предел ветра</option><option value="thrustToWeight">Тяга / вес</option><option value="diskLoading">Нагрузка на диск</option><option value="tipMach">Мах конца лопасти</option><option value="terminalVoltage">Напряжение под нагрузкой</option>
                 </select>
               </label>
             </div>
@@ -83,8 +84,8 @@
           <div class="visual-header airflow-header">
             <div><span class="panel-label">3D CFD · D3Q19 LATTICE BOLTZMANN</span><h2>Численное поле потока вокруг дрона</h2><small class="scene-hint">Тяни мышью — вращение · колесо — масштаб</small></div>
             <div class="inline-controls">
-              <label>Слой <select id="airflowLayer"><option value="volume">Объёмное 3D-поле</option><option value="horizontal">Горизонтальный срез</option><option value="vertical">Вертикальный срез</option></select></label>
-              <label>Линии <output id="streamlineCountValue">42</output><input id="streamlineCount" type="range" min="12" max="80" value="42" step="2"></label>
+              <label>Начало линий <select id="airflowLayer"><option value="volume">Объёмное распределение</option><option value="horizontal">Горизонтальная плоскость</option><option value="vertical">Вертикальная плоскость</option></select></label>
+              <label>Линии <output id="streamlineCountValue">144</output><input id="streamlineCount" type="range" min="24" max="360" value="144" step="12"></label>
               <label>Масштаб <output id="airflowZoomValue">1,0×</output><input id="airflowZoom" type="range" min="0.6" max="1.8" value="1" step="0.1"></label>
             </div>
           </div>
@@ -98,6 +99,7 @@
             <span>Re: <strong id="reynoldsNumber">—</strong></span>
             <span class="legend"><i></i><strong id="flowLegend">скорость</strong></span>
           </div>
+          <details class="calculation-details"><summary>Диагностика CFD и смысл величин</summary><div id="cfdDiagnostics">Открой обтекание: расчёт выполняется в фоне. Линии показывают установившееся поле среднего ветра, а не временную CFD-симуляцию каждого порыва.</div></details>
         </section>
       </section>
 
@@ -108,13 +110,16 @@
             <label class="control wide" for="dronePreset"><span>Тип дрона</span><select id="dronePreset"><option value="survey">Камерный квадрокоптер</option><option value="racing">Гоночный FPV</option><option value="industrialHex">Промышленный гексакоптер</option><option value="cargoOcto">Грузовой октокоптер</option></select></label>
             <label class="control" for="mass"><span>Масса корпуса <output id="massValue">2,4 кг</output></span><input id="mass" type="range" min="0.2" max="20" value="2.4" step="0.1"></label>
             <label class="control" for="payload"><span>Полезная нагрузка <output id="payloadValue">0,7 кг</output></span><input id="payload" type="range" min="0" max="15" value="0.7" step="0.1"></label>
-            <label class="control" for="frameSize"><span>Диагональ рамы <output id="frameSizeValue">520 мм</output></span><input id="frameSize" type="range" min="120" max="1600" value="520" step="10"></label>
+            <label class="control" for="frameSize"><span>Диагональ рамы <output id="frameSizeValue">560 мм</output></span><input id="frameSize" type="range" min="120" max="1600" value="560" step="10"></label>
             <label class="control" for="rotors"><span>Количество винтов</span><select id="rotors"><option value="4">4</option><option value="6">6</option><option value="8">8</option></select></label>
             <label class="control" for="diameter"><span>Диаметр винта <output id="diameterValue">15,0″</output></span><input id="diameter" type="range" min="3" max="32" value="15" step="0.5"></label>
             <label class="control" for="pitch"><span>Шаг винта <output id="pitchValue">5,2″</output></span><input id="pitch" type="range" min="2" max="12" value="5.2" step="0.1"></label>
             <label class="control" for="dragArea"><span>Лобовая площадь <output id="dragAreaValue">0,13 м²</output></span><input id="dragArea" type="range" min="0.01" max="0.8" value="0.13" step="0.01"></label>
             <label class="control" for="dragCoefficient"><span>Коэф. сопротивления <output id="dragCoefficientValue">0,95</output></span><input id="dragCoefficient" type="range" min="0.3" max="1.8" value="0.95" step="0.05"></label>
             <label class="control wide" for="propEfficiency"><span>Состояние винтов <output id="propEfficiencyValue">86%</output></span><input id="propEfficiency" type="range" min="50" max="100" value="86" step="1"></label>
+            <label class="check-control wide"><input id="calibratedProps" type="checkbox"> Коэффициенты винтов по измерениям</label>
+            <label class="control" for="ct"><span>Cₜ — тяга <output id="ctValue">0,091</output></span><input id="ct" type="range" min="0.02" max="0.2" value="0.091" step="0.001"></label>
+            <label class="control" for="cp"><span>Cₚ — мощность <output id="cpValue">0,059</output></span><input id="cp" type="range" min="0.01" max="0.15" value="0.059" step="0.001"></label>
           </div>
         </details>
 
@@ -135,6 +140,8 @@
           <summary><span>03</span><strong>Погода и атмосфера</strong></summary>
           <div class="control-body">
             <label class="control wide" for="windSpeed"><span>Средний ветер <output id="windSpeedValue">6,0 м/с</output></span><input id="windSpeed" type="range" min="0" max="40" value="6" step="0.5"></label>
+            <label class="control wide" for="windTransition"><span>Плавность изменения ветра <output id="windTransitionValue">1,2 с</output></span><input id="windTransition" type="range" min="0.1" max="5" value="1.2" step="0.1"></label>
+            <div class="preset-actions wide"><button type="button" class="button" data-weather="calm">Штиль</button><button type="button" class="button" data-weather="gust">Порывы</button><button type="button" class="button" data-weather="rain">Дождь</button></div>
             <label class="control wide" for="windDirection"><span>Направление <output id="windDirectionValue">35°</output></span><input id="windDirection" type="range" min="0" max="359" value="35" step="1"></label>
             <label class="control" for="gusts"><span>Амплитуда порывов <output id="gustsValue">25%</output></span><input id="gusts" type="range" min="0" max="100" value="25" step="5"></label>
             <label class="control" for="gustFrequency"><span>Частота порывов <output id="gustFrequencyValue">0,8 Гц</output></span><input id="gustFrequency" type="range" min="0.1" max="3" value="0.8" step="0.1"></label>
@@ -157,6 +164,8 @@
             <label class="control" for="capacity"><span>Ёмкость <output id="capacityValue">10 000 мА·ч</output></span><input id="capacity" type="range" min="500" max="30000" value="10000" step="250"></label>
             <label class="control" for="stateOfCharge"><span>Заряд <output id="stateOfChargeValue">100%</output></span><input id="stateOfCharge" type="range" min="10" max="100" value="100" step="5"></label>
             <label class="control" for="batteryTemp"><span>Температура батареи <output id="batteryTempValue">20 °C</output></span><input id="batteryTemp" type="range" min="-30" max="60" value="20" step="1"></label>
+            <label class="control" for="batteryResistance"><span>Сопротивление пакета <output id="batteryResistanceValue">35 мОм</output></span><input id="batteryResistance" type="range" min="0" max="0.2" value="0.035" step="0.005"></label>
+            <label class="control" for="batteryCRating"><span>Токоотдача <output id="batteryCRatingValue">25 C</output></span><input id="batteryCRating" type="range" min="1" max="100" value="25" step="1"></label>
           </div>
         </details>
 
@@ -173,10 +182,24 @@
         <details class="control-group" open>
           <summary><span>06</span><strong>CFD и визуализация</strong></summary>
           <div class="control-body">
-            <label class="control" for="cfdQuality"><span>Качество сетки</span><select id="cfdQuality"><option value="fast">Быстрое</option><option value="balanced" selected>Сбалансированное</option><option value="fine">Точное</option></select></label>
+            <label class="control" for="cfdQuality"><span>Качество сетки</span><select id="cfdQuality"><option value="fast">Быстрое · 13 тыс.</option><option value="balanced" selected>Среднее · 31 тыс.</option><option value="fine">Детальнее · 61 тыс.</option></select></label>
+            <label class="control" for="renderQuality"><span>Производительность</span><select id="renderQuality"><option value="auto">Авто · 30–60 FPS</option><option value="eco">Экономный · 30 FPS</option><option value="high">Полное · 60 FPS</option></select></label>
             <label class="control" for="flowColor"><span>Окраска потока</span><select id="flowColor"><option value="speed">Скорость</option><option value="pressure">Давление</option><option value="vorticity">Завихрение</option></select></label>
             <label class="control wide" for="flowObstacle"><span>Дополнительный объект</span><select id="flowObstacle"><option value="none">Нет</option><option value="sphere">Сфера справа</option><option value="wall">Вертикальная стенка</option><option value="payload">Груз под корпусом</option></select></label>
             <label class="control wide" for="obstacleSize"><span>Размер объекта <output id="obstacleSizeValue">1,0×</output></span><input id="obstacleSize" type="range" min="0.5" max="2" value="1" step="0.1"></label>
+          </div>
+        </details>
+        <details class="control-group" open>
+          <summary><span>07</span><strong>Своя 3D-модель / CAD</strong></summary>
+          <div class="control-body">
+            <label class="control wide" for="modelFile"><span>STL или OBJ · до 16 МБ / 40 тыс. треугольников</span><input id="modelFile" type="file" accept=".stl,.obj"></label>
+            <p id="modelStatus" class="control-hint wide" role="status">Файл остаётся на твоём устройстве. Экспортируй из CAD корпус и раму без винтов: они моделируются отдельно.</p>
+            <label class="control" for="modelSpan"><span>Наибольший размер, мм</span><input id="modelSpan" type="number" min="20" max="2000" value="560" step="10"></label>
+            <label class="control" for="modelUp"><span>Вертикальная ось файла</span><select id="modelUp"><option value="z">Z · обычно CAD</option><option value="y">Y</option><option value="x">X</option></select></label>
+            <label class="control" for="modelYaw"><span>Поворот модели</span><select id="modelYaw"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label>
+            <label class="check-control wide"><input id="meshCFD" type="checkbox" disabled> Использовать сетку корпуса в CFD</label>
+            <button id="removeModel" type="button" class="button wide" disabled>Вернуться к встроенному дрону</button>
+            <details class="inline-help wide"><summary>Как перенести модель из CAD?</summary><p>В Fusion, SolidWorks, FreeCAD или Blender экспортируй STL / OBJ. STEP и IGES напрямую не читаются. Укажи реальный размер и ось вверх. Для CFD нужна замкнутая сетка без дыр; очень тонкие детали могут исчезнуть на грубой сетке. Центры винтов пока задаёт выбранная типовая рама; масса, C𝒹 и характеристики моторов задаются вручную.</p></details>
           </div>
         </details>
       </aside>
@@ -184,8 +207,10 @@
 
     <details class="model-note">
       <summary>Точность и ограничения модели</summary>
-      <p>Поток решается на трёхмерной воксельной сетке методом D3Q19 Lattice Boltzmann: корпус и добавленные объекты задаются твёрдыми границами без проникновения, внешние границы открыты для выхода потока, а винты представлены источниками импульса с downwash и закруткой. Тяга и мощность считаются через Cₜ/Cₚ; температура и повреждение каждого мотора уменьшают его доступную мощность и RPM. Сетка предназначена для интерактивного анализа: для финального проектирования геометрию и коэффициенты винтов нужно сверять с испытаниями или расчётом высокой точности.</p>
+      <p>CFD — численное решение поля воздуха. Здесь используется D3Q19 LBM: 19 направлений переноса на кубической сетке, неподвижные твёрдые границы и источники импульса в дисках винтов. Суммарная сила источников соответствует расчётной вертикальной тяге режима зависания. Лопасти, их вращение, пограничный слой, отрыв и развитая турбулентность не разрешаются. Порывы относятся к модели полёта; CFD показывает средний ветер. Численная вязкость повышена для устойчивости, поэтому физический Re не равен Re решателя. Невязка — изменение скорости между итерациями, а не доказательство точности. CAD-сетка не определяет массу и C𝒹 автоматически. Расчёт предварительный и не подтверждает безопасность реального полёта.</p>
+      <p>Основы модели: <a href="https://www.grc.nasa.gov/www/k-12/airplane/propth.html" target="_blank" rel="noopener">теория диска винта — NASA</a>; <a href="https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/drag-equation/" target="_blank" rel="noopener">сила сопротивления — NASA</a>.</p>
     </details>
+    <details class="model-note" open><summary>Инженерные показатели</summary><div id="engineeringMetrics" class="engineering-grid">—</div><p id="engineeringWarnings" role="status"></p></details>
   </main>
   <script type="module" src="app.js"></script>
 </body>
