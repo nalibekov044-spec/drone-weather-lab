@@ -11,7 +11,7 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">FLIGHT DYNAMICS / MODEL 05 · CAD + CFD</p>
+        <p class="eyebrow">FLIGHT DYNAMICS / MODEL 06 · DESIGN + FLOW</p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
@@ -85,7 +85,7 @@
             <div><span class="panel-label">3D CFD · D3Q19 LATTICE BOLTZMANN</span><h2>Численное поле потока вокруг дрона</h2><small class="scene-hint">Тяни мышью — вращение · колесо — масштаб</small></div>
             <div class="inline-controls">
               <label>Начало линий <select id="airflowLayer"><option value="volume">Объёмное распределение</option><option value="horizontal">Горизонтальная плоскость</option><option value="vertical">Вертикальная плоскость</option></select></label>
-              <label>Линии <output id="streamlineCountValue">144</output><input id="streamlineCount" type="range" min="24" max="360" value="144" step="12"></label>
+              <label>Линии <output id="streamlineCountValue">216</output><input id="streamlineCount" type="range" min="24" max="600" value="216" step="12"></label>
               <label>Масштаб <output id="airflowZoomValue">1,0×</output><input id="airflowZoom" type="range" min="0.6" max="1.8" value="1" step="0.1"></label>
             </div>
           </div>
@@ -99,7 +99,14 @@
             <span>Re: <strong id="reynoldsNumber">—</strong></span>
             <span class="legend"><i></i><strong id="flowLegend">скорость</strong></span>
           </div>
-          <details class="calculation-details"><summary>Диагностика CFD и смысл величин</summary><div id="cfdDiagnostics">Открой обтекание: расчёт выполняется в фоне. Линии показывают установившееся поле среднего ветра, а не временную CFD-симуляцию каждого порыва.</div></details>
+          <div class="solver-toolbar">
+            <label>Решатель<select id="solverMode"><option value="trt">TRT · две релаксации</option><option value="bgk">BGK · более вязкий</option></select></label>
+            <label>Расчёт<select id="iterationBudget"><option value="quick">Эскиз</option><option value="standard" selected>Стандарт</option><option value="deep">Длинный</option></select></label>
+            <label>Скорость частиц<select id="flowRate"><option value="0.15">0,15×</option><option value="0.35" selected>0,35×</option><option value="1">Реальное время</option></select></label>
+            <button id="continueCFD" class="button" type="button" disabled>Считать дальше</button>
+          </div>
+          <details class="calculation-details" open><summary>Сходимость и диагностика CFD</summary><div id="cfdDiagnostics">Расчёт в фоне. Частицы движутся в поле среднего ветра, а не имитируют CFD каждого порыва.</div><canvas id="residualCanvas" class="residual-chart" width="720" height="150" aria-label="График невязки по итерациям, логарифмическая шкала"></canvas></details>
+          <details class="calculation-details"><summary>Измерительный зонд в потоке</summary><p>Перемещай точку в расчётном объёме. X и Z горизонтальные, Y вверх. Координаты в метрах относительно центра дрона.</p><div class="probe-controls"><label>X, м<input id="probeX" type="range" min="-1" max="1" value="0" step="0.01"></label><label>Y, м<input id="probeY" type="range" min="-0.5" max="0.5" value="-0.25" step="0.01"></label><label>Z, м<input id="probeZ" type="range" min="-1" max="1" value="0" step="0.01"></label></div><output id="probeReading">Дождись расчёта</output></details>
         </section>
       </section>
 
@@ -107,7 +114,25 @@
         <details class="control-group" open>
           <summary><span>01</span><strong>Дрон и геометрия</strong></summary>
           <div class="control-body">
-            <label class="control wide" for="dronePreset"><span>Тип дрона</span><select id="dronePreset"><option value="survey">Камерный квадрокоптер</option><option value="racing">Гоночный FPV</option><option value="industrialHex">Промышленный гексакоптер</option><option value="cargoOcto">Грузовой октокоптер</option></select></label>
+            <label class="control wide" for="dronePreset"><span>Тип дрона</span><select id="dronePreset"><option value="survey">Камерный квадрокоптер</option><option value="custom">Свой дрон · конструктор</option><option value="racing">Гоночный FPV</option><option value="industrialHex">Промышленный гексакоптер</option><option value="cargoOcto">Грузовой октокоптер</option></select></label>
+            <div id="builderPanel" class="builder-panel wide" hidden>
+              <p class="control-hint wide">Одна геометрия для 3D и CFD. Массу, лобовую площадь и характеристики моторов укажи отдельно ниже.</p>
+              <label class="control"><span>Длина корпуса <output id="bodyLengthValue"></output></span><input id="bodyLength" type="range" min="80" max="600" value="230" step="10"></label>
+              <label class="control"><span>Ширина корпуса <output id="bodyWidthValue"></output></span><input id="bodyWidth" type="range" min="60" max="500" value="150" step="10"></label>
+              <label class="control"><span>Высота корпуса <output id="bodyHeightValue"></output></span><input id="bodyHeight" type="range" min="30" max="300" value="80" step="5"></label>
+              <label class="control"><span>Центр → мотор <output id="armLengthValue"></output></span><input id="armLength" type="range" min="100" max="700" value="280" step="10"></label>
+              <label class="control"><span>Толщина луча <output id="armThicknessValue"></output></span><input id="armThickness" type="range" min="10" max="80" value="22" step="2"></label>
+              <label class="control"><span>Растяжение вдоль корпуса <output id="frameStretchValue"></output></span><input id="frameStretch" type="range" min="0.6" max="1.6" value="1" step="0.05"></label>
+              <label class="control"><span>Диаметр мотора <output id="motorDiameterValue"></output></span><input id="motorDiameter" type="range" min="20" max="100" value="38" step="2"></label>
+              <label class="control"><span>Высота мотора <output id="motorHeightValue"></output></span><input id="motorHeight" type="range" min="15" max="90" value="32" step="1"></label>
+              <label class="control"><span>Форма корпуса</span><select id="bodyShape"><option value="ellipsoid">Эллипсоид</option><option value="box">Прямоугольный</option></select></label>
+              <label class="control"><span>Схема лучей</span><select id="rotorLayout"><option value="x">X · повёрнутая</option><option value="plus">+ · осевая</option></select></label>
+              <output id="builderSummary" class="control-hint wide" aria-live="polite"></output>
+              <button id="exportDesign" type="button" class="button wide">Экспорт геометрии STL ↓</button>
+              <p class="control-hint wide">STL в миллиметрах, Y вверх, без лопастей. Детали пересекаются: перед производством объедини их в CAD. Это эскиз, не готовая конструкция.</p>
+            </div>
+            <div class="preset-actions wide"><button id="saveDesign" class="button" type="button">Сохранить настройки ↓</button><label class="button file-button">Загрузить настройки<input id="loadDesign" type="file" accept=".json,application/json"></label></div>
+            <p id="designStatus" class="control-hint wide" role="status"></p>
             <label class="control" for="mass"><span>Масса корпуса <output id="massValue">2,4 кг</output></span><input id="mass" type="range" min="0.2" max="20" value="2.4" step="0.1"></label>
             <label class="control" for="payload"><span>Полезная нагрузка <output id="payloadValue">0,7 кг</output></span><input id="payload" type="range" min="0" max="15" value="0.7" step="0.1"></label>
             <label class="control" for="frameSize"><span>Диагональ рамы <output id="frameSizeValue">560 мм</output></span><input id="frameSize" type="range" min="120" max="1600" value="560" step="10"></label>

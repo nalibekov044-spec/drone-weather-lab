@@ -11,6 +11,8 @@ import { GraphRenderer } from "./renderers.js";
 import { DroneScene3D } from "./scene3d.js";
 import { stepMotorThermals } from "./systems.js";
 import { transformMesh } from "./mesh-import.js";
+import { builderDefaults, designGeometry, geometryFor, exportDesignSTL } from "./drone-builder.js";
+import { sampleField } from "./flow-lines.js";
 
 const $ = id => document.getElementById(id);
 const numberIds = [
@@ -18,9 +20,10 @@ const numberIds = [
   "rpm", "maxRpm", "motorMaxPower", "motorEfficiency", "windSpeed", "windDirection", "gusts", "gustFrequency",
   "turbulence", "verticalWind", "rainRate", "temperature", "altitude", "humidity", "pressureHpa", "voltage",
   "capacity", "stateOfCharge", "batteryTemp", "payloadX", "payloadY", "controlResponse", "maxTilt", "obstacleSize",
-  "windTransition", "batteryResistance", "batteryCRating", "ct", "cp"
+  "windTransition", "batteryResistance", "batteryCRating", "ct", "cp",
+  "bodyLength", "bodyWidth", "bodyHeight", "armLength", "armThickness", "frameStretch", "motorDiameter", "motorHeight"
 ];
-const selectIds = ["dronePreset", "pressureMode", "icing", "flowObstacle"];
+const selectIds = ["dronePreset", "pressureMode", "icing", "flowObstacle", "bodyShape", "rotorLayout"];
 const inputs = Object.fromEntries([...numberIds, ...selectIds].map(id => [id, $(id)]));
 const flightCanvas = $("flightCanvas");
 const graphCanvas = $("graphCanvas");
@@ -45,6 +48,7 @@ const format = (value, digits = 1) => Number(value).toLocaleString("ru-RU", {
 });
 
 const outputConfig = {
+  ...Object.fromEntries(Object.keys(builderDefaults).filter(id => typeof builderDefaults[id] === "number").map(id => [id, v => id === "frameStretch" ? `${format(v, 2)}×` : `${Math.round(v)} мм`])),
   mass: value => `${format(value, 1)} кг`, payload: value => `${format(value, 1)} кг`, frameSize: value => `${Math.round(value)} мм`,
   diameter: value => `${format(value, 1)}″`, pitch: value => `${format(value, 1)}″`, dragArea: value => `${format(value, 2)} м²`,
   dragCoefficient: value => format(value, 2), propEfficiency: value => `${Math.round(value)}%`,
@@ -86,8 +90,45 @@ const state = {
   autoFps: 60, lastPerformanceCheck: 0, lastGraphUpdate: 0
 };
 let parameterCache = null;
+let flowSnapshot = { key: "", result: null };
+
+function cfdSettings() { return { quality: $("cfdQuality").value, solverMode: $("solverMode").value, iterationBudget: $("iterationBudget").value }; }
+function meanFlowResult(parameters) {
+  // A mean-flow solve must not restart at every animated gust or thermal time step.
+  const healths = state.motorHealths.map(h => Math.round(h * 10) / 10);
+  const key = JSON.stringify([parameters, state.motorRpms, healths]);
+  if (flowSnapshot.key !== key) flowSnapshot = { key, result: calculate(parameters, { motorRpms: state.motorRpms, motorHealths: healths }) };
+  return flowSnapshot.result;
+}
+
+function drawResidual(stats) {
+  const canvas = $("residualCanvas"), ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height, x0 = 64, y0 = 24, pw = w - 86, ph = h - 48;
+  ctx.clearRect(0, 0, w, h); ctx.font = "12px monospace";
+  const history = stats?.residualHistory || [];
+  if (!history.length) return;
+  const y = r => y0 + Math.min(1, Math.max(0, -Math.log10(Math.max(1e-5, r)) / 5)) * ph;
+  for (const value of [1, 0.01, 0.001, 0.00001]) {
+    ctx.strokeStyle = value === 0.001 ? "#75f3c8" : "#29463f"; ctx.beginPath(); ctx.moveTo(x0, y(value)); ctx.lineTo(w - 22, y(value)); ctx.stroke();
+    ctx.fillStyle = "#a2bab3"; ctx.fillText(`${value * 100}%`, 3, y(value) + 4);
+  }
+  const first = history[0].iteration, last = history[history.length - 1].iteration;
+  ctx.strokeStyle = "#66d9ff"; ctx.lineWidth = 2; ctx.beginPath();
+  history.forEach((p, i) => { const x = x0 + (p.iteration - first) / Math.max(1, last - first) * pw; i ? ctx.lineTo(x, y(p.residual)) : ctx.moveTo(x, y(p.residual)); });
+  ctx.stroke(); ctx.lineWidth = 1; ctx.fillStyle = "#a2bab3";
+  ctx.fillText(`${first}`, x0, h - 5); ctx.fillText(`${last} итераций`, w - 142, h - 5); ctx.fillText("Невязка · логарифмическая шкала · цель 0,1%", x0, 14);
+}
+
+function updateProbe() {
+  const field = airflowScene.cfd.field;
+  if (!field || airflowScene.cfd.fieldKey !== airflowScene.cfd.desiredKey) { $("probeReading").textContent = "Дождись расчёта текущей конфигурации"; return; }
+  const position = ["probeX", "probeY", "probeZ"].map(id => Number($(id).value));
+  const sample = sampleField(position.map(v => v / field.stats.worldScale), field);
+  $("probeReading").textContent = `(${position.map(v => format(v, 2)).join("; ")}) м · ` + (sample ? `|u| ${format(sample.speed, 2)} м/с · p ${format(sample.pressure, 1)} Па · |∇×u| ${format(sample.vorticity, 1)} с⁻¹` : "Внутри твёрдого тела или за границей области");
+}
 
 airflowScene.onCFDStatus = info => {
+  $("continueCFD").disabled = info.status !== "ready";
   ui.cfdStatus.className = "";
   if (info.status === "ready" && info.stats) {
     ui.cfdStatus.textContent = `${info.stats.converged ? "установился" : "приближение"} · ${info.stats.elapsedMs} мс`;
@@ -101,12 +142,15 @@ airflowScene.onCFDStatus = info => {
       <span>Сила дисков<strong>${format(s.appliedThrust, 1)} Н</strong><small>Интеграл источника импульса в воздухе, связан с вертикальной тягой.</small></span>
       <span>∇·u, RMS<strong>${format(s.divergenceRms, 2)} с⁻¹</strong><small>Остаточная сжимаемость / дискретизация вдали от стенок; в идеале ноль.</small></span>
       <span>Итерации<strong>${s.iterations} · ${format(s.simulatedTime, 2)} с</strong><small>Численное время установления, не время полёта.</small></span>
-    </div><p>${s.clampedCells ? "ВНИМАНИЕ: сработал ограничитель скорости — количественная достоверность снижена." : "Численная модель стабилизирована; сеточная сходимость и сравнение с экспериментом не выполнены."} ${s.solidCells < 8 ? "Корпус плохо разрешён: увеличь сетку или размер модели." : ""} Цвет давления показывает избыток относительно входа, не атмосферное давление. Частицы замедлены до 0,35× для просмотра. CFD использует средний ветер.</p>`;
+    </div><p>${s.method}. Число Маха сетки: ${format(s.maxLatticeMach, 3)}; отклонение плотности до ${format(s.maxDensityDeviation * 100, 2)}%. ${s.maxLatticeMach > 0.2 ? "Высокая сжимаемость: результат требует осторожности." : ""} ${s.solidCells < 8 ? "Корпус плохо разрешён: увеличь сетку или размер модели." : ""} ${getParameters().dronePreset === "custom" && getParameters().armThickness < s.spacingM * 2000 ? "Лучи тоньше двух ячеек: их обтекание не разрешено." : ""} Сеточная сходимость и сравнение с экспериментом не выполнены. CFD использует средний ветер; ресурс моторов округлён до 10%. Давление относительно входа.</p>`;
+    drawResidual(s); updateProbe();
   } else if (info.status === "error") {
     ui.cfdStatus.textContent = "ошибка расчёта";
     ui.cfdStatus.classList.add("danger-text");
+    $("cfdDiagnostics").textContent = info.error || "Расчёт не завершён.";
+    drawResidual(null); updateProbe();
   } else {
-    ui.cfdStatus.textContent = `расчёт ${Math.round((info.progress || 0) * 100)}%`;
+    ui.cfdStatus.textContent = `расчёт ${Math.round((info.progress || 0) * 100)}%${info.iterations ? ` · ${info.iterations} ит.` : ""}`;
     ui.cfdStatus.classList.add("warning-text");
   }
 };
@@ -151,6 +195,13 @@ function syncOutputs(parameters) {
   }
   inputs.pressureHpa.disabled = parameters.pressureMode !== "manual";
   inputs.ct.disabled = inputs.cp.disabled = !parameters.calibratedProps;
+  const custom = parameters.dronePreset === "custom";
+  $("builderPanel").hidden = !custom; inputs.frameSize.disabled = custom;
+  if (custom) {
+    const g = designGeometry(parameters);
+    updateOutput("frameSize", g.frameSize);
+    $("builderSummary").textContent = `Габарит рамы по осям: ${format(g.frameSize, 0)} мм · объём корпуса: ${format(g.bodyVolume * 1000, 2)} л · зазор винтов: ${format(g.clearance * 1000, 0)} мм.${g.clearance < 0 ? " ВНИМАНИЕ: винты пересекаются. Увеличь лучи или уменьши диаметр." : ""}`;
+  }
   $("streamlineCountValue").textContent = $("streamlineCount").value;
   $("airflowZoomValue").textContent = `${format($("airflowZoom").value, 1)}×`;
 }
@@ -287,6 +338,10 @@ function buildMotorGrid() {
 }
 
 function applyPreset(key) {
+  if (key === "custom") {
+    if (state.model) $("removeModel").click();
+    parameterCache = null; syncOutputs(getParameters()); buildMotorGrid(); resetDynamics(); return;
+  }
   const preset = dronePresets[key];
   if (!preset) return;
   Object.entries(preset).forEach(([id, value]) => {
@@ -298,6 +353,7 @@ function applyPreset(key) {
   $("individualMotors").checked = false;
   buildMotorGrid();
   resetDynamics();
+  syncOutputs(getParameters());
 }
 
 function simulate(dt, parameters) {
@@ -407,7 +463,7 @@ numberIds.forEach(id => inputs[id].addEventListener("input", () => {
   updateOutput(id, Number(inputs[id].value));
   state.graphDirty = true;
   syncOutputs(getParameters());
-  if (id === "frameSize" && state.model) refreshModel();
+  if ((id === "frameSize" || id in builderDefaults) && state.model) refreshModel();
 }));
 selectIds.forEach(id => inputs[id].addEventListener("change", invalidateParameters));
 $("calibratedProps").addEventListener("change", invalidateParameters);
@@ -443,10 +499,11 @@ $("resetSimulation").addEventListener("click", () => {
     if (inputs[id] && typeof value !== "object" && id !== "label" && id !== "style") inputs[id].value = String(value);
   });
   $("individualMotors").checked = false;
-  $("streamlineCount").value = "144";
+  $("streamlineCount").value = "216";
   $("airflowZoom").value = "1";
   $("airflowLayer").value = "volume";
   $("cfdQuality").value = "balanced";
+  $("solverMode").value = "trt"; $("iterationBudget").value = "standard"; $("flowRate").value = "0.35";
   $("flowColor").value = "speed";
   inputs.flowObstacle.value = "none";
   inputs.obstacleSize.value = "1";
@@ -481,7 +538,7 @@ function refreshModel() {
   if (!Number.isFinite(span) || span < 20 || span > 2000) {
     $("modelStatus").textContent = "Укажи размер от 20 до 2000 мм."; return;
   }
-  const worldSpan = span / 1000 / (getParameters().frameSize / 1440);
+  const worldSpan = span / 1000 / geometryFor(getParameters()).worldScale;
   const triangles = transformMesh(state.model, worldSpan, $("modelUp").value, Number($("modelYaw").value));
   const preview = transformMesh({ triangles: state.model.preview }, worldSpan, $("modelUp").value, Number($("modelYaw").value));
   let exceedsDomain = false;
@@ -540,18 +597,64 @@ document.querySelectorAll("[data-weather]").forEach(button => button.addEventLis
 $("exportReport").addEventListener("click", () => {
   const parameters = getParameters();
   const result = calculate(parameters, { motorRpms: state.motorRpms, motorHealths: state.motorHealths });
-  airflowScene.ensureCFD(parameters, result, { quality: $("cfdQuality").value });
+  airflowScene.ensureCFD(parameters, meanFlowResult(parameters), cfdSettings());
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd.status === "ready";
-  const report = { version: "0.5.0", generatedAt: new Date().toISOString(), parameters, result, motors: { temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire },
+  const report = { version: "0.6.0", generatedAt: new Date().toISOString(), parameters, result, motors: { temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire },
     importedMesh: state.model ? { name: state.model.name, triangles: state.model.triangleCount, closed: state.model.closed, spanMm: Number($("modelSpan").value), upAxis: $("modelUp").value, yaw: Number($("modelYaw").value), usedInCFD: Boolean(airflowScene.meshCFD) } : null,
     cfd: matchingCFD ? { configuration: JSON.parse(airflowScene.cfd.fieldKey), stats: airflowScene.cfd.field.stats } : { status: "not-current-or-not-calculated" },
-    limitations: ["Stabilized BGK D3Q19 actuator-disk approximation; no experiment or grid-convergence validation.", "CFD steady mean wind, flight dynamics include smoothed gusts.", "Physical and effective solver Reynolds numbers differ.", "Mass and drag coefficient entered manually; imported mesh only changes CFD geometry when enabled."] };
+    limitations: ["TRT/BGK D3Q19 actuator-disk approximation; no experiment or grid-convergence validation.", "CFD mean wind, motor health rounded to 10%; flight dynamics include smoothed gusts.", "Physical and effective solver Reynolds numbers differ.", "Mass and drag coefficient entered manually; imported mesh only changes CFD geometry when enabled."] };
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
-  const anchor = document.createElement("a"); anchor.href = url; anchor.download = "drone-weather-lab-v0.5-report.json"; anchor.click();
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = "drone-weather-lab-v0.6-report.json"; anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
+function download(name, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+$("exportDesign").addEventListener("click", () => download("drone-design-mm-Y-up.stl", exportDesignSTL(getParameters()), "model/stl"));
+$("saveDesign").addEventListener("click", () => {
+  download("drone-weather-lab-design.json", JSON.stringify({ format: "drone-weather-lab-design", version: 1, parameters: getParameters() }, null, 2), "application/json");
+  $("designStatus").textContent = "Сохранены геометрия, погода и общие настройки. CAD-файл, отдельные RPM и повреждения не включены.";
+});
+$("loadDesign").addEventListener("change", async event => {
+  const file = event.target.files[0]; if (!file) return;
+  try {
+    if (file.size > 100000) throw new Error("Файл настроек должен быть меньше 100 КБ.");
+    const data = JSON.parse(await file.text()), p = data.parameters;
+    if (data.format !== "drone-weather-lab-design" || data.version !== 1 || !p || typeof p !== "object") throw new Error("Нужен JSON, сохранённый кнопкой «Сохранить настройки».");
+    // Validate the whole document before changing a single control.
+    const updates = [];
+    for (const id of numberIds) {
+      const value = p[id], input = inputs[id];
+      if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Неверный параметр ${id}.`);
+      const lo = input.getAttribute("min"), hi = input.getAttribute("max");
+      const automaticPressure = id === "pressureHpa" && p.pressureMode === "auto" && value > 0 && value < 1200;
+      if (!automaticPressure && ((lo !== null && value < Number(lo)) || (hi !== null && value > Number(hi)) || (id === "rotors" && ![4, 6, 8].includes(value)))) throw new Error(`Параметр ${id} вне диапазона.`);
+      updates.push([id, value]);
+    }
+    for (const id of selectIds) {
+      if (![...inputs[id].options].some(o => o.value === p[id])) throw new Error(`Неверный вариант ${id}.`);
+      updates.push([id, p[id]]);
+    }
+    for (const [id, value] of updates) inputs[id].value = String(value);
+    $("removeModel").click(); $("individualMotors").checked = false;
+    $("calibratedProps").checked = p.calibratedProps === true;
+    invalidateParameters(); buildMotorGrid(); resetDynamics();
+    $("designStatus").textContent = "Настройки загружены. Состояние полёта и моторов сброшено.";
+  } catch (error) { $("designStatus").textContent = error.message; }
+  event.target.value = "";
+});
+$("continueCFD").addEventListener("click", () => airflowScene.continueCFD());
+for (const id of ["probeX", "probeY", "probeZ"]) $(id).addEventListener("input", updateProbe);
+
 const parameterHelp = {
+  solverMode: "TRT разделяет симметричную и антисимметричную части распределения. В этой реализации вязкость ниже, чем у BGK. Это всё ещё приближённый низко-Re расчёт, а не DNS реального дрона.",
+  iterationBudget: "Эскиз: 100/220/360 шагов в зависимости от сетки. Стандарт: вдвое больше; длинный: вшестеро. Считать дальше продолжает текущее поле. Остановка: невязка ниже 0,1% три проверки подряд, минимум 200 шагов.",
+  flowRate: "Меняет только скорость просмотра частиц. Их путь и локальная скорость берутся из численного поля. Не меняет ветер и результат расчёта.",
+  armLength: "Расстояние от центра дрона до оси мотора до растяжения рамы. Изменяет реальное плечо тяги и положение дисков в CFD.",
+  frameStretch: "Удлиняет расположение моторов по оси Z, вдоль корпуса. Масса и лобовая площадь автоматически не пересчитываются.",
   pitch: "Шаг — теоретическое продвижение винта за оборот в твёрдой среде. Это не высота лопасти; влияет на оценочные Cₜ и Cₚ.",
   dragArea: "Площадь поперёк ветра. Влияет на силу F = ½ρC𝒹AV². Не равна общей площади поверхности или площади дисков винтов.",
   dragCoefficient: "C𝒹 описывает форму и сопротивление. Не извлекается автоматически из модели; для точности нужен эксперимент или проверенный CFD.",
@@ -623,11 +726,13 @@ function frame(now) {
       state.graphDirty = false;
     }
   } else {
-    airflowScene.renderAirflow(parameters, result, {
+    airflowScene.renderAirflow(parameters, meanFlowResult(parameters), {
       layer: $("airflowLayer").value,
       count: Number($("streamlineCount").value),
       zoom: Number($("airflowZoom").value),
-      quality: $("cfdQuality").value,
+      ...cfdSettings(),
+      flowRate: Number($("flowRate").value),
+      probe: ["probeX", "probeY", "probeZ"].map(id => Number($(id).value)),
       colorMode: $("flowColor").value,
       systemState: state
     }, state.t, format);
@@ -640,5 +745,5 @@ graphRangeFor("windSpeed");
 buildMotorGrid();
 syncOutputs(getParameters());
 window.addEventListener("resize", () => { state.graphDirty = true; });
-document.addEventListener("visibilitychange", () => { state.lastTime = performance.now(); state.accumulator = 0; });
+document.addEventListener("visibilitychange", () => { state.lastTime = performance.now(); state.accumulator = 0; airflowScene.setCFDPaused(document.hidden); });
 requestAnimationFrame(frame);

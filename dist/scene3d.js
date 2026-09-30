@@ -1,4 +1,6 @@
 import { rotorPositions } from "./physics.js";
+import { geometryFor, triangulateParts } from "./drone-builder.js";
+import { sampleField } from "./flow-lines.js";
 
 const TAU = Math.PI * 2;
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -278,6 +280,7 @@ export class DroneScene3D {
       const lightAmount = 0.58 + Math.abs(dot(normal, light)) * 0.55;
       return {
         projected,
+        outline: face.outline !== false,
         depth: projected.reduce((sum, point) => sum + point.depth, 0) / projected.length,
         fill: shaded(face.color, lightAmount, 0.98)
       };
@@ -291,7 +294,7 @@ export class DroneScene3D {
       ctx.strokeStyle = colors.lineBright;
       ctx.globalAlpha = 0.7;
       ctx.lineWidth = 0.8;
-      if (!this.model) ctx.stroke();
+      if (!this.model && face.outline) ctx.stroke();
       ctx.globalAlpha = 1;
     });
   }
@@ -301,8 +304,9 @@ export class DroneScene3D {
     const faces = [];
     const lines = [];
     const rotorCount = Number(parameters.rotors);
-    const rotors = rotorPositions(rotorCount, 0.72);
-    const propRadius = parameters.diameter * 25.4 * 0.72 / parameters.frameSize;
+    const design = geometryFor(parameters);
+    const rotors = design.rotors;
+    const propRadius = parameters.diameter * 0.0254 / (2 * design.worldScale);
     rotors.forEach((rotor, index) => {
       const angle = Math.atan2(rotor.y, rotor.x);
       const motorTemperature = systemState?.motorTemps?.[index] ?? parameters.temperature;
@@ -311,14 +315,14 @@ export class DroneScene3D {
         ? colors.danger
         : motorTemperature > 90 ? colors.warning : index % 2 ? colors.cyan : colors.accent;
       const propColor = parameters.icing === "none" ? (index % 2 ? colors.cyan : colors.accent) : "#c9efff";
-      if (!this.model) {
+      if (!this.model && !design.parts) {
         faces.push(...boxFaces([rotor.x * 0.5, 0, rotor.y * 0.5], [0.72, 0.055, 0.075], angle, colors.surface, pose));
         faces.push(...cylinderFaces([rotor.x, 0.07, rotor.y], 0.095, 0.14, 10, motorColor, pose));
       }
-      lines.push({ points: circlePoints([rotor.x, 0, rotor.y], propRadius, 0.17, 32, pose), color: propColor, width: parameters.icing === "none" ? 1.4 : 2.4, alpha: 0.82 });
+      lines.push({ points: circlePoints([rotor.x, 0, rotor.y], propRadius, rotor.diskY, 32, pose), color: propColor, width: parameters.icing === "none" ? 1.4 : 2.4, alpha: 0.82 });
       const spin = time * Math.min(18, (result.effectiveRpms?.[index] || parameters.rpm) / 900) * (index % 2 ? -1 : 1);
-      const bladeA = posePoint(add([rotor.x, 0, rotor.y], [Math.cos(spin) * propRadius, 0.175, Math.sin(spin) * propRadius]), pose);
-      const bladeB = posePoint(add([rotor.x, 0, rotor.y], [-Math.cos(spin) * propRadius, 0.175, -Math.sin(spin) * propRadius]), pose);
+      const bladeA = posePoint(add([rotor.x, 0, rotor.y], [Math.cos(spin) * propRadius, rotor.diskY + 0.005, Math.sin(spin) * propRadius]), pose);
+      const bladeB = posePoint(add([rotor.x, 0, rotor.y], [-Math.cos(spin) * propRadius, rotor.diskY + 0.005, -Math.sin(spin) * propRadius]), pose);
       lines.push({ points: [bladeA, bladeB], color: colors.text, width: 2, alpha: 0.75 });
     });
 
@@ -328,6 +332,10 @@ export class DroneScene3D {
       for (let i = 0; i < triangles.length; i += 9) {
         faces.push({ points: [0, 3, 6].map(o => posePoint([triangles[i + o], triangles[i + o + 1], triangles[i + o + 2]], pose)), color: colors.muted });
       }
+    } else if (design.parts) {
+      const key = JSON.stringify(design.parts);
+      if (key !== this.builderKey) { this.builderKey=key; this.builderFaces=triangulateParts(design.parts); }
+      faces.push(...this.builderFaces.map(face=>({points:face.points.map(p=>posePoint(p,pose)),color:face.role==="motor"?colors.accent:face.role==="body"?"#335b64":colors.surface,outline:false})));
     } else if (parameters.dronePreset === "racing") {
       faces.push(...boxFaces([0, 0.03, 0], [0.42, 0.18, 0.58], 0, colors.surface, pose));
       faces.push(...boxFaces([0, 0.12, -0.08], [0.28, 0.08, 0.3], 0, colors.danger, pose));
@@ -367,7 +375,7 @@ export class DroneScene3D {
       const temperature = systemState.motorTemps?.[index] || 0;
       const fire = systemState.motorFire?.[index] || 0;
       if (temperature < 78 && fire < 0.01) return;
-      const base = posePoint([rotor.x, 0.17, rotor.y], pose);
+      const base = posePoint([rotor.x, rotor.diskY ?? 0.17, rotor.y], pose);
       const projected = this.project(base, basis);
       if (!projected) return;
       const heat = clamp((temperature - 75) / 80, 0, 1);
@@ -491,6 +499,8 @@ export class DroneScene3D {
     if (this.onCFDStatus) this.onCFDStatus({
       status: this.cfd.status,
       progress: this.cfd.progress,
+      iterations: this.cfd.iterations,
+      residual: this.cfd.residual,
       error: this.cfd.error,
       stats: this.cfd.field?.stats || null
     });
@@ -508,10 +518,13 @@ export class DroneScene3D {
       if (message.key === this.cfd.desiredKey) {
         this.cfd.status = "solving";
         this.cfd.progress = message.progress;
+        this.cfd.iterations = message.iterations;
+        this.cfd.residual = message.residual;
         this.emitCFDStatus();
       }
       return;
     }
+    if (message.key !== this.cfd.desiredKey) return;
     this.workerBusy = false;
     if (message.type === "error") {
       if (message.key === this.cfd.desiredKey) {
@@ -542,13 +555,14 @@ export class DroneScene3D {
   }
 
   ensureCFD(parameters, result, settings) {
+    const design = geometryFor(parameters);
     const roundedDownwash = Math.round(result.downwashSpeed * 2) / 2;
-    const propRadius = parameters.diameter * 25.4 * 0.72 / parameters.frameSize;
+    const propRadius = parameters.diameter * 0.0254 / (2 * design.worldScale);
     const config = {
       quality: settings.quality,
       dronePreset: parameters.dronePreset,
       rotors: parameters.rotors,
-      frameSize: parameters.frameSize,
+      frameSize: design.frameSize || parameters.frameSize,
       windSpeed: parameters.windSpeed,
       windDirection: parameters.windDirection,
       verticalWind: parameters.verticalWind,
@@ -559,13 +573,18 @@ export class DroneScene3D {
       propRadius,
       flowObstacle: parameters.flowObstacle,
       obstacleSize: parameters.obstacleSize
-      , worldScale: parameters.frameSize / 1440,
+      , worldScale: design.worldScale,
+      geometryParts: design.parts,
+      rotorCenters: design.rotors,
+      solverMode: settings.solverMode || "trt",
+      iterationBudget: settings.iterationBudget || "standard",
       rotorThrusts: result.rotorThrusts.map(t => Math.round(t * 10) / 10),
       modelRevision: this.modelRevision,
       meshEnabled: Boolean(this.meshCFD && this.model)
     };
     const key = JSON.stringify(config);
     if (key === this.cfd.desiredKey) return;
+    if (this.workerBusy) { this.worker.postMessage({ type: "cancel" }); this.workerBusy = false; }
     this.cfd.desiredKey = key;
     this.cfd.status = "queued";
     this.cfd.progress = 0;
@@ -583,6 +602,12 @@ export class DroneScene3D {
     this.emitCFDStatus();
   }
 
+  continueCFD() {
+    if (!this.workerBusy && this.pendingCFD && this.cfd.fieldKey === this.cfd.desiredKey) this.startCFD({ ...this.pendingCFD, type: "continue" });
+  }
+
+  setCFDPaused(paused) { this.worker?.postMessage({ type: paused ? "pause" : "resume" }); }
+
   renderAirflow(parameters, result, settings, time, format) {
     const { ctx, width, height } = resizeCanvas(this.canvas, this.pixelRatio || 1.5);
     const colors = this.colors;
@@ -597,7 +622,7 @@ export class DroneScene3D {
         this.worker.postMessage({ type: "trace", key: this.cfd.fieldKey, trace: { key: cacheKey, count: settings.count, layer: settings.layer } });
       }
     }
-    const staticKey = JSON.stringify([this.streamlineCache.key, this.canvas.width, this.canvas.height, this.camera, settings.zoom, settings.colorMode, parameters.dronePreset, parameters.diameter, parameters.frameSize, parameters.rotors, parameters.flowObstacle, parameters.obstacleSize, this.modelRevision]);
+    const staticKey = JSON.stringify([this.streamlineCache.key, this.canvas.width, this.canvas.height, this.camera, settings.zoom, settings.colorMode, parameters.dronePreset, parameters.diameter, parameters.frameSize, parameters.rotors, parameters.flowObstacle, parameters.obstacleSize, this.modelRevision, geometryFor(parameters).parts]);
     if (staticKey !== this.staticKey) {
       this.staticKey = staticKey;
       this.staticCanvas.width = this.canvas.width; this.staticCanvas.height = this.canvas.height;
@@ -611,32 +636,42 @@ export class DroneScene3D {
       this.projectedLines = [];
       const field = this.cfd.field;
       if (field && this.streamlineCache.lines.length) {
-        // One continuous stroke per colour band, rather than a draw call per segment.
+        const bands = Array.from({ length: 6 }, () => []);
         this.streamlineCache.lines.forEach(line => {
           const projected = line.map(p => this.project(p.point, basis));
           this.projectedLines.push({ projected, line });
-          for (let band = 0; band < 6; band++) {
-            background.beginPath();
-            for (let i = 1; i < line.length; i++) {
+          for (let i = 1; i < line.length; i++) {
               const sample = line[i], previous = projected[i - 1], current = projected[i];
               const ratio = settings.colorMode === "vorticity" ? sample.vorticity / Math.max(0.001, field.stats.maxVorticity) : settings.colorMode === "pressure" ? (sample.pressure / Math.max(1, Math.abs(field.stats.minPressure), Math.abs(field.stats.maxPressure)) + 1) / 2 : sample.speed / Math.max(0.1, field.stats.maxSpeed);
-              if (!previous || !current || Math.min(5, Math.max(0, Math.floor(ratio * 6))) !== band) continue;
+              if (!previous || !current) continue;
               if (!this.depthVisible(previous) || !this.depthVisible(current)) continue;
-              background.moveTo(previous.x, previous.y); background.lineTo(current.x, current.y);
-            }
+              bands[Math.min(5, Math.max(0, Math.floor(ratio * 6)))].push(previous, current);
+          }
+        });
+        // Six batched strokes for the entire field, with each segment classified once.
+        bands.forEach((segments, band) => {
+            background.beginPath();
+            for (let i = 0; i < segments.length; i += 2) { background.moveTo(segments[i].x, segments[i].y); background.lineTo(segments[i + 1].x, segments[i + 1].y); }
             const speedColours = ["#49739d", "#508db5", "#55abc5", "#5bc4d7", "#66d9ff", "#b0f5ef"];
             background.strokeStyle = settings.colorMode === "pressure" ? ["#6d8dff", "#899def", "#82b9d1", "#bac79b", "#e2c67a", "#ffd166"][band] : settings.colorMode === "vorticity" ? ["#4f9589", "#65bca5", "#75f3c8", "#cbc992", "#ed917f", "#ff6b75"][band] : speedColours[band];
             background.lineWidth = 1.1;
             background.globalAlpha = 0.48 + band * 0.065;
             background.stroke();
-          }
         });
       }
       background.globalAlpha = 1;
     }
     ctx.drawImage(this.staticCanvas, 0, 0, width, height);
-    this.drawFlowParticles(ctx, time, colors);
-    this.drawMotorHazards(ctx, basis, rotorPositions(parameters.rotors, 0.72), { position: [0, 0, 0] }, settings.systemState, time, colors);
+    if (fieldReady && settings.probe) {
+      const point = settings.probe.map(v => v / this.cfd.field.stats.worldScale);
+      const sample = sampleField(point, this.cfd.field), screen = this.project(point, basis);
+      if (sample && screen) {
+        ctx.strokeStyle = colors.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(screen.x, screen.y, 6, 0, TAU); ctx.stroke();
+        ctx.fillStyle = colors.accent; ctx.font = "12px monospace"; ctx.fillText(`${sample.speed.toFixed(2)} m/s`, screen.x + 10, screen.y - 8);
+      }
+    }
+    this.drawFlowParticles(ctx, time * (settings.flowRate || 0.35) / 0.35, colors);
+    this.drawMotorHazards(ctx, basis, geometryFor(parameters).rotors, { position: [0, 0, 0] }, settings.systemState, time, colors);
 
     const windAngle = parameters.windDirection * Math.PI / 180;
     this.drawArrow3D(ctx, basis, [-2.5, 1.65, -2], [Math.cos(windAngle) * 1.25, 0, Math.sin(windAngle) * 1.25], colors.cyan, `${format(parameters.windSpeed, 1)} m/s`);
@@ -651,7 +686,15 @@ export class DroneScene3D {
   }
 
   drawFlowParticles(ctx, time, colors) {
-    ctx.fillStyle = colors.accent; ctx.globalAlpha = 0.8;
+    const at = (line, projected, phase) => {
+      if (phase < 0) return null;
+      let lo = 0, hi = line.length - 1;
+      while (lo + 1 < hi) { const mid = (lo + hi) >> 1; if (line[mid].travelTime <= phase) lo = mid; else hi = mid; }
+      const a = projected[lo], b = projected[hi]; if (!a || !b) return null;
+      const s = (phase - line[lo].travelTime) / Math.max(1e-9, line[hi].travelTime - line[lo].travelTime);
+      return { x: a.x + (b.x - a.x) * s, y: a.y + (b.y - a.y) * s, depth: a.depth + (b.depth - a.depth) * s };
+    };
+    ctx.fillStyle = colors.accent; ctx.strokeStyle = colors.accent; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.8;
     ctx.beginPath();
     for (let k = 0; k < this.projectedLines.length; k++) {
       const { line, projected } = this.projectedLines[k];
@@ -659,16 +702,26 @@ export class DroneScene3D {
       if (!(duration > 0)) continue;
       // The bead advances continuously according to local velocity, not point indices.
       const phase = (time * 0.35 + k * 0.618033 * duration) % duration;
-      let lo = 0, hi = line.length - 1;
-      while (lo + 1 < hi) { const mid = (lo + hi) >> 1; if (line[mid].travelTime <= phase) lo = mid; else hi = mid; }
-      const a = projected[lo], b = projected[hi];
-      if (!a || !b) continue;
-      const s = (phase - line[lo].travelTime) / Math.max(1e-9, line[hi].travelTime - line[lo].travelTime);
-      const x = a.x + (b.x - a.x) * s, y = a.y + (b.y - a.y) * s;
-      if (!this.depthVisible({ x, y, depth: a.depth + (b.depth - a.depth) * s })) continue;
+      const point = at(line, projected, phase);
+      if (!point || !this.depthVisible(point)) continue;
+      const { x, y } = point;
       ctx.moveTo(x + 1.6, y); ctx.arc(x, y, 1.6, 0, TAU);
     }
-    ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fill();
+    // Short fading tails give a continuous direction cue without recomputing flow.
+    for (let tail = 1; tail <= 3; tail++) {
+      ctx.globalAlpha = 0.3 / tail; ctx.beginPath();
+      for (let k = 0; k < this.projectedLines.length; k++) {
+        const { line, projected } = this.projectedLines[k], duration = line[line.length - 1].travelTime;
+        if (!(duration > 0)) continue;
+        const phase = (time * 0.35 + k * 0.618033 * duration) % duration;
+        const interval = Math.min(0.012, duration / 24);
+        const a = at(line, projected, phase - tail * interval), b = at(line, projected, phase - (tail - 1) * interval);
+        if (a && b && this.depthVisible(a) && this.depthVisible(b)) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
 
   setModel(triangles, useInCFD = false, preview = null) {

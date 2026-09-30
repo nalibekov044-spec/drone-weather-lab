@@ -1,3 +1,4 @@
+import { builderDefaults, designGeometry } from "./drone-builder.js";
 export const G = 9.80665;
 export const INCH = 0.0254;
 
@@ -29,6 +30,7 @@ export const dronePresets = {
 };
 
 export const baseDefaults = {
+  ...builderDefaults,
   dronePreset: "survey",
   ...dronePresets.survey,
   windSpeed: 6,
@@ -123,6 +125,8 @@ export function rotorPositions(count, radius = 1) {
 
 export function calculate(parameters, options = {}) {
   const p = { ...parameters };
+  const design = p.dronePreset === "custom" ? designGeometry(p) : null;
+  if (design) p.frameSize = design.frameSize;
   const atmosphereResult = atmosphere(p);
   const rho = atmosphereResult.density;
   const mass = p.mass + p.payload;
@@ -220,10 +224,10 @@ export function calculate(parameters, options = {}) {
   const airSoundSpeed = Math.sqrt(1.4 * 287.05 * atmosphereResult.temperatureK);
   const tipSpeed = Math.hypot(Math.PI * diameterM * Math.max(...effectiveRpms) / 60, windSpeed);
   const tipMach = tipSpeed / airSoundSpeed;
-  const propOverlap = diameterM > p.frameSize / 1000 * Math.sin(Math.PI / p.rotors);
+  const propOverlap = design ? design.clearance < 0 : diameterM > p.frameSize / 1000 * Math.sin(Math.PI / p.rotors);
   const rotorThrusts = thrusts.map(t => t * Math.min(1, requiredVertical / Math.max(1e-9, availableThrust)));
 
-  const positions = rotorPositions(p.rotors, p.frameSize / 2000);
+  const positions = design ? design.rotors.map(r=>({x:r.x*design.worldScale,y:r.z*design.worldScale})) : rotorPositions(p.rotors, p.frameSize / 2000);
   let rollMoment = 0;
   let pitchMoment = 0;
   let yawMoment = 0;

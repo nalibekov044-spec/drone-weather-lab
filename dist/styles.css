@@ -249,3 +249,19 @@ input[type="file"]::file-selector-button { padding: 9px; margin-right: 8px; back
 .model-note a { color: var(--cyan); }
 .simulation-actions { flex-wrap: wrap; }
 @media (max-width: 1120px) { .workspace .controls-panel { order: 0; } }
+/* v0.6: compact designer and solver instruments; retain the existing visual system. */
+.builder-panel { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; border:1px solid #29463f; border-radius:12px; padding:16px; background:#10201c; }
+.builder-panel[hidden] { display:none; }
+.builder-panel .wide { grid-column:1 / -1; }
+.solver-toolbar { display:flex; flex-wrap:wrap; gap:14px; align-items:end; padding:18px 24px; border-top:1px solid #29463f; }
+.solver-toolbar label { display:grid; gap:7px; flex:1 1 150px; color:#a2bab3; font-size:13px; }
+.solver-toolbar select { width:100%; }
+.probe-controls { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+.probe-controls label { display:grid; gap:10px; }
+#probeReading { display:block; margin:14px 0; font:13px ui-monospace,monospace; color:#75f3c8; }
+.residual-chart { display:block; width:100%; height:150px; margin-top:12px; }
+.file-button { position:relative; overflow:hidden; display:inline-flex; align-items:center; }
+.file-button input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; }
+.file-button:focus-within { outline:2px solid #75f3c8; outline-offset:3px; }
+button:disabled { opacity:0.45; cursor:default; }
+@media(max-width:560px) { .builder-panel { padding:12px; gap:14px; } .probe-controls { grid-template-columns:1fr; } }

@@ -14,7 +14,7 @@ class Element {
   fire(type,event={}){ for(const f of this.listeners[type]||[]) f({target:this,...event}); }
   append(...children){ this.children.push(...children); }
   replaceChildren(){ this.children=[]; }
-  setAttribute(){} closest(){return new Element();}
+  setAttribute(){} getAttribute(name){return this.attributes?.[name] ?? null;} closest(){return new Element();}
   querySelectorAll(type){return this.children.flatMap(n=>[...(n.tag===type?[n]:[]),...n.querySelectorAll(type)]);}
   getBoundingClientRect(){return {width:800,height:520,left:0,top:0};}
   setPointerCapture(){} hasPointerCapture(){return false;}
@@ -27,10 +27,12 @@ for(const m of html.matchAll(/<(\w+)[^>]*\bid="([^"]+)"[^>]*>/g)){
   const e=new Element(m[2],m[1]);
   e.value=m[0].match(/\bvalue="([^"]*)"/)?.[1]||"";
   e.checked=/\bchecked\b/.test(m[0]); e.disabled=/\bdisabled\b/.test(m[0]);
+  e.hidden=/\bhidden\b/.test(m[0]); e.attributes=Object.fromEntries([...m[0].matchAll(/(min|max)="([^"]*)"/g)].map(a=>[a[1],a[2]]));
   if(m[1]==="select"){
     const content=html.slice(m.index).split("</select>")[0];
     const options=[...content.matchAll(/<option[^>]*value="([^"]+)"[^>]*>/g)];
     e.value=(options.find(o=>o[0].includes("selected"))||options[0])[1];
+    e.options=options.map(o=>({value:o[1]}));
   }
   elements.set(e.id,e);
 }
@@ -43,6 +45,7 @@ class WorkerStub{
   addEventListener(type,callback){this.listeners[type]=callback;}
   terminate(){}
   postMessage(request){
+    if(["cancel","pause","resume"].includes(request.type))return;
     if(this.url.includes("mesh-worker")) {this.onmessage({data:{mesh:parse(request.buffer,request.name)}});return;}
     if(request.type==="trace") {this.listeners.message({data:{type:"lines",key:request.key,traceKey:request.trace.key,lines:trace(this.field,this.config,request.trace.count,request.trace.layer)}});return;}
     this.config=request.config;this.field=solve(request.config);
@@ -81,5 +84,24 @@ elements.get("meshCFD").checked=true;elements.get("meshCFD").fire("change");tick
 assert(elements.get("modelStatus").textContent.includes("замкнутая"));
 elements.get("removeModel").fire("click");assert(elements.get("meshCFD").disabled);
 elements.get("exportReport").fire("click");
-elements.get("resetSimulation").fire("click");tick();assert.equal(elements.get("streamlineCount").value,"144");
+elements.get("resetSimulation").fire("click");tick();assert.equal(elements.get("streamlineCount").value,"216");
+elements.get("dronePreset").value="custom";elements.get("dronePreset").fire("change");tick();
+assert(!elements.get("builderPanel").hidden && elements.get("frameSize").disabled);
+elements.get("bodyHeight").value="180";elements.get("bodyHeight").fire("input");tick();
+assert(elements.get("bodyHeightValue").textContent.includes("180"));
+elements.get("exportDesign").fire("click");elements.get("saveDesign").fire("click");
+for(const callback of timers.splice(0))callback?.();tick();tick();
+assert(elements.get("cfdStatus").textContent.includes("мс"));
+assert(!elements.get("continueCFD").disabled);elements.get("continueCFD").fire("click");tick();
+elements.get("probeX").fire("input");assert(elements.get("probeReading").textContent.includes("м"));
+const parameters=Object.fromEntries([...elements].filter(([id,e])=>e.tag==="input"&&e.attributes?.min!==undefined).map(([id,e])=>[id,Number(e.value)]));
+for(const id of ["rotors","dronePreset","pressureMode","icing","flowObstacle","bodyShape","rotorLayout"])parameters[id]=id==="rotors"?4:elements.get(id).value;
+parameters.bodyHeight=110;
+elements.get("loadDesign").files=[{size:2000,text:async()=>JSON.stringify({format:"drone-weather-lab-design",version:1,parameters})}];
+await elements.get("loadDesign").listeners.change[0]({target:elements.get("loadDesign")});
+assert.equal(elements.get("bodyHeight").value,"110",elements.get("designStatus").textContent);
+parameters.bodyHeight=-100;
+await elements.get("loadDesign").listeners.change[0]({target:elements.get("loadDesign")});
+assert.equal(elements.get("bodyHeight").value,"110");assert(elements.get("designStatus").textContent.includes("диапазона"));
+console.log("v0.6 UI: generator, STL export, valid/invalid JSON import, continuation and probe passed.");
 console.log("UI integration passed: initialization, flight, graph, CFD worker messages, weather, coefficients, JSON export and reset. Visual appearance not tested.");
