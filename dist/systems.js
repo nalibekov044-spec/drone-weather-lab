@@ -1,36 +1,33 @@
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
+// Educational model without motor-specific thermal calibration.
+export function thermalAvailability(temperature) {
+  return clamp(1 - Math.max(0, temperature - 95) / 150, 0.25, 1);
+}
+
 export function stepMotorThermals(system, parameters, result, windNow, dt) {
-  const count = result.effectiveRpms.length;
-  const averageRpm = result.effectiveRpms.reduce((sum, rpm) => sum + rpm, 0) / Math.max(1, count);
-  const cooling = 1 + windNow * 0.055 + parameters.rainRate * 0.006;
-  const temperatures = Array.from({ length: count }, (_, index) => system.temperatures[index] ?? Math.max(parameters.temperature, 20));
-  const healths = Array.from({ length: count }, (_, index) => system.healths[index] ?? 1);
-  const fires = Array.from({ length: count }, (_, index) => system.fires[index] ?? 0);
-  const loads = [];
-
-  const nextTemperatures = temperatures.map((temperature, index) => {
-    const rpmBias = averageRpm > 1 ? (result.effectiveRpms[index] / averageRpm) ** 3 : 1;
-    const manufacturingTolerance = 1 + (index - (count - 1) / 2) * 0.018;
-    const electricalLoad = result.motorLoadPercents?.[index] ?? result.powerLoad * rpmBias;
-    const load = Math.max(0, electricalLoad * manufacturingTolerance);
-    loads[index] = load;
-    const target = Math.min(260, parameters.temperature + 20 + Math.max(0, load - 32) * 0.86 + fires[index] * 75);
-    const timeConstant = Math.max(2.8, (load > 100 ? 6 : 18) / cooling);
-    return Math.max(parameters.temperature, temperature + (target - temperature) * dt / timeConstant);
-  });
-
-  const nextHealths = healths.map((health, index) => {
-    const loadDamage = Math.max(0, loads[index] - 145) * dt / 12000;
-    const heatDamage = Math.max(0, nextTemperatures[index] - 102) * dt / 3200;
-    const fireDamage = fires[index] * dt * 0.024;
-    return clamp(health - loadDamage - heatDamage - fireDamage, 0, 1);
-  });
-
-  const nextFires = fires.map((fire, index) => {
-    const ignition = Math.max(0, nextTemperatures[index] - 148) / 42 + Math.max(0, loads[index] - 220) / 420;
-    return ignition > 0 ? clamp(fire + ignition * dt * 0.11, 0, 1) : clamp(fire - dt * 0.018, 0, 1);
-  });
-
-  return { temperatures: nextTemperatures, healths: nextHealths, fires: nextFires, loads };
+  const next = { temperatures: [], healths: [], fires: [], loads: [], exposure: [], ignition: [] };
+  const cooling = 1 + Math.max(0, windNow) * 0.035 + Math.max(0, parameters.rainRate) * 0.003;
+  for (let i = 0; i < result.effectiveRpms.length; i++) {
+    const health = system.healths[i] ?? 1;
+    const temperature = system.temperatures[i] ?? parameters.temperature;
+    const fire = system.fires[i] ?? 0;
+    const load = Math.max(0, result.motorLoadPercents?.[i] ?? result.powerLoad ?? 0);
+    const active = health > 0.02 && result.effectiveRpms[i] > 1;
+    const ratio = active ? clamp(load / 100, 0, 3) : 0;
+    // Exact exponential solution of dT/dt = (target - T)/tau.
+    const lossScale = clamp((100 - parameters.motorEfficiency) / 12, 0.3, 3);
+    const target = parameters.temperature + (12 * ratio + 34 * ratio * ratio) * lossScale / cooling + fire * 80;
+    const tau = 42 / cooling;
+    const temp = clamp(temperature + (target - temperature) * (1 - Math.exp(-dt / tau)), parameters.temperature, 320);
+    const exposure = Math.max(0, (system.exposure?.[i] || 0) + (ratio > 1 ? ratio * ratio - 1 : -0.6) * dt);
+    const stress = Math.max(0, exposure - 25) / 80000;
+    const heatDamage = Math.max(0, temp - 110) ** 2 / 500000;
+    const remaining = clamp(health - (stress + heatDamage + fire * 0.012) * dt, 0, 1);
+    const ignition = Math.max(0, (system.ignition?.[i] || 0) + (active && temp > 175 && ratio > 1.15 ? (temp - 175) / 35 : -1.5) * dt);
+    const nextFire = ignition > 12 && active ? clamp(fire + dt * 0.065, 0, 1) : Math.max(0, fire - dt * 0.04);
+    next.temperatures.push(temp); next.healths.push(remaining); next.fires.push(nextFire);
+    next.loads.push(load); next.exposure.push(exposure); next.ignition.push(ignition);
+  }
+  return next;
 }

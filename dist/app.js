@@ -9,7 +9,9 @@ import {
 } from "./physics.js";
 import { GraphRenderer } from "./renderers.js";
 import { DroneScene3D } from "./scene3d.js";
-import { stepMotorThermals } from "./systems.js";
+import { stepMotorThermals, thermalAvailability } from "./systems.js";
+import { unitSpec, parameterUnits, toDisplay, fromDisplay, graphKinds, shortcutAction } from "./units.js";
+import { installExactControls } from "./exact-controls.js";
 import { transformMesh } from "./mesh-import.js";
 import { builderDefaults, designGeometry, geometryFor, exportDesignSTL } from "./drone-builder.js";
 import { sampleField } from "./flow-lines.js";
@@ -46,6 +48,14 @@ const format = (value, digits = 1) => Number(value).toLocaleString("ru-RU", {
   minimumFractionDigits: digits,
   maximumFractionDigits: digits
 });
+let unitSystem = "metric";
+try { if (localStorage.getItem("drone-lab-units") === "imperial") unitSystem = "imperial"; } catch {}
+$("unitSystem").value = unitSystem;
+let exactControls;
+const quantity = (value, kind, digits = 1) => `${format(toDisplay(value, kind, unitSystem), digits)} ${unitSpec(kind, unitSystem).label}`;
+const visibleLoad = value => value > 500 ? ">500%" : `${format(value, 0)}%`;
+const effectiveMotorHealths = () => state.motorHealths.map((h, i) => h * thermalAvailability(state.motorTemps[i]));
+flightScene.quantity = airflowScene.quantity = quantity;
 
 const outputConfig = {
   ...Object.fromEntries(Object.keys(builderDefaults).filter(id => typeof builderDefaults[id] === "number").map(id => [id, v => id === "frameStretch" ? `${format(v, 2)}×` : `${Math.round(v)} мм`])),
@@ -85,7 +95,7 @@ const state = {
   motorRpms: [],
   motorTemps: [],
   motorHealths: [],
-  motorFire: []
+  motorFire: [], motorExposure: [], motorIgnition: []
   , windVector: null, accumulator: 0, lastRender: 0, lastMetrics: 0, renderMs: 0, model: null,
   autoFps: 60, lastPerformanceCheck: 0, lastGraphUpdate: 0
 };
@@ -124,7 +134,7 @@ function updateProbe() {
   if (!field || airflowScene.cfd.fieldKey !== airflowScene.cfd.desiredKey) { $("probeReading").textContent = "Дождись расчёта текущей конфигурации"; return; }
   const position = ["probeX", "probeY", "probeZ"].map(id => Number($(id).value));
   const sample = sampleField(position.map(v => v / field.stats.worldScale), field);
-  $("probeReading").textContent = `(${position.map(v => format(v, 2)).join("; ")}) м · ` + (sample ? `|u| ${format(sample.speed, 2)} м/с · p ${format(sample.pressure, 1)} Па · |∇×u| ${format(sample.vorticity, 1)} с⁻¹` : "Внутри твёрдого тела или за границей области");
+  $("probeReading").textContent = `(${position.map(v => format(toDisplay(v, "m", unitSystem), 2)).join("; ")}) ${unitSpec("m", unitSystem).label} · ` + (sample ? `|u| ${quantity(sample.speed, "speed", 2)} · p ${quantity(sample.pressure, "pressure")} · |∇×u| ${format(sample.vorticity, 1)} с⁻¹` : "Внутри твёрдого тела или за границей области");
 }
 
 airflowScene.onCFDStatus = info => {
@@ -136,10 +146,10 @@ airflowScene.onCFDStatus = info => {
     ui.reynoldsNumber.textContent = Math.round(info.stats.reynolds).toLocaleString("ru-RU");
     const s = info.stats;
     $("cfdDiagnostics").innerHTML = `<div class="diagnostic-grid">
-      <span>Невязка<strong>${format(s.residual * 100, 2)}%</strong><small>Относительное изменение скорости за 20 итераций. Цель &lt; 0,1%; ${s.converged ? "достигнута" : "не достигнута — поле ещё меняется"}.</small></span>
-      <span>Размер ячейки<strong>${format(s.spacingM * 1000, 1)} мм</strong><small>Детали меньше 2–3 ячеек не разрешаются надёжно.</small></span>
+      <span>Невязка<strong>${format(s.residual * 100, 2)}%</strong><small>Относительное изменение скорости за 20 итераций. Цель &lt; 0,1%; ${s.converged ? "достигнута" : "не достигнута, поле ещё меняется"}.</small></span>
+      <span>Размер ячейки<strong>${quantity(s.spacingM * 1000, "mm", 2)}</strong><small>Детали меньше двух или трёх ячеек не разрешаются надёжно.</small></span>
       <span>Re решателя<strong>${format(s.effectiveReynolds, 0)}</strong><small>С повышенной численной вязкостью. Не равен физическому Re ${format(s.reynolds, 0)}.</small></span>
-      <span>Сила дисков<strong>${format(s.appliedThrust, 1)} Н</strong><small>Интеграл источника импульса в воздухе, связан с вертикальной тягой.</small></span>
+      <span>Сила дисков<strong>${quantity(s.appliedThrust, "force")}</strong><small>Интеграл источника импульса в воздухе, связан с вертикальной тягой.</small></span>
       <span>∇·u, RMS<strong>${format(s.divergenceRms, 2)} с⁻¹</strong><small>Остаточная сжимаемость / дискретизация вдали от стенок; в идеале ноль.</small></span>
       <span>Итерации<strong>${s.iterations} · ${format(s.simulatedTime, 2)} с</strong><small>Численное время установления, не время полёта.</small></span>
     </div><p>${s.method}. Число Маха сетки: ${format(s.maxLatticeMach, 3)}; отклонение плотности до ${format(s.maxDensityDeviation * 100, 2)}%. ${s.maxLatticeMach > 0.2 ? "Высокая сжимаемость: результат требует осторожности." : ""} ${s.solidCells < 8 ? "Корпус плохо разрешён: увеличь сетку или размер модели." : ""} ${getParameters().dronePreset === "custom" && getParameters().armThickness < s.spacingM * 2000 ? "Лучи тоньше двух ячеек: их обтекание не разрешено." : ""} Сеточная сходимость и сравнение с экспериментом не выполнены. CFD использует средний ветер; ресурс моторов округлён до 10%. Давление относительно входа.</p>`;
@@ -172,19 +182,24 @@ function invalidateParameters() { parameterCache = null; state.graphDirty = true
 
 function motorRpms(parameters) {
   if (!$("individualMotors").checked) return Array.from({ length: parameters.rotors }, () => parameters.rpm);
-  return Array.from({ length: parameters.rotors }, (_, index) => Number($(`motorRpm${index}`)?.value || parameters.rpm));
+  return Array.from({ length: parameters.rotors }, (_, index) => {
+    const input = $(`motorRpm${index}`), value = Number(input?.value);
+    return input && input.value !== "" && Number.isFinite(value) && value >= 0 && value <= 28000 ? value : state.motorRpms[index] ?? parameters.rpm;
+  });
 }
 
 function ensureMotorState(parameters, reset = false) {
-  const ambient = Math.max(parameters.temperature, 20);
+  const ambient = parameters.temperature;
   state.motorTemps = Array.from({ length: parameters.rotors }, (_, index) => reset ? ambient : state.motorTemps[index] ?? ambient);
   state.motorHealths = Array.from({ length: parameters.rotors }, (_, index) => reset ? 1 : state.motorHealths[index] ?? 1);
   state.motorFire = Array.from({ length: parameters.rotors }, (_, index) => reset ? 0 : state.motorFire[index] ?? 0);
+  state.motorExposure = Array.from({ length: parameters.rotors }, (_, index) => reset ? 0 : state.motorExposure[index] ?? 0);
+  state.motorIgnition = Array.from({ length: parameters.rotors }, (_, index) => reset ? 0 : state.motorIgnition[index] ?? 0);
 }
 
 function updateOutput(id, value) {
   const output = $(`${id}Value`);
-  if (output && outputConfig[id]) output.textContent = outputConfig[id](value);
+  if (output && outputConfig[id]) output.textContent = parameterUnits[id] ? quantity(value, parameterUnits[id], ["dragArea", "batteryResistance"].includes(id) ? 3 : 2) : outputConfig[id](value);
 }
 
 function syncOutputs(parameters) {
@@ -200,10 +215,12 @@ function syncOutputs(parameters) {
   if (custom) {
     const g = designGeometry(parameters);
     updateOutput("frameSize", g.frameSize);
-    $("builderSummary").textContent = `Габарит рамы по осям: ${format(g.frameSize, 0)} мм · объём корпуса: ${format(g.bodyVolume * 1000, 2)} л · зазор винтов: ${format(g.clearance * 1000, 0)} мм.${g.clearance < 0 ? " ВНИМАНИЕ: винты пересекаются. Увеличь лучи или уменьши диаметр." : ""}`;
+    $("builderSummary").textContent = `Габарит рамы по осям: ${quantity(g.frameSize, "mm", 2)} · объём корпуса: ${quantity(g.bodyVolume * 1000, "volume", 3)} · зазор винтов: ${quantity(g.clearance * 1000, "mm", 2)}.${g.clearance < 0 ? " ВНИМАНИЕ: винты пересекаются. Увеличь лучи или уменьши диаметр." : ""}`;
   }
   $("streamlineCountValue").textContent = $("streamlineCount").value;
   $("airflowZoomValue").textContent = `${format($("airflowZoom").value, 1)}×`;
+  exactControls?.refresh();
+  if (parameters.pressureMode === "auto" && $("pressureHpaExact")) $("pressureHpaExact").value = String(Number(toDisplay(parameters.pressureHpa, "hpa", unitSystem).toPrecision(12)));
 }
 
 function setStatus(parameters, result, peakWind) {
@@ -243,46 +260,47 @@ function setStatus(parameters, result, peakWind) {
 
 function updateMetrics(parameters, result) {
   const peakWind = parameters.windSpeed * (1 + parameters.gusts / 100);
-  const peakResult = calculate(parameters, { windSpeed: peakWind, motorRpms: state.motorRpms, motorHealths: state.motorHealths });
+  const peakResult = calculate(parameters, { windSpeed: peakWind, motorRpms: state.motorRpms, motorHealths: effectiveMotorHealths() });
   ui.thrustReserve.textContent = `${format(peakResult.reserve, 0)}%`;
   ui.thrustRatio.textContent = `${format(result.thrustToWeight, 2)} : 1 тяга/вес`;
   ui.tiltAngle.textContent = `${format(result.tilt, 1)}°`;
   ui.flightTime.textContent = peakResult.feasible ? `${format(peakResult.flightMinutes, 1)} мин` : "—";
   ui.powerDraw.textContent = peakResult.feasible ? `${format(peakResult.electricalPower, 0)} Вт` : "режим полёта невозможен";
   ui.batteryCurrent.textContent = `${format(peakResult.current, 1)} А`;
-  ui.batteryLoad.textContent = `команда ${format(peakResult.commandPowerLoad, 0)}% · полёт ${format(peakResult.requiredPowerLoad, 0)}%`;
-  ui.maxWind.textContent = `${format(result.maxWind, 1)} м/с`;
-  ui.airDensity.textContent = `${format(result.density, 3)} кг/м³`;
-  ui.peakWind.textContent = `${format(peakWind, 1)} м/с`;
+  ui.batteryLoad.textContent = `команда ${visibleLoad(peakResult.commandPowerLoad)} · полёт ${visibleLoad(peakResult.requiredPowerLoad)}`;
+  ui.maxWind.textContent = quantity(result.maxWind, "speed");
+  ui.airDensity.textContent = quantity(result.density, "density", unitSystem === "imperial" ? 5 : 3);
+  ui.peakWind.textContent = quantity(peakWind, "speed");
   ui.motorBalance.textContent = `${format(result.balancePercent, 0)}%`;
   const averageEffectiveRpm = result.effectiveRpms.reduce((sum, value) => sum + value, 0) / Math.max(1, result.effectiveRpms.length);
   ui.effectiveRpm.textContent = `${Math.round(averageEffectiveRpm).toLocaleString("ru-RU")} · предел ${Math.round(result.rpmPowerLimit).toLocaleString("ru-RU")}`;
   const hottestMotor = Math.max(...state.motorTemps);
   const weakestMotor = Math.min(...state.motorHealths);
   const hottestLoad = Math.max(...result.motorLoadPercents);
-  ui.motorThermal.textContent = `${format(hottestMotor, 0)} °C · ресурс ${format(weakestMotor * 100, 0)}% · нагрузка ${format(hottestLoad, 0)}%`;
+  ui.motorThermal.textContent = `${quantity(hottestMotor, "temperature", 0)} · ресурс ${format(weakestMotor * 100, 0)}% · нагрузка ${visibleLoad(hottestLoad)}`;
   ui.motorThermal.classList.toggle("danger-text", hottestMotor > 120 || weakestMotor < 0.5);
   ui.motorThermal.classList.toggle("warning-text", hottestMotor > 85 && hottestMotor <= 120);
-  ui.displacement.textContent = `${format(Math.hypot(state.x, state.y, state.z), 2)} м`;
+  ui.displacement.textContent = quantity(Math.hypot(state.x, state.y, state.z), "m", 2);
   document.querySelectorAll(".motor-condition").forEach((element, index) => {
     const temperature = state.motorTemps[index] ?? parameters.temperature;
     const health = state.motorHealths[index] ?? 1;
     const load = result.motorLoadPercents[index] ?? 0;
-    element.textContent = `${format(temperature, 0)}° · ${format(health * 100, 0)}% · ${format(load, 0)}%`;
+    element.textContent = `${quantity(temperature, "temperature", 0)} · ${format(health * 100, 0)}% · ${visibleLoad(load)}`;
     element.classList.toggle("danger-text", temperature > 120 || health < 0.5 || load > 140);
     element.classList.toggle("warning-text", !element.classList.contains("danger-text") && (temperature > 85 || load > 100));
   });
-  ui.flowSpeed.textContent = `${format(parameters.windSpeed, 1)} м/с`;
+  ui.flowSpeed.textContent = quantity(parameters.windSpeed, "speed");
   ui.flowDensity.textContent = `${$("streamlineCount").value} линий`;
-  ui.downwashSpeed.textContent = `${format(result.downwashSpeed, 1)} м/с`;
+  ui.downwashSpeed.textContent = quantity(result.downwashSpeed, "speed");
+  updateMotorCards(parameters, result);
   const engineering = [
-    ["Давление ветра", `${format(result.dynamicPressure, 1)} Па`, "q = ½ρV². Удвоение скорости даёт четырёхкратное давление."],
-    ["Нагрузка на диск", `${format(result.diskLoading, 1)} Н/м²`, "Вес / суммарная площадь дисков. Меньше — ниже идеальные затраты на зависание."],
+    ["Давление ветра", quantity(result.dynamicPressure, "pressure"), "q = ½ρV². Удвоение скорости даёт четырёхкратное давление."],
+    ["Нагрузка на диск", quantity(result.diskLoading, "pressure"), "Вес / суммарная площадь дисков. Меньшая нагрузка снижает идеальные затраты на зависание."],
     ["Идеальная мощность", `${format(result.inducedPower, 0)} Вт`, "Нижняя оценка по теории импульса, без профильных и электрических потерь."],
-    ["Конец лопасти", `${format(result.tipMach, 2)} M`, "Мах — скорость относительно скорости звука. При M > 0,65 простая модель винта ненадёжна."],
+    ["Конец лопасти", `${format(result.tipMach, 2)} M`, "Число Маха показывает скорость относительно скорости звука. При M > 0,65 простая модель винта ненадёжна."],
     ["Батарея под нагрузкой", `${format(result.terminalVoltage, 1)} В`, `Просадка ${format(result.voltageSag, 1)} В; тепло I²R: ${format(result.batteryHeat, 0)} Вт. Оценка по постоянному сопротивлению.`],
-    ["Дальняя струя, идеал", `${format(result.farWakeSpeed, 1)} м/с`, "В штиле далеко под идеальным диском: ≈2vᵢ. Не измеренная скорость из CFD."],
-    ["Ветер сейчас", `${format(state.windNow, 1)} м/с`, "Порывы и плавный переход в динамике полёта. CFD рассчитывает среднее поле."],
+    ["Дальняя струя, идеал", quantity(result.farWakeSpeed, "speed"), "В штиле далеко под идеальным диском: ≈2vᵢ. Не измеренная скорость из CFD."],
+    ["Ветер сейчас", quantity(state.windNow, "speed"), "Порывы и плавный переход в динамике полёта. CFD рассчитывает среднее поле."],
     ["Отрисовка", `${format(state.renderMs, 1)} мс`, "Время последнего кадра, не гарантия FPS. Авто снижает частоту и разрешение при нагрузке."]
   ];
   $("engineeringMetrics").innerHTML = engineering.map(([label, value, help]) => `<span>${label}<strong>${value}</strong><small>${help}</small></span>`).join("");
@@ -296,9 +314,24 @@ function updateMetrics(parameters, result) {
   setStatus(parameters, peakResult, peakWind);
 }
 
-function resetDynamics() {
+function resetDynamics(repair = true) {
   Object.assign(state, { t: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, ix: 0, iy: 0, controlX: 0, controlY: 0, windNow: 0, windVector: null, accumulator: 0, trail: [] });
-  ensureMotorState(getParameters(), true);
+  ensureMotorState(getParameters(), repair);
+}
+
+function updateMotorCards(parameters, result) {
+  const container = $("motorCards");
+  if (container.children.length !== parameters.rotors) {
+    container.replaceChildren();
+    for (let i = 0; i < parameters.rotors; i++) { const card = document.createElement("article"); card.className = "motor-card"; container.append(card); }
+  }
+  Array.from(container.children).forEach((card, i) => {
+    const temp = state.motorTemps[i], health = state.motorHealths[i], availability = thermalAvailability(temp);
+    const failed = health < 0.18, burning = state.motorFire[i] > 0.06;
+    const label = burning ? "Огонь" : failed ? "Отказ" : temp > 125 ? "Перегрев" : availability < 1 ? "Снижение мощности" : result.motorLoadPercents[i] > 100 ? "Перегрузка" : "Норма";
+    card.className = `motor-card ${burning || failed ? "critical" : temp > 95 ? "warm" : ""}`;
+    card.innerHTML = `<header><strong>M${i + 1}</strong><span>${label}</span></header><div class="motor-temperature">${quantity(temp, "temperature", 0)}</div><div class="health-track"><i style="width:${health * 100}%"></i></div><small>Ресурс ${format(health * 100, 0)}% · нагрузка ${visibleLoad(result.motorLoadPercents[i])}</small><small>Тепловой лимит ${format(availability * 100, 0)}% · ${format(result.effectiveRpms[i], 0)} RPM</small>`;
+  });
 }
 
 function buildMotorGrid() {
@@ -322,10 +355,10 @@ function buildMotorGrid() {
     input.type = "number";
     input.min = "0";
     input.max = "28000";
-    input.step = "100";
+    input.step = "any";
     input.value = String(oldValues[index] ?? parameters.rpm);
     input.setAttribute("aria-label", `Обороты двигателя ${index + 1}`);
-    input.addEventListener("input", () => { state.motorRpms = motorRpms(getParameters()); state.graphDirty = true; });
+    input.addEventListener("input", () => { input.setCustomValidity(input.validity.rangeOverflow || input.validity.rangeUnderflow ? "Обороты от 0 до 28000." : ""); if (!input.checkValidity() || input.value === "") return; state.motorRpms = motorRpms(getParameters()); state.graphDirty = true; });
     label.append(input);
     const condition = document.createElement("span");
     condition.className = "motor-condition";
@@ -367,7 +400,7 @@ function simulate(dt, parameters) {
   const blend = 1 - Math.exp(-dt / parameters.windTransition);
   state.windVector = state.windVector.map((v, i) => v + (target[i] - v) * blend);
   const windNow = Math.hypot(...state.windVector), actualWindAngle = Math.atan2(state.windVector[1], state.windVector[0]);
-  const dynamicResult = calculate(parameters, { windSpeed: windNow, motorRpms: state.motorRpms, motorHealths: state.motorHealths });
+  const dynamicResult = calculate(parameters, { windSpeed: windNow, motorRpms: state.motorRpms, motorHealths: effectiveMotorHealths() });
   const windX = dynamicResult.windForce * Math.cos(actualWindAngle);
   const windY = dynamicResult.windForce * Math.sin(actualWindAngle);
   const response = Math.max(0.2, parameters.controlResponse);
@@ -404,25 +437,25 @@ function simulate(dt, parameters) {
   updateMotorThermals(dt, parameters, dynamicResult);
   state.t += dt;
   if (state.t % 0.075 < dt) {
-    state.trail.push({ x: state.x, y: state.y, z: state.z });
+    state.trail.push({ x: state.x, y: state.y, z: state.z, t: state.t });
     if (state.trail.length > 280) state.trail.shift();
   }
   return dynamicResult;
 }
 
 function updateMotorThermals(dt, parameters, result) {
-  const next = stepMotorThermals({ temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire }, parameters, result, state.windNow, dt);
+  const next = stepMotorThermals({ temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire, exposure: state.motorExposure, ignition: state.motorIgnition }, parameters, result, state.windNow, dt);
   state.motorTemps = next.temperatures;
   state.motorHealths = next.healths;
   state.motorFire = next.fires;
+  state.motorExposure = next.exposure; state.motorIgnition = next.ignition;
 }
 
 function graphRangeFor(variableName) {
   const definition = graphVariables[variableName];
-  $("graphFrom").value = String(definition.min);
-  $("graphTo").value = String(definition.max);
-  $("graphFrom").step = String(definition.step);
-  $("graphTo").step = String(definition.step);
+  $("graphFrom").value = String(toDisplay(definition.min, parameterUnits[variableName], unitSystem));
+  $("graphTo").value = String(toDisplay(definition.max, parameterUnits[variableName], unitSystem));
+  $("graphFrom").step = $("graphTo").step = "any";
 }
 
 function renderGraph(parameters) {
@@ -430,12 +463,14 @@ function renderGraph(parameters) {
   const metricName = $("graphMetric").value;
   const variable = graphVariables[variableName];
   const metric = graphMetrics[metricName];
-  let from = Number($("graphFrom").value);
-  let to = Number($("graphTo").value);
+  let from = fromDisplay(Number($("graphFrom").value), parameterUnits[variableName], unitSystem);
+  let to = fromDisplay(Number($("graphTo").value), parameterUnits[variableName], unitSystem);
   if (!Number.isFinite(from) || !Number.isFinite(to) || from === to) { from = variable.min; to = variable.max; }
   if (from > to) [from, to] = [to, from];
-  const points = graphSeries(parameters, variableName, metricName, from, to, 100, { motorRpms: state.motorRpms, motorHealths: state.motorHealths });
-  if (points.length) graphRenderer.draw(points, variable, metric, parameters[variableName], format);
+  const points = graphSeries(parameters, variableName, metricName, from, to, 100, { motorRpms: state.motorRpms, motorHealths: effectiveMotorHealths() });
+  const xKind = parameterUnits[variableName], yKind = graphKinds[metricName];
+  const displayPoints = points.map(p => ({ ...p, x: toDisplay(p.x, xKind, unitSystem), y: toDisplay(p.y, yKind, unitSystem) }));
+  if (points.length) graphRenderer.draw(displayPoints, { ...variable, unit: xKind ? unitSpec(xKind, unitSystem).label : variable.unit }, { ...metric, unit: yKind ? unitSpec(yKind, unitSystem).label : metric.unit }, toDisplay(parameters[variableName], xKind, unitSystem), format);
   $("graphFormula").textContent = metric.formula;
 }
 
@@ -523,7 +558,8 @@ graphCanvas.addEventListener("pointermove", event => {
   if (!nearest) { graphTooltip.hidden = true; return; }
   const variable = graphVariables[$("graphVariable").value];
   const metric = graphMetrics[$("graphMetric").value];
-  graphTooltip.innerHTML = `${variable.label}: <strong>${format(nearest.point.x, 1)} ${variable.unit}</strong><br>${metric.label}: <strong>${format(nearest.point.y, 2)} ${metric.unit}</strong>`;
+  const xKind = parameterUnits[$("graphVariable").value], yKind = graphKinds[$("graphMetric").value];
+  graphTooltip.innerHTML = `${variable.label}: <strong>${format(nearest.point.x, 1)} ${xKind ? unitSpec(xKind, unitSystem).label : variable.unit}</strong><br>${metric.label}: <strong>${format(nearest.point.y, 2)} ${yKind ? unitSpec(yKind, unitSystem).label : metric.unit}</strong>`;
   const rect = graphCanvas.getBoundingClientRect();
   graphTooltip.style.left = `${Math.min(rect.width - 160, Math.max(8, nearest.x + 12))}px`;
   graphTooltip.style.top = `${Math.max(8, nearest.y - 54)}px`;
@@ -596,15 +632,15 @@ document.querySelectorAll("[data-weather]").forEach(button => button.addEventLis
 
 $("exportReport").addEventListener("click", () => {
   const parameters = getParameters();
-  const result = calculate(parameters, { motorRpms: state.motorRpms, motorHealths: state.motorHealths });
+  const result = calculate(parameters, { motorRpms: state.motorRpms, motorHealths: effectiveMotorHealths() });
   airflowScene.ensureCFD(parameters, meanFlowResult(parameters), cfdSettings());
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd.status === "ready";
-  const report = { version: "0.6.0", generatedAt: new Date().toISOString(), parameters, result, motors: { temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire },
+  const report = { version: "0.7.0", generatedAt: new Date().toISOString(), displayUnits: unitSystem, parameters, result, motors: { temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire, exposure: state.motorExposure, ignition: state.motorIgnition },
     importedMesh: state.model ? { name: state.model.name, triangles: state.model.triangleCount, closed: state.model.closed, spanMm: Number($("modelSpan").value), upAxis: $("modelUp").value, yaw: Number($("modelYaw").value), usedInCFD: Boolean(airflowScene.meshCFD) } : null,
     cfd: matchingCFD ? { configuration: JSON.parse(airflowScene.cfd.fieldKey), stats: airflowScene.cfd.field.stats } : { status: "not-current-or-not-calculated" },
     limitations: ["TRT/BGK D3Q19 actuator-disk approximation; no experiment or grid-convergence validation.", "CFD mean wind, motor health rounded to 10%; flight dynamics include smoothed gusts.", "Physical and effective solver Reynolds numbers differ.", "Mass and drag coefficient entered manually; imported mesh only changes CFD geometry when enabled."] };
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
-  const anchor = document.createElement("a"); anchor.href = url; anchor.download = "drone-weather-lab-v0.6-report.json"; anchor.click();
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = "drone-weather-lab-v0.7-report.json"; anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
@@ -655,26 +691,26 @@ const parameterHelp = {
   flowRate: "Меняет только скорость просмотра частиц. Их путь и локальная скорость берутся из численного поля. Не меняет ветер и результат расчёта.",
   armLength: "Расстояние от центра дрона до оси мотора до растяжения рамы. Изменяет реальное плечо тяги и положение дисков в CFD.",
   frameStretch: "Удлиняет расположение моторов по оси Z, вдоль корпуса. Масса и лобовая площадь автоматически не пересчитываются.",
-  pitch: "Шаг — теоретическое продвижение винта за оборот в твёрдой среде. Это не высота лопасти; влияет на оценочные Cₜ и Cₚ.",
+  pitch: "Шаг показывает теоретическое продвижение винта за оборот в твёрдой среде. Это не высота лопасти; влияет на оценочные Cₜ и Cₚ.",
   dragArea: "Площадь поперёк ветра. Влияет на силу F = ½ρC𝒹AV². Не равна общей площади поверхности или площади дисков винтов.",
   dragCoefficient: "C𝒹 описывает форму и сопротивление. Не извлекается автоматически из модели; для точности нужен эксперимент или проверенный CFD.",
   propEfficiency: "Поправка состояния винтов: повреждение, дождь и лёд снижают тягу и увеличивают потребляемую мощность. Это эмпирическая модель.",
   ct: "Безразмерный коэффициент: T = Cₜρn²D⁴, n в оборотах/с, D в метрах. Бери из стендовых данных своего винта; для чистого винта выставь состояние 100%.",
   cp: "Безразмерный коэффициент мощности на валу: P = Cₚρn³D⁵. Не путай с электрической мощностью и коэффициентом момента Cq.",
-  rpm: "Команда задаёт доступную тягу. Удержание точки предполагает снижение оборотов до требуемых. Перегрузка команды используется как отдельный стресс-тест моторов; дым и огонь — условная модель, не прогноз реального отказа.",
+  rpm: "Команда задаёт доступную тягу. Удержание точки предполагает снижение оборотов до требуемых. Перегрузка команды используется как отдельный стресс-тест моторов. Дым и огонь условные, они не предсказывают реальный отказ.",
   motorMaxPower: "Допустимая электрическая мощность одного мотора с ESC. Мощность на валу ниже из-за КПД. Лимит зависит от ресурса мотора.",
   motorEfficiency: "КПД преобразования электрической мощности в механическую. Остаток нагревает мотор и регулятор ESC.",
   windTransition: "Постоянная времени плавного перехода: через это время пройдено примерно 63% изменения скорости. Влияет на полёт, не на стационарный CFD.",
-  gustFrequency: "Гц — число колебаний в секунду. 0,5 Гц означает характерный период около 2 секунд.",
+  gustFrequency: "В герцах измеряется число колебаний в секунду. 0,5 Гц означает характерный период около 2 секунд.",
   turbulence: "Условная интенсивность нерегулярных порывов в полёте. Это не полноценная модель LES/RANS в CFD.",
-  verticalWind: "Плюс — поток вверх, минус — вниз. Вертикальная аэродинамическая сила оценивается отдельно. Вихревое кольцо роторов не моделируется.",
-  pressureMode: "Автоматически — стандартная барометрическая атмосфера по высоте. Вручную — введённое атмосферное давление для расчёта плотности.",
+  verticalWind: "Положительное значение задаёт поток вверх, отрицательное вниз. Вертикальная аэродинамическая сила оценивается отдельно. Вихревое кольцо роторов не моделируется.",
+  pressureMode: "Автоматический режим берёт давление из стандартной барометрической атмосферы по высоте. Ручной режим использует указанное тобой давление для расчёта плотности.",
   icing: "Лёд ухудшает тягу и увеличивает сопротивление. Скорость накопления льда и точная форма льда не рассчитываются.",
   batteryResistance: "Сопротивление всего пакета, включая соединения. Даёт просадку U = U₀ − IR и тепловые потери I²R. Меняется с температурой и зарядом; здесь задано постоянным.",
   batteryCRating: "C × ёмкость в А·ч = допустимый ток в А. Например, 10 А·ч × 25 C = 250 А. Паспортные C-рейтинг и реальный длительный ток могут отличаться.",
-  controlResponse: "Меньше — быстрее условный PID-контроллер компенсирует снос. Реальная настройка автопилота сложнее этой модели.",
-  cfdQuality: "Больше кубических ячеек и итераций — больше деталей и вычислительная нагрузка. Даже максимальная сетка здесь не промышленная.",
-  flowColor: "Скорость в м/с; избыточное давление в Па; завихрение |∇×u| в с⁻¹. Цветовая шкала нормируется по текущему полю.",
+  controlResponse: "При меньшем значении условный PID-контроллер быстрее компенсирует снос. Реальная настройка автопилота сложнее этой модели.",
+  cfdQuality: "Больше кубических ячеек и итераций дают больше деталей, но увеличивают вычислительную нагрузку. Даже максимальная сетка здесь не промышленная.",
+  flowColor: "Скорость и избыточное давление отображаются в выбранных единицах, завихрение |∇×u| в с⁻¹. Цветовая шкала нормируется по текущему полю.",
   airflowLayer: "Меняет плоскость начальных точек. Дальше линии движутся по полному 3D-полю, поэтому могут выйти из выбранной плоскости.",
   renderQuality: "Авто снижает FPS и плотность пикселей при высокой стоимости кадра. Экономный ограничивает отрисовку 30 FPS; физика идёт фиксированным шагом 1/60 с. В скрытой вкладке симуляция приостанавливается.",
   frameSize: "Расстояние между противоположными моторами. Расположение центров дисков определяется этой рамой; импорт CAD не переносит центры моторов автоматически.",
@@ -713,7 +749,7 @@ function frame(now) {
     result = simulate(1 / 60, parameters); state.accumulator -= 1 / 60; substeps++;
   }
   if (substeps === 6) state.accumulator = 0;
-  result ||= calculate(parameters, { motorRpms: state.motorRpms, motorHealths: state.motorHealths });
+  result ||= calculate(parameters, { motorRpms: state.motorRpms, motorHealths: effectiveMotorHealths() });
   if (now - state.lastMetrics > 200) { updateMetrics(parameters, result); state.lastMetrics = now; }
   const pixelRatio = renderMode === "eco" || targetFps === 30 ? 1 : renderMode === "high" ? 2 : 1.5;
   flightScene.pixelRatio = airflowScene.pixelRatio = pixelRatio;
@@ -741,6 +777,30 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+exactControls = installExactControls([...document.querySelectorAll('input[type="range"]'), $("modelSpan")], () => unitSystem);
+$("unitSystem").addEventListener("change", () => {
+  const oldSystem = unitSystem, kind = parameterUnits[$("graphVariable").value];
+  const range = ["graphFrom", "graphTo"].map(id => fromDisplay(Number($(id).value), kind, oldSystem));
+  unitSystem = $("unitSystem").value;
+  try { localStorage.setItem("drone-lab-units", unitSystem); } catch {}
+  ["graphFrom", "graphTo"].forEach((id, i) => { $(id).value = String(toDisplay(range[i], kind, unitSystem)); });
+  exactControls.refresh(true); syncOutputs(getParameters()); updateProbe();
+  if (airflowScene.cfd.field?.stats) airflowScene.emitCFDStatus();
+  state.graphDirty = true; state.lastMetrics = 0;
+});
+$("showShortcuts").addEventListener("click", () => {
+  $("shortcutHelp").hidden = !$("shortcutHelp").hidden;
+  $("showShortcuts").setAttribute("aria-expanded", String(!$("shortcutHelp").hidden));
+});
+document.addEventListener("keydown", event => {
+  const action = shortcutAction(event); if (!action) return;
+  event.preventDefault();
+  if (action === "pause") $("toggleSimulation").click();
+  else if (action === "repair") $("repairMotors").click();
+  else if (action === "reset") resetDynamics(false);
+  else if (action === "help") $("showShortcuts").click();
+  else setActiveView(action);
+});
 graphRangeFor("windSpeed");
 buildMotorGrid();
 syncOutputs(getParameters());

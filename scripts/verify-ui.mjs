@@ -8,13 +8,21 @@ const html = fs.readFileSync(path.join(root, "dist/index.html"), "utf8");
 class Element {
   constructor(id = "", tag = "div") {
     this.id=id; this.tag=tag; this.value=""; this.checked=false; this.disabled=false; this.hidden=false; this.dataset={}; this.children=[]; this.listeners={}; this.style={}; this.width=800; this.height=520;
-    this.classList={ add(){},remove(){},toggle(){} };
+    this.classList={ add(){},remove(){},toggle(){},contains(){return false;} };
+    this.type=""; this.tagName=tag.toUpperCase(); this.validationMessage="";
   }
   addEventListener(type,callback){ (this.listeners[type] ||= []).push(callback); }
   fire(type,event={}){ for(const f of this.listeners[type]||[]) f({target:this,...event}); }
-  append(...children){ this.children.push(...children); }
+  append(...children){ this.children.push(...children); children.forEach(c=>{c.parent=this;if(c.id)elements.set(c.id,c);}); }
   replaceChildren(){ this.children=[]; }
-  setAttribute(){} getAttribute(name){return this.attributes?.[name] ?? null;} closest(){return new Element();}
+  setAttribute(name,value){(this.attributes ||= {})[name]=value;} getAttribute(name){return this.attributes?.[name] ?? null;}
+  closest(selector){return selector==="label" ? (this.parent || new Element()) : /input|textarea|select|button/.test(this.tag) ? this : null;}
+  dispatchEvent(event){this.fire(event.type,event);}
+  setCustomValidity(message){this.validationMessage=message;}
+  checkValidity(){return !this.validationMessage;}
+  reportValidity(){return this.checkValidity();}
+  blur(){document.activeElement=null;}
+  get validity(){return {rangeOverflow:Number(this.value)>Number(this.max||Infinity),rangeUnderflow:Number(this.value)<Number(this.min||0)};}
   querySelectorAll(type){return this.children.flatMap(n=>[...(n.tag===type?[n]:[]),...n.querySelectorAll(type)]);}
   getBoundingClientRect(){return {width:800,height:520,left:0,top:0};}
   setPointerCapture(){} hasPointerCapture(){return false;}
@@ -28,6 +36,7 @@ for(const m of html.matchAll(/<(\w+)[^>]*\bid="([^"]+)"[^>]*>/g)){
   e.value=m[0].match(/\bvalue="([^"]*)"/)?.[1]||"";
   e.checked=/\bchecked\b/.test(m[0]); e.disabled=/\bdisabled\b/.test(m[0]);
   e.hidden=/\bhidden\b/.test(m[0]); e.attributes=Object.fromEntries([...m[0].matchAll(/(min|max)="([^"]*)"/g)].map(a=>[a[1],a[2]]));
+  e.type=m[0].match(/\btype="([^"]*)"/)?.[1]||"";
   if(m[1]==="select"){
     const content=html.slice(m.index).split("</select>")[0];
     const options=[...content.matchAll(/<option[^>]*value="([^"]+)"[^>]*>/g)];
@@ -52,9 +61,11 @@ class WorkerStub{
     this.listeners.message({data:{type:"result",key:request.key,field:this.field}});
   }
 }
-const document={ getElementById:id=>elements.get(id)||null, documentElement:new Element(), hidden:false,
-  createElement:tag=>new Element("",tag), addEventListener(){}, querySelectorAll:selector=>selector===".mode-tab"?tabs:selector===".view-panel"?panels:selector==="[data-weather]"?weather:[] };
-const context=vm.createContext({document,window:{devicePixelRatio:1,addEventListener(){}},performance,console,URL,Blob,TextDecoder,TextEncoder,Worker:WorkerStub,requestAnimationFrame:callback=>{raf=callback;},setTimeout:callback=>{timers.push(callback);return timers.length;},clearTimeout:id=>{timers[id-1]=null;},getComputedStyle:()=>({getPropertyValue:()=>"#75f3c8"})});
+const documentListeners={};
+const document={ getElementById:id=>elements.get(id)||null, documentElement:new Element(), hidden:false, activeElement:null,
+  createElement:tag=>new Element("",tag), addEventListener(type,fn){(documentListeners[type] ||= []).push(fn);}, querySelectorAll:selector=>selector===".mode-tab"?tabs:selector===".view-panel"?panels:selector==="[data-weather]"?weather:selector==='input[type="range"]'?[...elements.values()].filter(e=>e.type==="range"):[] };
+const preferences=new Map();
+const context=vm.createContext({document,localStorage:{getItem:key=>preferences.get(key),setItem:(key,value)=>preferences.set(key,value)},Event:class{constructor(type){this.type=type;}},window:{devicePixelRatio:1,addEventListener(){}},performance,console,URL,Blob,TextDecoder,TextEncoder,Worker:WorkerStub,requestAnimationFrame:callback=>{raf=callback;},setTimeout:callback=>{timers.push(callback);return timers.length;},clearTimeout:id=>{timers[id-1]=null;},getComputedStyle:()=>({getPropertyValue:()=>"#75f3c8"})});
 const modules=new Map();
 async function load(filename){
   const absolute=path.resolve(root,filename);if(modules.has(absolute))return modules.get(absolute);
@@ -104,4 +115,30 @@ parameters.bodyHeight=-100;
 await elements.get("loadDesign").listeners.change[0]({target:elements.get("loadDesign")});
 assert.equal(elements.get("bodyHeight").value,"110");assert(elements.get("designStatus").textContent.includes("диапазона"));
 console.log("v0.6 UI: generator, STL export, valid/invalid JSON import, continuation and probe passed.");
+// Exercise the same exact input and unit event paths used by the real UI.
+tabs[0].fire("click");
+const exact = elements.get("massExact"); document.activeElement=exact;
+exact.value="1,2375"; exact.fire("input"); assert.equal(elements.get("mass").value,"1.2375");
+exact.value="999"; exact.fire("input"); assert(exact.validationMessage); assert.equal(elements.get("mass").value,"1.2375");
+exact.value="1.2375"; exact.fire("input"); assert.equal(exact.validationMessage,"");
+exact.blur();
+elements.get("unitSystem").value="imperial"; elements.get("unitSystem").fire("change");
+assert.equal(elements.get("mass").value,"1.2375"); assert(Number(exact.value)>2.7);
+assert(elements.get("massValue").textContent.includes("lb"));
+assert.equal(preferences.get("drone-lab-units"),"imperial");
+document.activeElement=exact; exact.value="3"; exact.fire("input");
+assert(Math.abs(Number(elements.get("mass").value)-3/2.20462262185)<1e-9); exact.blur();
+const massBefore = elements.get("mass").value;
+elements.get("unitSystem").value="metric"; elements.get("unitSystem").fire("change");
+assert.equal(elements.get("mass").value,massBefore);
+const key = (key,target=new Element()) => documentListeners.keydown.forEach(fn=>fn({key,target,preventDefault(){}}));
+elements.get("windSpeed").value="12.345"; elements.get("windSpeed").fire("input");
+key("R"); assert.equal(elements.get("windSpeed").value,"12.345");
+const toggleBefore=elements.get("toggleSimulation").textContent;
+key(" ",elements.get("massExact")); assert.equal(elements.get("toggleSimulation").textContent,toggleBefore);
+key("F"); key("G"); tick(); assert(!elements.get("graphView").hidden);
+key("?"); assert(!elements.get("shortcutHelp").hidden);
+key("1"); for(let i=0;i<15;i++)tick(); assert.equal(elements.get("motorCards").children.length,4);
+assert(elements.get("motorCards").children[0].innerHTML.includes("Ресурс"));
+console.log("v0.7 UI: exact decimal edits, rejected range overflow, unit preference, canonical preservation, hotkeys and motor cards passed.");
 console.log("UI integration passed: initialization, flight, graph, CFD worker messages, weather, coefficients, JSON export and reset. Visual appearance not tested.");

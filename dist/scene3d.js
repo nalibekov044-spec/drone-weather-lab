@@ -319,11 +319,11 @@ export class DroneScene3D {
         faces.push(...boxFaces([rotor.x * 0.5, 0, rotor.y * 0.5], [0.72, 0.055, 0.075], angle, colors.surface, pose));
         faces.push(...cylinderFaces([rotor.x, 0.07, rotor.y], 0.095, 0.14, 10, motorColor, pose));
       }
-      lines.push({ points: circlePoints([rotor.x, 0, rotor.y], propRadius, rotor.diskY, 32, pose), color: propColor, width: parameters.icing === "none" ? 1.4 : 2.4, alpha: 0.82 });
+      lines.push({ points: circlePoints([rotor.x, 0, rotor.y], propRadius, rotor.diskY, 48, pose), color: propColor, width: parameters.icing === "none" ? 0.8 : 1.4, alpha: result.propOverlap ? 0.16 : 0.28 });
       const spin = time * Math.min(18, (result.effectiveRpms?.[index] || parameters.rpm) / 900) * (index % 2 ? -1 : 1);
       const bladeA = posePoint(add([rotor.x, 0, rotor.y], [Math.cos(spin) * propRadius, rotor.diskY + 0.005, Math.sin(spin) * propRadius]), pose);
       const bladeB = posePoint(add([rotor.x, 0, rotor.y], [-Math.cos(spin) * propRadius, rotor.diskY + 0.005, -Math.sin(spin) * propRadius]), pose);
-      lines.push({ points: [bladeA, bladeB], color: colors.text, width: 2, alpha: 0.75 });
+      lines.push({ points: [bladeA, bladeB], color: colors.text, width: 2, alpha: result.propOverlap ? 0.3 : 0.6 });
     });
 
     if (this.model) {
@@ -379,26 +379,26 @@ export class DroneScene3D {
       const projected = this.project(base, basis);
       if (!projected) return;
       const heat = clamp((temperature - 75) / 80, 0, 1);
-      const glow = ctx.createRadialGradient(projected.x, projected.y, 1, projected.x, projected.y, 24 + heat * 20);
-      glow.addColorStop(0, `rgba(255,93,45,${0.34 + heat * 0.3})`);
+      const glow = ctx.createRadialGradient(projected.x, projected.y, 1, projected.x, projected.y, 12 + heat * 12);
+      glow.addColorStop(0, `rgba(255,93,45,${0.12 + heat * 0.22})`);
       glow.addColorStop(1, "rgba(255,93,45,0)");
       ctx.fillStyle = glow;
-      ctx.beginPath(); ctx.arc(projected.x, projected.y, 25 + heat * 22, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(projected.x, projected.y, 12 + heat * 12, 0, TAU); ctx.fill();
 
-      if (temperature > 108 || fire > 0.03) {
-        for (let particle = 0; particle < 7; particle += 1) {
+      if (temperature > 145 || fire > 0.03) {
+        for (let particle = 0; particle < 4; particle += 1) {
           const age = (time * (0.22 + fire * 0.3) + particle * 0.137 + index * 0.071) % 1;
           const smokePoint = add(base, [Math.sin(particle * 4.1 + time) * 0.08 * age, 0.15 + age * (0.65 + fire * 0.5), Math.cos(particle * 3.2 + time * 0.7) * 0.08 * age]);
           const smoke = this.project(smokePoint, basis);
           if (!smoke) continue;
-          ctx.fillStyle = `rgba(90,102,98,${(1 - age) * (0.18 + heat * 0.34)})`;
-          ctx.beginPath(); ctx.arc(smoke.x, smoke.y, 3 + age * 10, 0, TAU); ctx.fill();
+          ctx.fillStyle = `rgba(130,145,140,${(1 - age) * (0.1 + heat * 0.15)})`;
+          ctx.beginPath(); ctx.arc(smoke.x, smoke.y, 2 + age * 7, 0, TAU); ctx.fill();
         }
       }
 
       if (fire > 0.06) {
         const pulse = 0.82 + Math.sin(time * 22 + index) * 0.18;
-        const flameHeight = 14 + fire * 24;
+        const flameHeight = 8 + fire * 18;
         ctx.fillStyle = `rgba(255,88,35,${clamp(fire, 0.35, 0.95)})`;
         ctx.beginPath();
         ctx.moveTo(projected.x - 7 * pulse, projected.y + 5);
@@ -472,27 +472,47 @@ export class DroneScene3D {
     this.drawPolyline(ctx, homeCircle, basis, colors.accent, 1.4, 0.8);
 
     if (state.trail.length > 1) {
-      const trail = state.trail.map(point => [clamp(point.x * driftScale, -2.6, 2.6), clamp(0.35 + (point.z || 0) * 0.12, -0.78, 1.85), clamp(point.y * driftScale, -2.6, 2.6)]);
-      this.drawPolyline(ctx, trail, basis, colors.accent, 2, 0.62);
+      const recent = state.trail.filter(point => state.t - (point.t ?? state.t) < 5).slice(-70);
+      for (let i = 1; i < recent.length; i++) {
+        const points = [recent[i - 1], recent[i]].map(point => [clamp(point.x * driftScale, -2.6, 2.6), clamp(0.35 + (point.z || 0) * 0.12, -0.78, 1.85), clamp(point.y * driftScale, -2.6, 2.6)]);
+        this.drawPolyline(ctx, points, basis, colors.accent, 1.4, i / recent.length * 0.4);
+      }
     }
 
     const windAngle = state.windVector ? Math.atan2(state.windVector[1], state.windVector[0]) : parameters.windDirection * Math.PI / 180;
     const windVector = [Math.cos(windAngle) * 1.2, 0, Math.sin(windAngle) * 1.2];
-    for (let row = -2; row <= 2; row += 1) {
-      if (state.windNow < 0.1) continue;
-      const phase = (state.t * Math.max(0.2, state.windNow) * 0.18 + row * 0.37) % 1;
-      const start = [-2.8 + phase * 4.8, 0.72 + row * 0.18, -1.4 + row * 0.65];
-      this.drawArrow3D(ctx, basis, start, mul(windVector, 0.32), colors.cyan, "");
-    }
-    this.drawArrow3D(ctx, basis, [-2.5, 1.5, -2.1], windVector, colors.cyan, `${format(state.windNow, 1)} m/s`);
+    this.drawFlightWind(ctx, basis, state, parameters, colors);
+    this.drawArrow3D(ctx, basis, [-2.5, 1.5, -2.1], windVector, colors.cyan, this.quantity?.(state.windNow, "speed") || `${format(state.windNow, 1)} м/с`);
     this.drawWeatherEffects(ctx, basis, parameters, state.t, colors);
     this.drawDrone(ctx, basis, parameters, result, pose, state.t, state);
 
     ctx.fillStyle = colors.muted;
     ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-    ctx.fillText("DRAG — ORBIT  •  WHEEL — ZOOM", 18, height - 18);
+    ctx.fillText("Мышь: вращение · Колесо: масштаб", 18, height - 18);
     ctx.fillStyle = colors.text;
-    ctx.fillText(`ALT ${format(state.z, 1)} m  |  TILT ${format(result.tilt, 1)}°`, 18, 24);
+    ctx.fillText(`Высота ${this.quantity?.(state.z, "m") || `${format(state.z, 1)} м`} · Наклон ${format(result.tilt, 1)}°`, 18, 24);
+  }
+
+  drawFlightWind(ctx, basis, state, parameters, colors) {
+    const vector = [state.windVector?.[0] ?? 0, parameters.verticalWind, state.windVector?.[1] ?? 0];
+    const speed = Math.hypot(...vector);
+    if (speed < 0.03) return;
+    if (!this.windParticles) this.windParticles = Array.from({ length: 240 }, (_, i) => ({ position: [((i * 0.6180339) % 1) * 6 - 3, ((i * 0.4142136) % 1) * 3 - 0.8, ((i * 0.7320508) % 1) * 6 - 3] }));
+    const dt = Math.max(0, Math.min(0.1, state.t - (this.windTime ?? state.t)));
+    this.windTime = state.t;
+    const direction = vector.map(v => v / speed);
+    const motion = Math.min(4, speed * 0.14), tailLength = Math.min(0.45, 0.08 + speed * 0.016);
+    const count = this.pixelRatio === 1 ? 140 : 240;
+    for (let i = 0; i < count; i++) {
+      const p = this.windParticles[i].position;
+      for (let axis = 0; axis < 3; axis++) {
+        const low = axis === 1 ? -0.8 : -3, span = axis === 1 ? 3 : 6;
+        p[axis] = low + ((p[axis] - low + direction[axis] * motion * dt) % span + span) % span;
+      }
+      const tail = p.map((v, axis) => v - direction[axis] * tailLength);
+      // Ambient wind display only. Surface streamlines live in the CFD view.
+      this.drawPolyline(ctx, [tail, p], basis, i % 4 ? colors.cyan : colors.accent, i % 3 ? 0.9 : 1.3, 0.13 + (i % 5) * 0.035);
+    }
   }
 
   emitCFDStatus() {
@@ -667,14 +687,14 @@ export class DroneScene3D {
       const sample = sampleField(point, this.cfd.field), screen = this.project(point, basis);
       if (sample && screen) {
         ctx.strokeStyle = colors.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(screen.x, screen.y, 6, 0, TAU); ctx.stroke();
-        ctx.fillStyle = colors.accent; ctx.font = "12px monospace"; ctx.fillText(`${sample.speed.toFixed(2)} m/s`, screen.x + 10, screen.y - 8);
+        ctx.fillStyle = colors.accent; ctx.font = "12px monospace"; ctx.fillText(this.quantity?.(sample.speed, "speed", 2) || `${sample.speed.toFixed(2)} м/с`, screen.x + 10, screen.y - 8);
       }
     }
     this.drawFlowParticles(ctx, time * (settings.flowRate || 0.35) / 0.35, colors);
     this.drawMotorHazards(ctx, basis, geometryFor(parameters).rotors, { position: [0, 0, 0] }, settings.systemState, time, colors);
 
     const windAngle = parameters.windDirection * Math.PI / 180;
-    this.drawArrow3D(ctx, basis, [-2.5, 1.65, -2], [Math.cos(windAngle) * 1.25, 0, Math.sin(windAngle) * 1.25], colors.cyan, `${format(parameters.windSpeed, 1)} m/s`);
+    this.drawArrow3D(ctx, basis, [-2.5, 1.65, -2], [Math.cos(windAngle) * 1.25, 0, Math.sin(windAngle) * 1.25], colors.cyan, this.quantity?.(parameters.windSpeed, "speed") || `${format(parameters.windSpeed, 1)} м/с`);
     ctx.fillStyle = colors.muted;
     ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
     ctx.fillText("DRAG — ORBIT  •  WHEEL — ZOOM", 18, height - 18);
