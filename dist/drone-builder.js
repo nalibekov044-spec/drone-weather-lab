@@ -79,8 +79,24 @@ export function exportDesignSTL(p){
   output.push("endsolid drone_weather_lab");return output.join("\n");
 }
 
-export function geometryFor(p){
-  if(p.dronePreset==="custom")return designGeometry(p);
-  const rotors=Array.from({length:p.rotors},(_,i)=>{const angle=i*2*Math.PI/p.rotors+(p.rotors===4?Math.PI/4:0);return {x:Math.cos(angle)*0.72,z:Math.sin(angle)*0.72,y:Math.sin(angle)*0.72,diskY:0.17,angle};});
-  return {rotors,worldScale:p.frameSize/1440,parts:null};
+export function geometryFor(p) {
+  if (p.dronePreset === "custom") return designGeometry(p);
+  const rotors = Array.from({ length: p.rotors }, (_, i) => {
+    const angle = i * 2 * Math.PI / p.rotors + (p.rotors === 4 ? Math.PI / 4 : 0);
+    return { x: Math.cos(angle) * 0.72, z: Math.sin(angle) * 0.72, y: Math.sin(angle) * 0.72, diskY: 0.17, angle };
+  });
+  const racing = p.dronePreset === "racing", cargo = p.dronePreset === "cargoOcto", hex = p.dronePreset === "industrialHex";
+  const parts = [{ kind: hex ? "cylinder" : racing ? "box" : "ellipsoid", center: [0, 0.03, 0], size: cargo ? [0.58, 0.24, 0.66] : racing ? [0.34, 0.12, 0.52] : [0.48, 0.24, 0.62], role: "body" }];
+  for (const r of rotors) {
+    parts.push({ kind: "box", center: [r.x * 0.55, 0, r.z * 0.55], size: [0.65, racing ? 0.036 : 0.06, racing ? 0.05 : 0.075], rotation: r.angle, role: "arm" });
+    parts.push({ kind: "cylinder", center: [r.x, 0.07, r.z], size: [0.13, 0.14, 0.13], role: "motor" });
+  }
+  parts.push({ kind: "box", center: [0, racing ? 0.14 : 0.2, 0.04], size: [0.2, 0.1, 0.34], role: "battery" });
+  parts.push({ kind: "cylinder", center: [0, -0.18, -0.22], size: [0.12, 0.14, 0.12], role: "camera" });
+  if (cargo) parts.push({ kind: "box", center: [0, -0.27, 0], size: [0.48, 0.32, 0.54], role: "payload" });
+  if (!racing) for (const x of [-0.28, 0.28]) {
+    for (const z of [-0.16, 0.2]) parts.push({ kind: "box", center: [x, -0.32, z], size: [0.035, 0.47, 0.035], role: "landing" });
+    parts.push({ kind: "box", center: [x, -0.55, 0.02], size: [0.05, 0.04, 0.56], role: "landing" });
+  }
+  return { rotors, worldScale: p.frameSize / 1440, parts };
 }

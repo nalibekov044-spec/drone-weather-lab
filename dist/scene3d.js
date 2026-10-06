@@ -1,3 +1,5 @@
+import { GPUScene } from "./gpu-scene.js";
+import { t } from "./i18n.js";
 import { rotorPositions } from "./physics.js";
 import { geometryFor, triangulateParts } from "./drone-builder.js";
 import { sampleField } from "./flow-lines.js";
@@ -152,10 +154,11 @@ export class DroneScene3D {
   constructor(canvas, mode = "flight") {
     this.canvas = canvas;
     this.mode = mode;
+    try { this.gpu = new GPUScene(canvas); } catch { this.gpu = null; }
     this.camera = {
       yaw: mode === "airflow" ? -0.82 : -0.72,
       pitch: mode === "airflow" ? 0.35 : 0.48,
-      distance: mode === "airflow" ? 6.7 : 5.8,
+      distance: mode === "airflow" ? 6.2 : 4.6,
       target: [0, 0, 0]
     };
     this.dragging = false;
@@ -241,6 +244,8 @@ export class DroneScene3D {
   }
 
   clear(ctx, width, height, colors) {
+    if (this.gpu?.lost) { this.gpu.canvas.hidden = true; this.gpu = null; }
+    if (this.gpu && !this.gpu.lost) { ctx.clearRect(0, 0, width, height); return; }
     const gradient = ctx.createRadialGradient(width * 0.55, height * 0.35, 20, width * 0.55, height * 0.45, Math.max(width, height) * 0.75);
     gradient.addColorStop(0, "#10251f");
     gradient.addColorStop(1, colors.bg);
@@ -264,6 +269,7 @@ export class DroneScene3D {
   }
 
   drawGrid(ctx, basis, colors, y = -0.82, extent = 3.6, step = 0.5) {
+    if (this.gpu) return;
     for (let value = -extent; value <= extent + 0.001; value += step) {
       const major = Math.abs(value % 1) < 0.01;
       this.drawPolyline(ctx, [[-extent, y, value], [extent, y, value]], basis, major ? colors.lineBright : colors.line, major ? 1.1 : 0.7, major ? 0.54 : 0.34);
@@ -320,7 +326,7 @@ export class DroneScene3D {
         faces.push(...cylinderFaces([rotor.x, 0.07, rotor.y], 0.095, 0.14, 10, motorColor, pose));
       }
       lines.push({ points: circlePoints([rotor.x, 0, rotor.y], propRadius, rotor.diskY, 48, pose), color: propColor, width: parameters.icing === "none" ? 0.8 : 1.4, alpha: result.propOverlap ? 0.16 : 0.28 });
-      const spin = time * Math.min(18, (result.effectiveRpms?.[index] || parameters.rpm) / 900) * (index % 2 ? -1 : 1);
+      const spin = time * Math.min(18, (result.effectiveRpms?.[index] ?? parameters.rpm) / 900) * (index % 2 ? -1 : 1);
       const bladeA = posePoint(add([rotor.x, 0, rotor.y], [Math.cos(spin) * propRadius, rotor.diskY + 0.005, Math.sin(spin) * propRadius]), pose);
       const bladeB = posePoint(add([rotor.x, 0, rotor.y], [-Math.cos(spin) * propRadius, rotor.diskY + 0.005, -Math.sin(spin) * propRadius]), pose);
       lines.push({ points: [bladeA, bladeB], color: colors.text, width: 2, alpha: result.propOverlap ? 0.3 : 0.6 });
@@ -335,7 +341,7 @@ export class DroneScene3D {
     } else if (design.parts) {
       const key = JSON.stringify(design.parts);
       if (key !== this.builderKey) { this.builderKey=key; this.builderFaces=triangulateParts(design.parts); }
-      faces.push(...this.builderFaces.map(face=>({points:face.points.map(p=>posePoint(p,pose)),color:face.role==="motor"?colors.accent:face.role==="body"?"#335b64":colors.surface,outline:false})));
+      faces.push(...this.builderFaces.map(face=>({points:face.points.map(p=>posePoint(p,pose)),color:({motor:"#49d8ba",body:"#6a7d8e",battery:"#222a35",camera:"#4c7698",landing:"#b3c0cb",payload:"#ca9455"})[face.role]||colors.surface,outline:false})));
     } else if (parameters.dronePreset === "racing") {
       faces.push(...boxFaces([0, 0.03, 0], [0.42, 0.18, 0.58], 0, colors.surface, pose));
       faces.push(...boxFaces([0, 0.12, -0.08], [0.28, 0.08, 0.3], 0, colors.danger, pose));
@@ -363,6 +369,7 @@ export class DroneScene3D {
   }
 
   drawDrone(ctx, basis, parameters, result, pose, time, systemState) {
+    if (this.gpu) { this.gpu.model(parameters, this, pose, result, time); if (systemState) this.drawMotorHazards(ctx, basis, geometryFor(parameters).rotors, pose, systemState, time, this.colors); return; }
     const geometry = this.droneGeometry(parameters, result, pose, time, systemState);
     const colors = this.colors;
     this.drawFaces(ctx, geometry.faces, basis, colors);
@@ -443,7 +450,7 @@ export class DroneScene3D {
     ctx.closePath(); ctx.fill();
     if (label) {
       ctx.font = "500 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-      ctx.fillText(label, end2d.x + 8, end2d.y - 8);
+      ctx.fillText(t(label), end2d.x + 8, end2d.y - 8);
     }
   }
 
@@ -453,6 +460,7 @@ export class DroneScene3D {
     this.sliderZoom = 1;
     const basis = this.cameraBasis(width, height);
     this.clear(ctx, width, height, colors);
+    if (this.gpu) this.gpu.begin(basis, width, height, this.pixelRatio || 1.5);
     this.drawGrid(ctx, basis, colors);
     const driftScale = 0.17;
     const dronePosition = [clamp(state.x * driftScale, -2.3, 2.3), clamp(0.35 + state.z * 0.12, -0.72, 1.75), clamp(state.y * driftScale, -2.3, 2.3)];
@@ -481,16 +489,27 @@ export class DroneScene3D {
 
     const windAngle = state.windVector ? Math.atan2(state.windVector[1], state.windVector[0]) : parameters.windDirection * Math.PI / 180;
     const windVector = [Math.cos(windAngle) * 1.2, 0, Math.sin(windAngle) * 1.2];
-    this.drawFlightWind(ctx, basis, state, parameters, colors);
+    if (this.gpu) this.gpu.wind(state, parameters); else this.drawFlightWind(ctx, basis, state, parameters, colors);
     this.drawArrow3D(ctx, basis, [-2.5, 1.5, -2.1], windVector, colors.cyan, this.quantity?.(state.windNow, "speed") || `${format(state.windNow, 1)} м/с`);
     this.drawWeatherEffects(ctx, basis, parameters, state.t, colors);
     this.drawDrone(ctx, basis, parameters, result, pose, state.t, state);
+    if (state.showForces) this.drawForces(ctx, basis, dronePosition, parameters, result, state, format);
 
     ctx.fillStyle = colors.muted;
     ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-    ctx.fillText("Мышь: вращение · Колесо: масштаб", 18, height - 18);
+    ctx.fillText(t("Мышь: вращение · Колесо: масштаб"), 18, height - 18);
     ctx.fillStyle = colors.text;
-    ctx.fillText(`Высота ${this.quantity?.(state.z, "m") || `${format(state.z, 1)} м`} · Наклон ${format(result.tilt, 1)}°`, 18, 24);
+    ctx.fillText(t(`Высота ${this.quantity?.(state.z, "m") || `${format(state.z, 1)} м`} · Наклон ${format(result.tilt, 1)}°`), 18, 24);
+  }
+
+  drawForces(ctx, basis, origin, parameters, result, state, format) {
+    const scale = 0.8 / Math.max(1, result.weight);
+    const horizontal = Math.hypot(state.controlX, state.controlY);
+    const vertical = state.actualVerticalThrust ?? Math.min(result.requiredVertical, Math.sqrt(Math.max(0, result.availableThrust ** 2 - horizontal ** 2)));
+    const angle = state.windVector ? Math.atan2(state.windVector[1], state.windVector[0]) : parameters.windDirection * Math.PI / 180;
+    this.drawArrow3D(ctx, basis, origin, [0, -result.weight * scale, 0], "#ffb879", `${t("Вес")} ${this.quantity(result.weight, "force")}`);
+    this.drawArrow3D(ctx, basis, origin, [state.controlX * scale, vertical * scale, state.controlY * scale], "#73efc5", `${t("Тяга")} ${this.quantity(Math.hypot(horizontal, vertical), "force")}`);
+    this.drawArrow3D(ctx, basis, origin, [result.windForce * Math.cos(angle) * scale, result.verticalAirForce * scale, result.windForce * Math.sin(angle) * scale], "#69d7ff", `${t("Сила ветра")} ${this.quantity(Math.hypot(result.windForce, result.verticalAirForce), "force")}`);
   }
 
   drawFlightWind(ctx, basis, state, parameters, colors) {
@@ -558,7 +577,7 @@ export class DroneScene3D {
       this.cfd.status = "ready";
       this.cfd.progress = 1;
       this.cfd.error = "";
-      this.streamlineCache.key = "";
+      this.streamlineCache = { key: "", lines: [] };
       this.traceRequestedKey = "";
       this.emitCFDStatus();
     }
@@ -642,7 +661,24 @@ export class DroneScene3D {
         this.worker.postMessage({ type: "trace", key: this.cfd.fieldKey, trace: { key: cacheKey, count: settings.count, layer: settings.layer } });
       }
     }
-    const staticKey = JSON.stringify([this.streamlineCache.key, this.canvas.width, this.canvas.height, this.camera, settings.zoom, settings.colorMode, parameters.dronePreset, parameters.diameter, parameters.frameSize, parameters.rotors, parameters.flowObstacle, parameters.obstacleSize, this.modelRevision, geometryFor(parameters).parts]);
+    if (this.gpu) {
+      this.clear(ctx, width, height, colors);
+      this.gpu.begin(basis, width, height, this.pixelRatio || 1.5);
+      this.gpu.model(parameters, this, { position: [0, 0, 0] }, result, time);
+      if (fieldReady && this.streamlineCache.key === this.traceRequestedKey) this.gpu.airflow(this.streamlineCache.lines, this.cfd.field, settings, time, this.streamlineCache.key);
+      if (settings.showGeometry && fieldReady) this.gpu.mask(this.cfd.field);
+      const angle = parameters.windDirection * Math.PI / 180;
+      this.drawArrow3D(ctx, basis, [-2.5, 1.5, -1.8], [Math.cos(angle), 0, Math.sin(angle)], colors.cyan, this.quantity(parameters.windSpeed, "speed"));
+      this.drawMotorHazards(ctx, basis, geometryFor(parameters).rotors, { position: [0, 0, 0] }, settings.systemState, time, colors);
+      if (fieldReady && settings.probe) {
+        const point = settings.probe.map(v => v / this.cfd.field.stats.worldScale), sample = sampleField(point, this.cfd.field), screen = this.project(point, basis);
+        if (sample && screen) { ctx.strokeStyle = colors.accent; ctx.beginPath(); ctx.arc(screen.x, screen.y, 6, 0, TAU); ctx.stroke(); ctx.fillStyle = colors.accent; ctx.fillText(t(this.quantity(sample.speed, "speed", 2)), screen.x + 10, screen.y - 8); }
+      }
+      ctx.fillStyle = colors.text; ctx.font = "12px monospace";
+      ctx.fillText(t(fieldReady ? `${this.cfd.field.stats.method} · ${t("Сетка")}: ${this.cfd.field.stats.cells}` : `${t("Расчёт")} ${Math.round(this.cfd.progress * 100)}%`), 18, 24);
+      return;
+    }
+    const staticKey = JSON.stringify([this.streamlineCache.key, this.canvas.width, this.canvas.height, this.camera, settings.zoom, settings.colorMode, parameters.dronePreset, parameters.diameter, parameters.frameSize, parameters.rotors, parameters.flowObstacle, parameters.obstacleSize, this.modelRevision, settings.showGeometry, geometryFor(parameters).parts]);
     if (staticKey !== this.staticKey) {
       this.staticKey = staticKey;
       this.staticCanvas.width = this.canvas.width; this.staticCanvas.height = this.canvas.height;
@@ -680,6 +716,15 @@ export class DroneScene3D {
         });
       }
       background.globalAlpha = 1;
+      if (settings.showGeometry && fieldReady) {
+        background.fillStyle = "#ffcf76";
+        const field = this.cfd.field, b = field.bounds;
+        for (let y = 1; y < field.ny - 1; y++) for (let z = 1; z < field.nz - 1; z++) for (let x = 1; x < field.nx - 1; x++) {
+          if (!field.solid[x + field.nx * (z + field.nz * y)]) continue;
+          const p = this.project([b.xMin + x * (b.xMax - b.xMin) / (field.nx - 1), b.yMin + y * (b.yMax - b.yMin) / (field.ny - 1), b.zMin + z * (b.zMax - b.zMin) / (field.nz - 1)], basis);
+          if (p) background.fillRect(p.x - 2, p.y - 2, 4, 4);
+        }
+      }
     }
     ctx.drawImage(this.staticCanvas, 0, 0, width, height);
     if (fieldReady && settings.probe) {
@@ -687,7 +732,7 @@ export class DroneScene3D {
       const sample = sampleField(point, this.cfd.field), screen = this.project(point, basis);
       if (sample && screen) {
         ctx.strokeStyle = colors.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(screen.x, screen.y, 6, 0, TAU); ctx.stroke();
-        ctx.fillStyle = colors.accent; ctx.font = "12px monospace"; ctx.fillText(this.quantity?.(sample.speed, "speed", 2) || `${sample.speed.toFixed(2)} м/с`, screen.x + 10, screen.y - 8);
+        ctx.fillStyle = colors.accent; ctx.font = "12px monospace"; ctx.fillText(t(this.quantity?.(sample.speed, "speed", 2) || `${sample.speed.toFixed(2)} м/с`), screen.x + 10, screen.y - 8);
       }
     }
     this.drawFlowParticles(ctx, time * (settings.flowRate || 0.35) / 0.35, colors);
@@ -697,12 +742,12 @@ export class DroneScene3D {
     this.drawArrow3D(ctx, basis, [-2.5, 1.65, -2], [Math.cos(windAngle) * 1.25, 0, Math.sin(windAngle) * 1.25], colors.cyan, this.quantity?.(parameters.windSpeed, "speed") || `${format(parameters.windSpeed, 1)} м/с`);
     ctx.fillStyle = colors.muted;
     ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-    ctx.fillText("DRAG — ORBIT  •  WHEEL — ZOOM", 18, height - 18);
+    ctx.fillText(t("DRAG : ORBIT  •  WHEEL : ZOOM"), 18, height - 18);
     ctx.fillStyle = colors.text;
     const cfdLabel = fieldReady
       ? `${this.cfd.field.stats.method} · ${this.cfd.field.stats.cells.toLocaleString("ru-RU")} CELLS`
       : this.cfd.status === "error" ? "CFD ERROR" : `UPDATING · ${Math.round(this.cfd.progress * 100)}% · PREVIOUS FIELD`;
-    ctx.fillText(`${settings.layer.toUpperCase()} · ${cfdLabel}`, 18, 24);
+    ctx.fillText(t(`${settings.layer.toUpperCase()} · ${cfdLabel}`), 18, 24);
   }
 
   drawFlowParticles(ctx, time, colors) {

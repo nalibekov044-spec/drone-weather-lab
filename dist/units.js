@@ -1,3 +1,4 @@
+import { t } from "./i18n.js";
 // Inputs and saved designs keep their original units. Conversion is a view concern.
 const definitions = {
   kg: ["кг", "lb", 2.20462262185], mm: ["мм", "in", 1 / 25.4],
@@ -20,8 +21,8 @@ export const parameterUnits = {
 export function unitSpec(kind, system = "metric") {
   const d = definitions[kind];
   if (!d) return { label: "", factor: 1, offset: 0 };
-  return system === "imperial" ? { label: d[1], factor: d[2], offset: d[4] || 0 }
-    : { label: d[0], factor: d[3] || 1, offset: 0 };
+  return system === "imperial" ? { label: t(d[1]), factor: d[2], offset: d[4] || 0 }
+    : { label: t(d[0]), factor: d[3] || 1, offset: 0 };
 }
 export function toDisplay(value, kind, system) { const u = unitSpec(kind, system); return value * u.factor + u.offset; }
 export function fromDisplay(value, kind, system) { const u = unitSpec(kind, system); return (value - u.offset) / u.factor; }

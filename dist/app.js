@@ -1,3 +1,5 @@
+import { t, getLanguage, setLanguage, installLanguage } from "./i18n.js";
+import { compareConfigurations } from "./comparison.js";
 import {
   baseDefaults,
   calculate,
@@ -44,7 +46,7 @@ const ui = {
   reynoldsNumber: $("reynoldsNumber"), flowLegend: $("flowLegend")
 };
 
-const format = (value, digits = 1) => Number(value).toLocaleString("ru-RU", {
+const format = (value, digits = 1) => Number(value).toLocaleString(getLanguage() === "en" ? "en-US" : "ru-RU", {
   minimumFractionDigits: digits,
   maximumFractionDigits: digits
 });
@@ -62,13 +64,13 @@ const outputConfig = {
   mass: value => `${format(value, 1)} кг`, payload: value => `${format(value, 1)} кг`, frameSize: value => `${Math.round(value)} мм`,
   diameter: value => `${format(value, 1)}″`, pitch: value => `${format(value, 1)}″`, dragArea: value => `${format(value, 2)} м²`,
   dragCoefficient: value => format(value, 2), propEfficiency: value => `${Math.round(value)}%`,
-  rpm: value => `${Math.round(value).toLocaleString("ru-RU")} об/мин`, maxRpm: value => `${Math.round(value).toLocaleString("ru-RU")} об/мин`,
-  motorMaxPower: value => `${Math.round(value).toLocaleString("ru-RU")} Вт`, motorEfficiency: value => `${Math.round(value)}%`,
+  rpm: value => `${Math.round(value).toLocaleString(getLanguage() === "en" ? "en-US" : "ru-RU")} об/мин`, maxRpm: value => `${Math.round(value).toLocaleString(getLanguage() === "en" ? "en-US" : "ru-RU")} об/мин`,
+  motorMaxPower: value => `${Math.round(value).toLocaleString(getLanguage() === "en" ? "en-US" : "ru-RU")} Вт`, motorEfficiency: value => `${Math.round(value)}%`,
   windSpeed: value => `${format(value, 1)} м/с`, windDirection: value => `${Math.round(value)}°`, gusts: value => `${Math.round(value)}%`,
   gustFrequency: value => `${format(value, 1)} Гц`, turbulence: value => `${Math.round(value)}%`, verticalWind: value => `${format(value, 1)} м/с`,
-  rainRate: value => `${Math.round(value)} мм/ч`, temperature: value => `${Math.round(value)} °C`, altitude: value => `${Math.round(value).toLocaleString("ru-RU")} м`,
+  rainRate: value => `${Math.round(value)} мм/ч`, temperature: value => `${Math.round(value)} °C`, altitude: value => `${Math.round(value).toLocaleString(getLanguage() === "en" ? "en-US" : "ru-RU")} м`,
   humidity: value => `${Math.round(value)}%`, pressureHpa: value => `${Math.round(value)} гПа`, voltage: value => `${format(value, 1)} В`,
-  capacity: value => `${Math.round(value).toLocaleString("ru-RU")} мА·ч`, stateOfCharge: value => `${Math.round(value)}%`, batteryTemp: value => `${Math.round(value)} °C`,
+  capacity: value => `${Math.round(value).toLocaleString(getLanguage() === "en" ? "en-US" : "ru-RU")} мА·ч`, stateOfCharge: value => `${Math.round(value)}%`, batteryTemp: value => `${Math.round(value)} °C`,
   payloadX: value => `${Math.round(value)} см`, payloadY: value => `${Math.round(value)} см`, controlResponse: value => `${format(value, 1)} с`,
   maxTilt: value => `${Math.round(value)}°`, obstacleSize: value => `${format(value, 1)}×`,
   windTransition: value => `${format(value, 1)} с`, batteryResistance: value => `${format(value * 1000, 0)} мОм`, batteryCRating: value => `${format(value, 0)} C`, ct: value => format(value, 3), cp: value => format(value, 3)
@@ -120,13 +122,13 @@ function drawResidual(stats) {
   const y = r => y0 + Math.min(1, Math.max(0, -Math.log10(Math.max(1e-5, r)) / 5)) * ph;
   for (const value of [1, 0.01, 0.001, 0.00001]) {
     ctx.strokeStyle = value === 0.001 ? "#75f3c8" : "#29463f"; ctx.beginPath(); ctx.moveTo(x0, y(value)); ctx.lineTo(w - 22, y(value)); ctx.stroke();
-    ctx.fillStyle = "#a2bab3"; ctx.fillText(`${value * 100}%`, 3, y(value) + 4);
+    ctx.fillStyle = "#a2bab3"; ctx.fillText(t(`${value * 100}%`), 3, y(value) + 4);
   }
   const first = history[0].iteration, last = history[history.length - 1].iteration;
   ctx.strokeStyle = "#66d9ff"; ctx.lineWidth = 2; ctx.beginPath();
   history.forEach((p, i) => { const x = x0 + (p.iteration - first) / Math.max(1, last - first) * pw; i ? ctx.lineTo(x, y(p.residual)) : ctx.moveTo(x, y(p.residual)); });
   ctx.stroke(); ctx.lineWidth = 1; ctx.fillStyle = "#a2bab3";
-  ctx.fillText(`${first}`, x0, h - 5); ctx.fillText(`${last} итераций`, w - 142, h - 5); ctx.fillText("Невязка · логарифмическая шкала · цель 0,1%", x0, 14);
+  ctx.fillText(t(`${first}`), x0, h - 5); ctx.fillText(t(`${last} итераций`), w - 142, h - 5); ctx.fillText(t("Невязка · логарифмическая шкала · цель 0,1%"), x0, 14);
 }
 
 function updateProbe() {
@@ -142,8 +144,8 @@ airflowScene.onCFDStatus = info => {
   ui.cfdStatus.className = "";
   if (info.status === "ready" && info.stats) {
     ui.cfdStatus.textContent = `${info.stats.converged ? "установился" : "приближение"} · ${info.stats.elapsedMs} мс`;
-    ui.cfdCells.textContent = `${info.stats.cells.toLocaleString("ru-RU")} ячеек`;
-    ui.reynoldsNumber.textContent = Math.round(info.stats.reynolds).toLocaleString("ru-RU");
+    ui.cfdCells.textContent = `${info.stats.cells.toLocaleString(getLanguage() === "en" ? "en-US" : "ru-RU")} ячеек`;
+    ui.reynoldsNumber.textContent = Math.round(info.stats.reynolds).toLocaleString(getLanguage() === "en" ? "en-US" : "ru-RU");
     const s = info.stats;
     $("cfdDiagnostics").innerHTML = `<div class="diagnostic-grid">
       <span>Невязка<strong>${format(s.residual * 100, 2)}%</strong><small>Относительное изменение скорости за 20 итераций. Цель &lt; 0,1%; ${s.converged ? "достигнута" : "не достигнута, поле ещё меняется"}.</small></span>
@@ -152,6 +154,8 @@ airflowScene.onCFDStatus = info => {
       <span>Сила дисков<strong>${quantity(s.appliedThrust, "force")}</strong><small>Интеграл источника импульса в воздухе, связан с вертикальной тягой.</small></span>
       <span>∇·u, RMS<strong>${format(s.divergenceRms, 2)} с⁻¹</strong><small>Остаточная сжимаемость / дискретизация вдали от стенок; в идеале ноль.</small></span>
       <span>Итерации<strong>${s.iterations} · ${format(s.simulatedTime, 2)} с</strong><small>Численное время установления, не время полёта.</small></span>
+      <span>Сила на всех твёрдых телах<strong>${s.surfaceForce.map(v => quantity(v, "force")).join("; ")}</strong><small>По обмену импульсом. Мгновенный результат решателя, без связи с полётом.</small></span>
+      <span>Средняя плотность<strong>${format(s.densityDrift * 100, 3)}%</strong><small>Отклонение средней плотности от входной.</small></span>
     </div><p>${s.method}. Число Маха сетки: ${format(s.maxLatticeMach, 3)}; отклонение плотности до ${format(s.maxDensityDeviation * 100, 2)}%. ${s.maxLatticeMach > 0.2 ? "Высокая сжимаемость: результат требует осторожности." : ""} ${s.solidCells < 8 ? "Корпус плохо разрешён: увеличь сетку или размер модели." : ""} ${getParameters().dronePreset === "custom" && getParameters().armThickness < s.spacingM * 2000 ? "Лучи тоньше двух ячеек: их обтекание не разрешено." : ""} Сеточная сходимость и сравнение с экспериментом не выполнены. CFD использует средний ветер; ресурс моторов округлён до 10%. Давление относительно входа.</p>`;
     drawResidual(s); updateProbe();
   } else if (info.status === "error") {
@@ -264,7 +268,7 @@ function updateMetrics(parameters, result) {
   ui.thrustReserve.textContent = `${format(peakResult.reserve, 0)}%`;
   ui.thrustRatio.textContent = `${format(result.thrustToWeight, 2)} : 1 тяга/вес`;
   ui.tiltAngle.textContent = `${format(result.tilt, 1)}°`;
-  ui.flightTime.textContent = peakResult.feasible ? `${format(peakResult.flightMinutes, 1)} мин` : "—";
+  ui.flightTime.textContent = peakResult.feasible ? `${format(peakResult.flightMinutes, 1)} мин` : ":";
   ui.powerDraw.textContent = peakResult.feasible ? `${format(peakResult.electricalPower, 0)} Вт` : "режим полёта невозможен";
   ui.batteryCurrent.textContent = `${format(peakResult.current, 1)} А`;
   ui.batteryLoad.textContent = `команда ${visibleLoad(peakResult.commandPowerLoad)} · полёт ${visibleLoad(peakResult.requiredPowerLoad)}`;
@@ -273,7 +277,7 @@ function updateMetrics(parameters, result) {
   ui.peakWind.textContent = quantity(peakWind, "speed");
   ui.motorBalance.textContent = `${format(result.balancePercent, 0)}%`;
   const averageEffectiveRpm = result.effectiveRpms.reduce((sum, value) => sum + value, 0) / Math.max(1, result.effectiveRpms.length);
-  ui.effectiveRpm.textContent = `${Math.round(averageEffectiveRpm).toLocaleString("ru-RU")} · предел ${Math.round(result.rpmPowerLimit).toLocaleString("ru-RU")}`;
+  ui.effectiveRpm.textContent = `${Math.round(averageEffectiveRpm).toLocaleString(getLanguage() === "en" ? "en-US" : "ru-RU")} · предел ${Math.round(result.rpmPowerLimit).toLocaleString(getLanguage() === "en" ? "en-US" : "ru-RU")}`;
   const hottestMotor = Math.max(...state.motorTemps);
   const weakestMotor = Math.min(...state.motorHealths);
   const hottestLoad = Math.max(...result.motorLoadPercents);
@@ -362,7 +366,7 @@ function buildMotorGrid() {
     label.append(input);
     const condition = document.createElement("span");
     condition.className = "motor-condition";
-    condition.textContent = "—° · —% · —%";
+    condition.textContent = ":° · :% · :%";
     condition.title = "Температура · ресурс · нагрузка";
     label.append(condition);
     grid.append(label);
@@ -424,6 +428,7 @@ function simulate(dt, parameters) {
   const verticalAuthority = Math.sqrt(Math.max(0, dynamicResult.availableThrust ** 2 - Math.hypot(controlX, controlY) ** 2));
   const desiredVerticalThrust = Math.max(0, dynamicResult.requiredVertical - dynamicResult.mass * (1.7 * state.z + 1.45 * state.vz));
   const actualVerticalThrust = Math.min(verticalAuthority, desiredVerticalThrust);
+  state.actualVerticalThrust = actualVerticalThrust;
   const az = (actualVerticalThrust - dynamicResult.requiredVertical) / dynamicResult.mass;
   state.vx = (state.vx + ax * dt) * Math.pow(0.996, dt * 60);
   state.vy = (state.vy + ay * dt) * Math.pow(0.996, dt * 60);
@@ -534,7 +539,7 @@ $("resetSimulation").addEventListener("click", () => {
     if (inputs[id] && typeof value !== "object" && id !== "label" && id !== "style") inputs[id].value = String(value);
   });
   $("individualMotors").checked = false;
-  $("streamlineCount").value = "216";
+  $("streamlineCount").value = "360";
   $("airflowZoom").value = "1";
   $("airflowLayer").value = "volume";
   $("cfdQuality").value = "balanced";
@@ -581,8 +586,8 @@ function refreshModel() {
   for (let i = 0; i < triangles.length; i += 3) if (Math.abs(triangles[i]) > 2.5 || Math.abs(triangles[i + 1]) > 1.2 || Math.abs(triangles[i + 2]) > 2) { exceedsDomain = true; break; }
   $("meshCFD").disabled = !state.model.closed || exceedsDomain;
   if (exceedsDomain) $("meshCFD").checked = false;
-  const meshDescription = `${state.model.name} · ${state.model.triangleCount.toLocaleString("ru-RU")} треугольников · ${state.model.closed ? "замкнутая сетка" : `незамкнутая / дефектная: ${state.model.badEdges} проблемных рёбер`}.`;
-  $("modelStatus").textContent = `${meshDescription} ${exceedsDomain ? "Модель выходит из расчётной области: уменьши размер или поверни её. CFD отключён." : state.model.closed ? "Можно включить CFD по этой геометрии. Проверь совпадение центров винтов с типовой рамой." : "Пока только отображение. Исправь дыры в CAD для CFD."} ${state.model.triangleCount > 3000 ? "Предпросмотр упрощён для скорости; CFD использует все треугольники." : ""}`;
+  const meshDescription = `${state.model.name} · ${state.model.triangleCount.toLocaleString(getLanguage() === "en" ? "en-US" : "ru-RU")} треугольников · ${state.model.closed ? "замкнутая сетка" : `незамкнутая / дефектная: ${state.model.badEdges} проблемных рёбер`}.`;
+  $("modelStatus").textContent = `${meshDescription} ${exceedsDomain ? "Модель выходит из расчётной области: уменьши размер или поверни её. CFD отключён." : state.model.closed ? "Можно включить CFD по этой геометрии. Проверь совпадение центров винтов с типовой рамой." : "Пока только отображение. Исправь дыры в CAD для CFD."} ${state.model.triangleCount > 3000 ? "WebGL отображает полную сетку; Canvas использует упрощённый предпросмотр." : ""}`;
   flightScene.setModel(triangles, false, preview);
   airflowScene.setModel(triangles, useInCFD && !exceedsDomain, preview);
 }
@@ -635,12 +640,12 @@ $("exportReport").addEventListener("click", () => {
   const result = calculate(parameters, { motorRpms: state.motorRpms, motorHealths: effectiveMotorHealths() });
   airflowScene.ensureCFD(parameters, meanFlowResult(parameters), cfdSettings());
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd.status === "ready";
-  const report = { version: "0.7.0", generatedAt: new Date().toISOString(), displayUnits: unitSystem, parameters, result, motors: { temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire, exposure: state.motorExposure, ignition: state.motorIgnition },
+  const report = { version: "0.8.0", generatedAt: new Date().toISOString(), displayUnits: unitSystem, parameters, result, motors: { temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire, exposure: state.motorExposure, ignition: state.motorIgnition },
     importedMesh: state.model ? { name: state.model.name, triangles: state.model.triangleCount, closed: state.model.closed, spanMm: Number($("modelSpan").value), upAxis: $("modelUp").value, yaw: Number($("modelYaw").value), usedInCFD: Boolean(airflowScene.meshCFD) } : null,
     cfd: matchingCFD ? { configuration: JSON.parse(airflowScene.cfd.fieldKey), stats: airflowScene.cfd.field.stats } : { status: "not-current-or-not-calculated" },
     limitations: ["TRT/BGK D3Q19 actuator-disk approximation; no experiment or grid-convergence validation.", "CFD mean wind, motor health rounded to 10%; flight dynamics include smoothed gusts.", "Physical and effective solver Reynolds numbers differ.", "Mass and drag coefficient entered manually; imported mesh only changes CFD geometry when enabled."] };
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
-  const anchor = document.createElement("a"); anchor.href = url; anchor.download = "drone-weather-lab-v0.7-report.json"; anchor.click();
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = "drone-weather-lab-v0.8-report.json"; anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
@@ -754,14 +759,17 @@ function frame(now) {
   const pixelRatio = renderMode === "eco" || targetFps === 30 ? 1 : renderMode === "high" ? 2 : 1.5;
   flightScene.pixelRatio = airflowScene.pixelRatio = pixelRatio;
   if (state.activeView === "flight") {
+    state.showForces = $("forceVectors").checked;
     flightScene.renderFlight(state, parameters, result, format);
+    const rendererLabel = flightScene.gpu ? "WebGL" : "Canvas";
+    if ($("rendererStatus").textContent !== rendererLabel) $("rendererStatus").textContent = rendererLabel;
   } else if (state.activeView === "graph") {
     if (now - state.lastGraphUpdate > 1000) { state.graphDirty = true; state.lastGraphUpdate = now; }
     if (state.graphDirty) {
       renderGraph(parameters);
       state.graphDirty = false;
     }
-  } else {
+  } else if (state.activeView === "airflow") {
     airflowScene.renderAirflow(parameters, meanFlowResult(parameters), {
       layer: $("airflowLayer").value,
       count: Number($("streamlineCount").value),
@@ -770,7 +778,7 @@ function frame(now) {
       flowRate: Number($("flowRate").value),
       probe: ["probeX", "probeY", "probeZ"].map(id => Number($(id).value)),
       colorMode: $("flowColor").value,
-      systemState: state
+      systemState: state, showGeometry: $("showCFDGeometry").checked
     }, state.t, format);
   }
   state.renderMs = state.renderMs * 0.85 + (performance.now() - started) * 0.15;
@@ -807,3 +815,24 @@ syncOutputs(getParameters());
 window.addEventListener("resize", () => { state.graphDirty = true; });
 document.addEventListener("visibilitychange", () => { state.lastTime = performance.now(); state.accumulator = 0; airflowScene.setCFDPaused(document.hidden); });
 requestAnimationFrame(frame);
+
+let comparisonA = null, comparisonB = null;
+function renderComparison() {
+  if (!comparisonA) { $("comparisonResult").textContent = t("Сначала сохрани A"); return; }
+  const rows = compareConfigurations(comparisonA, comparisonB);
+  const names = { reserve: "Запас тяги", tilt: "Наклон", flightMinutes: "Время полёта", electricalPower: "Мощность", current: "Ток батареи", maxWind: "Предел ветра", availableThrust: "Доступная тяга" };
+  const display = (key, value, difference = false) => key === "flightMinutes" && value === 0 && !difference ? "n/a" : key === "tilt" ? `${format(value)}°` : key === "reserve" ? `${format(value)}%` : key === "electricalPower" ? `${format(value, 0)} W` : key === "current" ? `${format(value)} A` : key === "flightMinutes" ? `${format(value)} min` : quantity(value, key === "availableThrust" ? "force" : "speed");
+  const table = document.createElement("table"); table.className = "comparison-table";
+  const head = table.createTHead().insertRow();
+  for (const name of ["", "A", "B", "Δ B − A"]) { const th = document.createElement("th"); th.textContent = name; head.append(th); }
+  const body = table.createTBody();
+  for (const item of rows) { const row = body.insertRow(); for (const value of [t(names[item.key]), display(item.key, item.a), item.b == null ? "…" : display(item.key, item.b), item.b == null ? "…" : display(item.key, item.b - item.a, true)]) { const cell = row.insertCell(); cell.textContent = value; } }
+  $("comparisonResult").replaceChildren(table);
+}
+$("captureA").addEventListener("click", () => { comparisonA = { ...getParameters() }; comparisonB = null; $("captureB").disabled = false; renderComparison(); });
+$("captureB").addEventListener("click", () => { comparisonB = { ...getParameters() }; renderComparison(); });
+$("clearComparison").addEventListener("click", () => { comparisonA = comparisonB = null; $("captureB").disabled = true; renderComparison(); });
+$("language").value = getLanguage();
+$("language").addEventListener("change", event => setLanguage(event.target.value));
+document.addEventListener("languagechange", () => { exactControls.refresh(true); syncOutputs(getParameters()); state.graphDirty = true; state.lastMetrics = 0; if (airflowScene.cfd.field) airflowScene.emitCFDStatus(); renderComparison(); });
+installLanguage();

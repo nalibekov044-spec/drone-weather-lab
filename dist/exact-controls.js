@@ -1,3 +1,4 @@
+import { t, getLanguage } from "./i18n.js";
 import { parameterUnits, toDisplay, unitSpec, validateExact } from "./units.js";
 
 export function installExactControls(controls, getSystem) {
@@ -30,8 +31,8 @@ export function installExactControls(controls, getSystem) {
       const checked = validateExact(input.value, min, max, entry.kind, getSystem());
       if (slider.id === "streamlineCount" && !Number.isInteger(checked.value)) checked.valid = false;
       const boundary = value => Number(toDisplay(value, entry.kind, getSystem()).toPrecision(8));
-      const message = checked.valid ? "" : `Укажи ${slider.id === "streamlineCount" ? "целое " : ""}число от ${boundary(min)} до ${boundary(max)}. Последнее верное значение сохранено.`;
-      input.setCustomValidity(message); input.setAttribute("aria-invalid", String(!checked.valid));
+      const message = checked.valid ? "" : getLanguage() === "en" ? `Enter ${slider.id === "streamlineCount" ? "an integer" : "a number"} from ${boundary(min)} to ${boundary(max)}. The last valid value is preserved.` : `Укажи ${slider.id === "streamlineCount" ? "целое " : ""}число от ${boundary(min)} до ${boundary(max)}. Последнее верное значение сохранено.`;
+      input.setCustomValidity(t(message)); input.setAttribute("aria-invalid", String(!checked.valid));
       error.textContent = message; error.hidden = checked.valid;
       if (!checked.valid) return;
       slider.value = String(Math.min(max, Math.max(min, checked.value)));

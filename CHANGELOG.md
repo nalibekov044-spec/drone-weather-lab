@@ -1,3 +1,15 @@
+# Changelog
+
+## 0.8.0
+
+Russian and English interface, including help, warnings, chart labels and diagnostics. Language is saved separately from the unit system.
+
+WebGL model, lit materials, solid animated blades, depth testing and cached geometry. GPU airflow rendering and particles. Canvas fallback retained. Shared built-in body, battery, camera, arms, motors and landing gear geometry. Full imported meshes in WebGL. Default streamline count increased to 360.
+
+Non-equilibrium velocity inlet and density outlet extrapolation. Momentum-exchange force on all solids, mean density deviation and CFD solid-mask overlay. Smaller worker chunks and collision restricted to non-solid cells. Force vectors in Flight and equal-weather A/B comparison.
+
+English and Russian README files, local launch script and Windows launcher. Numerical report for a two-grid sphere case at matched viscosity. Regression and integration checks updated. No experimental drone validation or grid independence claimed.
+
 # История изменений
 
 ## 0.7.0 · 2026-09-30

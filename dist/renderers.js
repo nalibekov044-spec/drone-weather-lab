@@ -1,3 +1,4 @@
+import { t } from "./i18n.js";
 const TAU = Math.PI * 2;
 
 function colors() {
@@ -42,7 +43,7 @@ export class GraphRenderer {
     if (!points.length) {
       ctx.fillStyle = palette.muted;
       ctx.font = "14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-      ctx.fillText("Нет допустимых значений", 28, 38);
+      ctx.fillText(t("Нет допустимых значений"), 28, 38);
       this.layout = null;
       return;
     }
@@ -73,7 +74,7 @@ export class GraphRenderer {
       const py = yScale(yValue);
       ctx.beginPath(); ctx.moveTo(plot.x, py); ctx.lineTo(plot.x + plot.width, py); ctx.stroke();
       ctx.textAlign = "right"; ctx.textBaseline = "middle";
-      ctx.fillText(format(yValue, Math.abs(yMax - yMin) < 10 ? 1 : 0), plot.x - 10, py);
+      ctx.fillText(t(format(yValue, Math.abs(yMax - yMin) < 10 ? 1 : 0)), plot.x - 10, py);
     }
     for (let index = 0; index <= 5; index += 1) {
       const xValue = xMin + (xMax - xMin) * index / 5;
@@ -81,7 +82,7 @@ export class GraphRenderer {
       ctx.beginPath(); ctx.moveTo(px, plot.y); ctx.lineTo(px, plot.y + plot.height); ctx.stroke();
       ctx.textAlign = index === 0 ? "left" : index === 5 ? "right" : "center";
       ctx.textBaseline = "top";
-      ctx.fillText(format(xValue, Math.abs(xMax - xMin) < 20 ? 1 : 0), px, plot.y + plot.height + 10);
+      ctx.fillText(t(format(xValue, Math.abs(xMax - xMin) < 20 ? 1 : 0)), px, plot.y + plot.height + 10);
     }
 
     if (yMin < 0 && yMax > 0) {
@@ -115,17 +116,17 @@ export class GraphRenderer {
       ctx.fillStyle = palette.text;
       ctx.textAlign = px > plot.x + plot.width * 0.78 ? "right" : "left";
       ctx.textBaseline = "bottom";
-      ctx.fillText(`${format(current.y, 1)} ${metric.unit}`, px + (px > plot.x + plot.width * 0.78 ? -10 : 10), py - 8);
+      ctx.fillText(t(`${format(current.y, 1)} ${metric.unit}`), px + (px > plot.x + plot.width * 0.78 ? -10 : 10), py - 8);
     }
 
     ctx.fillStyle = palette.text;
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    ctx.fillText(`${variable.label}, ${variable.unit}`, plot.x + plot.width / 2, height - 12);
+    ctx.fillText(t(`${variable.label}, ${variable.unit}`), plot.x + plot.width / 2, height - 12);
     ctx.save();
     ctx.translate(18, plot.y + plot.height / 2);
     ctx.rotate(-Math.PI / 2);
-    ctx.fillText(`${metric.label}, ${metric.unit}`, 0, 0);
+    ctx.fillText(t(`${metric.label}, ${metric.unit}`), 0, 0);
     ctx.restore();
     this.layout = { points, plot, xScale, yScale };
   }

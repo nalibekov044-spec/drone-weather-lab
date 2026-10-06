@@ -11,10 +11,11 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.7</span></p>
+        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.8</span></p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
+        <label class="unit-control">Язык<select id="language"><option value="ru">Русский</option><option value="en">English</option></select></label>
         <label class="unit-control">Единицы<select id="unitSystem"><option value="metric">Метрические</option><option value="imperial">Имперские</option></select></label>
         <button id="showShortcuts" class="button" type="button" aria-expanded="false" aria-controls="shortcutHelp">Клавиши <kbd>?</kbd></button>
         <button id="toggleSimulation" class="button button-primary" type="button">Пауза</button>
@@ -31,14 +32,15 @@
       <button class="mode-tab active" id="flightTab" type="button" role="tab" aria-selected="true" aria-controls="flightView" data-view="flight">Полёт</button>
       <button class="mode-tab" id="graphTab" type="button" role="tab" aria-selected="false" aria-controls="graphView" data-view="graph">Графики</button>
       <button class="mode-tab" id="airflowTab" type="button" role="tab" aria-selected="false" aria-controls="airflowView" data-view="airflow">Обтекание</button>
+    <button class="mode-tab" id="compareTab" type="button" role="tab" aria-selected="false" aria-controls="compareView" data-view="compare">Сравнение</button>
     </nav>
 
     <section class="metrics" aria-label="Основные результаты">
-      <article class="metric"><span>Запас тяги</span><strong id="thrustReserve">—</strong><small id="thrustRatio">—</small></article>
-      <article class="metric"><span>Наклон</span><strong id="tiltAngle">—</strong><small>для удержания точки</small></article>
-      <article class="metric"><span>Время полёта</span><strong id="flightTime">—</strong><small id="powerDraw">—</small></article>
-      <article class="metric"><span>Ток батареи</span><strong id="batteryCurrent">—</strong><small id="batteryLoad">—</small></article>
-      <article class="metric"><span>Предел ветра</span><strong id="maxWind">—</strong><small>при выбранных RPM</small></article>
+      <article class="metric"><span>Запас тяги</span><strong id="thrustReserve">…</strong><small id="thrustRatio">…</small></article>
+      <article class="metric"><span>Наклон</span><strong id="tiltAngle">…</strong><small>для удержания точки</small></article>
+      <article class="metric"><span>Время полёта</span><strong id="flightTime">…</strong><small id="powerDraw">…</small></article>
+      <article class="metric"><span>Ток батареи</span><strong id="batteryCurrent">…</strong><small id="batteryLoad">…</small></article>
+      <article class="metric"><span>Предел ветра</span><strong id="maxWind">…</strong><small>при выбранных RPM</small></article>
     </section>
 
     <section class="workspace">
@@ -48,14 +50,15 @@
             <div><span class="panel-label">ПОЛЁТ В ВЕТРЕ</span><h2>Положение и реакция контроллера</h2><small class="scene-hint">Мышью вращай сцену, колесом меняй масштаб. Штрихи показывают направление ветра, не CFD.</small></div>
             <div id="flightStatus" class="status" role="status" aria-live="polite"><span></span> Стабильно</div>
           </div>
+          <div class="scene-controls"><label><input id="forceVectors" type="checkbox" checked> Векторы сил</label><span id="rendererStatus">WebGL / Canvas</span></div>
           <canvas id="flightCanvas" aria-label="Интерактивная трёхмерная модель дрона, ветра, траектории и точки зависания">Ваш браузер не поддерживает Canvas.</canvas>
           <div class="visual-footer">
             <span>Смещение: <strong id="displacement">0,00 м</strong></span>
-            <span>Плотность: <strong id="airDensity">—</strong></span>
-            <span>Пиковый ветер: <strong id="peakWind">—</strong></span>
-            <span>Баланс: <strong id="motorBalance">—</strong></span>
-            <span>RPM: <strong id="effectiveRpm">—</strong></span>
-            <span>Моторы: <strong id="motorThermal">—</strong></span>
+            <span>Плотность: <strong id="airDensity">…</strong></span>
+            <span>Пиковый ветер: <strong id="peakWind">…</strong></span>
+            <span>Баланс: <strong id="motorBalance">…</strong></span>
+            <span>RPM: <strong id="effectiveRpm">…</strong></span>
+            <span>Моторы: <strong id="motorThermal">…</strong></span>
           </div>
         </section>
 
@@ -82,27 +85,28 @@
           <div class="graph-range">
             <label>От <input id="graphFrom" type="number" step="any"></label>
             <label>До <input id="graphTo" type="number" step="any"></label>
-            <span id="graphFormula">—</span>
+            <span id="graphFormula">:</span>
           </div>
         </section>
 
         <section id="airflowView" class="view-panel" role="tabpanel" aria-labelledby="airflowTab" hidden>
           <div class="visual-header airflow-header">
-            <div><span class="panel-label">3D CFD · D3Q19 LATTICE BOLTZMANN</span><h2>Численное поле потока вокруг дрона</h2><small class="scene-hint">Тяни мышью — вращение · колесо — масштаб</small></div>
+            <div><span class="panel-label">3D CFD · D3Q19 LATTICE BOLTZMANN</span><h2>Численное поле потока вокруг дрона</h2><small class="scene-hint">Тяни мышью : вращение · колесо : масштаб</small></div>
             <div class="inline-controls">
               <label>Начало линий <select id="airflowLayer"><option value="volume">Объёмное распределение</option><option value="horizontal">Горизонтальная плоскость</option><option value="vertical">Вертикальная плоскость</option></select></label>
-              <label>Линии <output id="streamlineCountValue">216</output><input id="streamlineCount" type="range" min="24" max="600" value="216" step="12"></label>
+              <label>Линии <output id="streamlineCountValue">360</output><input id="streamlineCount" type="range" min="24" max="600" value="360" step="12"></label>
               <label>Масштаб <output id="airflowZoomValue">1,0×</output><input id="airflowZoom" type="range" min="0.6" max="1.8" value="1" step="0.1"></label>
             </div>
           </div>
+          <div class="scene-controls"><label><input id="showCFDGeometry" type="checkbox"> Расчётная геометрия</label></div>
           <canvas id="airflowCanvas" aria-label="Интерактивные трёхмерные линии тока воздуха вокруг корпуса и винтов дрона">Ваш браузер не поддерживает Canvas.</canvas>
           <div class="visual-footer">
-            <span>Скорость потока: <strong id="flowSpeed">—</strong></span>
-            <span>Плотность линий: <strong id="flowDensity">—</strong></span>
-            <span>Downwash: <strong id="downwashSpeed">—</strong></span>
+            <span>Скорость потока: <strong id="flowSpeed">…</strong></span>
+            <span>Плотность линий: <strong id="flowDensity">…</strong></span>
+            <span>Downwash: <strong id="downwashSpeed">…</strong></span>
             <span>CFD: <strong id="cfdStatus">ожидание</strong></span>
-            <span>Сетка: <strong id="cfdCells">—</strong></span>
-            <span>Re: <strong id="reynoldsNumber">—</strong></span>
+            <span>Сетка: <strong id="cfdCells">…</strong></span>
+            <span>Re: <strong id="reynoldsNumber">…</strong></span>
             <span class="legend"><i></i><strong id="flowLegend">скорость</strong></span>
           </div>
           <div class="solver-toolbar">
@@ -113,6 +117,10 @@
           </div>
           <details class="calculation-details" open><summary>Сходимость и диагностика CFD</summary><div id="cfdDiagnostics">Расчёт в фоне. Частицы движутся в поле среднего ветра, а не имитируют CFD каждого порыва.</div><canvas id="residualCanvas" class="residual-chart" width="720" height="150" aria-label="График невязки по итерациям, логарифмическая шкала"></canvas></details>
           <details class="calculation-details"><summary>Измерительный зонд в потоке</summary><p>Перемещай точку в расчётном объёме. X и Z горизонтальные, Y вверх. Координаты относительно центра дрона, единицы указаны рядом с числом.</p><div class="probe-controls"><label>X<input id="probeX" type="range" min="-1" max="1" value="0" step="0.01"></label><label>Y<input id="probeY" type="range" min="-0.5" max="0.5" value="-0.25" step="0.01"></label><label>Z<input id="probeZ" type="range" min="-1" max="1" value="0" step="0.01"></label></div><output id="probeReading">Дождись расчёта</output></details>
+        </section>
+        <section id="compareView" class="view-panel" role="tabpanel" aria-labelledby="compareTab" hidden>
+          <div class="visual-header"><div><span class="panel-label">A / B</span><h2>Сравнение</h2></div></div>
+          <div class="comparison-body"><p>Сохрани A, измени дрон и сохрани B. Погода для обоих вариантов берётся из A. Моторы считаются исправными.</p><div class="comparison-actions"><button id="captureA" class="button button-primary">Сохранить A</button><button id="captureB" class="button" disabled>Сохранить B</button><button id="clearComparison" class="button">Сбросить сравнение</button></div><div id="comparisonResult" aria-live="polite">Сначала сохрани A</div></div>
         </section>
       </section>
 
@@ -149,8 +157,8 @@
             <label class="control" for="dragCoefficient"><span>Коэф. сопротивления <output id="dragCoefficientValue">0,95</output></span><input id="dragCoefficient" type="range" min="0.3" max="1.8" value="0.95" step="0.05"></label>
             <label class="control wide" for="propEfficiency"><span>Состояние винтов <output id="propEfficiencyValue">86%</output></span><input id="propEfficiency" type="range" min="50" max="100" value="86" step="1"></label>
             <label class="check-control wide"><input id="calibratedProps" type="checkbox"> Коэффициенты винтов по измерениям</label>
-            <label class="control" for="ct"><span>Cₜ — тяга <output id="ctValue">0,091</output></span><input id="ct" type="range" min="0.02" max="0.2" value="0.091" step="0.001"></label>
-            <label class="control" for="cp"><span>Cₚ — мощность <output id="cpValue">0,059</output></span><input id="cp" type="range" min="0.01" max="0.15" value="0.059" step="0.001"></label>
+            <label class="control" for="ct"><span>Cₜ : тяга <output id="ctValue">0,091</output></span><input id="ct" type="range" min="0.02" max="0.2" value="0.091" step="0.001"></label>
+            <label class="control" for="cp"><span>Cₚ : мощность <output id="cpValue">0,059</output></span><input id="cp" type="range" min="0.01" max="0.15" value="0.059" step="0.001"></label>
           </div>
         </details>
 
@@ -240,10 +248,10 @@
 
     <details class="model-note">
       <summary>Точность и ограничения модели</summary>
-      <p>CFD — численное решение поля воздуха. Здесь используется D3Q19 LBM: 19 направлений переноса на кубической сетке, неподвижные твёрдые границы и источники импульса в дисках винтов. Суммарная сила источников соответствует расчётной вертикальной тяге режима зависания. Лопасти, их вращение, пограничный слой, отрыв и развитая турбулентность не разрешаются. Порывы относятся к модели полёта; CFD показывает средний ветер. Численная вязкость повышена для устойчивости, поэтому физический Re не равен Re решателя. Невязка — изменение скорости между итерациями, а не доказательство точности. CAD-сетка не определяет массу и C𝒹 автоматически. Расчёт предварительный и не подтверждает безопасность реального полёта.</p>
-      <p>Основы модели: <a href="https://www.grc.nasa.gov/www/k-12/airplane/propth.html" target="_blank" rel="noopener">теория диска винта — NASA</a>; <a href="https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/drag-equation/" target="_blank" rel="noopener">сила сопротивления — NASA</a>.</p>
+      <p>CFD : численное решение поля воздуха. Здесь используется D3Q19 LBM: 19 направлений переноса на кубической сетке, неподвижные твёрдые границы и источники импульса в дисках винтов. Суммарная сила источников соответствует расчётной вертикальной тяге режима зависания. Лопасти, их вращение, пограничный слой, отрыв и развитая турбулентность не разрешаются. Порывы относятся к модели полёта; CFD показывает средний ветер. Численная вязкость повышена для устойчивости, поэтому физический Re не равен Re решателя. Невязка : изменение скорости между итерациями, а не доказательство точности. CAD-сетка не определяет массу и C𝒹 автоматически. Расчёт предварительный и не подтверждает безопасность реального полёта.</p>
+      <p>Основы модели: <a href="https://www.grc.nasa.gov/www/k-12/airplane/propth.html" target="_blank" rel="noopener">теория диска винта : NASA</a>; <a href="https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/drag-equation/" target="_blank" rel="noopener">сила сопротивления : NASA</a>.</p>
     </details>
-    <details class="model-note" open><summary>Инженерные показатели</summary><div id="engineeringMetrics" class="engineering-grid">—</div><p id="engineeringWarnings" role="status"></p></details>
+    <details class="model-note" open><summary>Инженерные показатели</summary><div id="engineeringMetrics" class="engineering-grid">:</div><p id="engineeringWarnings" role="status"></p></details>
   </main>
   <script type="module" src="app.js"></script>
 </body>

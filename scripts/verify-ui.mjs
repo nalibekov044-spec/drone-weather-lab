@@ -14,7 +14,11 @@ class Element {
   addEventListener(type,callback){ (this.listeners[type] ||= []).push(callback); }
   fire(type,event={}){ for(const f of this.listeners[type]||[]) f({target:this,...event}); }
   append(...children){ this.children.push(...children); children.forEach(c=>{c.parent=this;if(c.id)elements.set(c.id,c);}); }
-  replaceChildren(){ this.children=[]; }
+  replaceChildren(...children){ this.children=[]; this.append(...children); }
+  createTHead(){ const n=new Element("","thead"); this.append(n); return n; }
+  createTBody(){ const n=new Element("","tbody"); this.append(n); return n; }
+  insertRow(){ const n=new Element("","tr"); this.append(n); return n; }
+  insertCell(){ const n=new Element("","td"); this.append(n); return n; }
   setAttribute(name,value){(this.attributes ||= {})[name]=value;} getAttribute(name){return this.attributes?.[name] ?? null;}
   closest(selector){return selector==="label" ? (this.parent || new Element()) : /input|textarea|select|button/.test(this.tag) ? this : null;}
   dispatchEvent(event){this.fire(event.type,event);}
@@ -45,8 +49,8 @@ for(const m of html.matchAll(/<(\w+)[^>]*\bid="([^"]+)"[^>]*>/g)){
   }
   elements.set(e.id,e);
 }
-const tabs=["flightTab","graphTab","airflowTab"].map((id,i)=>{const e=elements.get(id);e.dataset.view=["flight","graph","airflow"][i];return e;});
-const panels=["flightView","graphView","airflowView"].map(id=>elements.get(id));
+const tabs=["flightTab","graphTab","airflowTab","compareTab"].map((id,i)=>{const e=elements.get(id);e.dataset.view=["flight","graph","airflow","compare"][i];return e;});
+const panels=["flightView","graphView","airflowView","compareView"].map(id=>elements.get(id));
 const weather=["calm","gust","rain"].map(key=>{const e=new Element();e.dataset.weather=key;return e;});
 let raf=null; const timers=[]; let solve,trace,parse;
 class WorkerStub{
@@ -67,10 +71,13 @@ const document={ getElementById:id=>elements.get(id)||null, documentElement:new 
 const preferences=new Map();
 const context=vm.createContext({document,localStorage:{getItem:key=>preferences.get(key),setItem:(key,value)=>preferences.set(key,value)},Event:class{constructor(type){this.type=type;}},window:{devicePixelRatio:1,addEventListener(){}},performance,console,URL,Blob,TextDecoder,TextEncoder,Worker:WorkerStub,requestAnimationFrame:callback=>{raf=callback;},setTimeout:callback=>{timers.push(callback);return timers.length;},clearTimeout:id=>{timers[id-1]=null;},getComputedStyle:()=>({getPropertyValue:()=>"#75f3c8"})});
 const modules=new Map();
-async function load(filename){
-  const absolute=path.resolve(root,filename);if(modules.has(absolute))return modules.get(absolute);
-  const mod=new vm.SourceTextModule(fs.readFileSync(absolute,"utf8"),{identifier:absolute,context,initializeImportMeta:meta=>{meta.url=`file://${absolute}`;}});modules.set(absolute,mod);
-  await mod.link((specifier,parent)=>load(path.relative(root,path.resolve(path.dirname(parent.identifier),specifier))));return mod;
+async function load(filename) {
+  const absolute = path.resolve(root, filename); if (modules.has(absolute)) return modules.get(absolute);
+  const promise = (async () => {
+    const mod = new vm.SourceTextModule(fs.readFileSync(absolute, "utf8"), { identifier: absolute, context, initializeImportMeta: meta => { meta.url = `file://${absolute}`; } });
+    await mod.link((specifier, parent) => load(path.resolve(path.dirname(parent.identifier), specifier))); return mod;
+  })();
+  modules.set(absolute, promise); return promise;
 }
 for(const [name,assign] of [["cfd-core",m=>solve=m.solveCFD],["flow-lines",m=>trace=m.traceLines],["mesh-import",m=>parse=m.parseMesh]]){const m=await load(`dist/${name}.js`);await m.evaluate();assign(m.namespace);}
 const app=await load("dist/app.js");await app.evaluate();
@@ -95,7 +102,7 @@ elements.get("meshCFD").checked=true;elements.get("meshCFD").fire("change");tick
 assert(elements.get("modelStatus").textContent.includes("замкнутая"));
 elements.get("removeModel").fire("click");assert(elements.get("meshCFD").disabled);
 elements.get("exportReport").fire("click");
-elements.get("resetSimulation").fire("click");tick();assert.equal(elements.get("streamlineCount").value,"216");
+elements.get("resetSimulation").fire("click");tick();assert.equal(elements.get("streamlineCount").value,"360");
 elements.get("dronePreset").value="custom";elements.get("dronePreset").fire("change");tick();
 assert(!elements.get("builderPanel").hidden && elements.get("frameSize").disabled);
 elements.get("bodyHeight").value="180";elements.get("bodyHeight").fire("input");tick();
@@ -142,3 +149,27 @@ key("1"); for(let i=0;i<15;i++)tick(); assert.equal(elements.get("motorCards").c
 assert(elements.get("motorCards").children[0].innerHTML.includes("Ресурс"));
 console.log("v0.7 UI: exact decimal edits, rejected range overflow, unit preference, canonical preservation, hotkeys and motor cards passed.");
 console.log("UI integration passed: initialization, flight, graph, CFD worker messages, weather, coefficients, JSON export and reset. Visual appearance not tested.");
+
+elements.get("captureA").fire("click"); assert(!elements.get("captureB").disabled);
+elements.get("payload").value="1.2"; elements.get("payload").fire("input"); elements.get("captureB").fire("click");
+assert.equal(elements.get("comparisonResult").children[0].children[1].children.length, 7);
+tabs[3].fire("click"); tick(); assert(!elements.get("compareView").hidden);
+elements.get("clearComparison").fire("click"); assert(elements.get("captureB").disabled);
+const gpuCalls = [], gpu = new Proxy({ createShader:()=>({}), getShaderParameter:()=>true, getProgramParameter:()=>true, createProgram:()=>({}), createBuffer:()=>({}), getUniformLocation:(_,name)=>name, getAttribLocation:(_,name)=>({position:0,normal:1,color:2})[name], TRIANGLES:4, LINES:1, POINTS:0 }, { get:(o,k)=>k in o?o[k]:(...args)=>{gpuCalls.push({name:k,args});} });
+const oldContext=Element.prototype.getContext;
+Element.prototype.getContext=function(type){return type==="webgl"?gpu:context2d;};
+Element.prototype.insertBefore=function(child){this.append(child);};
+const hud=new Element("","canvas"), parent=new Element();parent.append(hud);hud.parentNode=parent;
+const rendererModule=await load("dist/gpu-scene.js");if(rendererModule.status!=="evaluated")await rendererModule.evaluate();
+const renderer=new rendererModule.namespace.GPUScene(hud);
+const p={...JSON.parse(JSON.stringify((await load("dist/physics.js")).namespace.baseDefaults))};
+const calc=(await load("dist/physics.js")).namespace.calculate(p);
+const basis={position:[0,2,6],right:[1,0,0],up:[0,1,0],forward:[0,0,-1],focal:500};
+renderer.begin(basis,800,520,1);renderer.model(p,{mode:"flight",modelRevision:0}, {position:[0,0,0]},calc,0);
+const firstUploads=gpuCalls.filter(x=>x.name==="bufferData").length;
+renderer.begin(basis,800,520,1);renderer.model(p,{mode:"flight",modelRevision:0}, {position:[0,0,0]},calc,1);
+assert.equal(gpuCalls.filter(x=>x.name==="bufferData").length,firstUploads,"Model buffers reused on subsequent frames");
+for(const call of gpuCalls.filter(x=>x.name==="bufferData"||x.name==="bufferSubData"))assert(call.args[call.name==="bufferData"?1:2].every(Number.isFinite));
+assert(gpuCalls.some(x=>x.name==="drawArrays"));
+Element.prototype.getContext=oldContext;
+console.log("v0.8 UI: A/B capture, compare tab, clear comparison, finite GPU buffers and model buffer reuse passed. WebGL calls stubbed; shader compilation tested separately.");

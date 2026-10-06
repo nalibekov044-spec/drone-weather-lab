@@ -77,9 +77,9 @@ function makeGeometry(config, nx, ny, nz, bounds) {
   for (let iy = 0; iy < ny; iy += 1) {
     const y = bounds.yMin + iy * dy;
     for (let iz = 0; iz < nz; iz += 1) {
-      const z = BOUNDS.zMin + iz * dz;
+      const z = bounds.zMin + iz * dz;
       for (let ix = 0; ix < nx; ix += 1) {
-        const x = BOUNDS.xMin + ix * dx;
+        const x = bounds.xMin + ix * dx;
         const index = ix + nx * (iz + nz * iy);
         // Imported geometry replaces the preset, but not an optional obstacle.
         if ((config.geometryParts && !config.meshTriangles && config.geometryParts.some(part=>containsPart(part,x,y,z))) ||
@@ -157,7 +157,7 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
   const { nx, ny, nz } = quality;
   const steps = config.maxSteps || Math.round(quality.steps * (config.iterationBudget === "deep" ? 6 : config.iterationBudget === "quick" ? 1 : 2));
   const spacing = 6 / (nx - 1);
-  const bounds = { ...BOUNDS, yMin: -(ny - 1) * spacing / 2, yMax: (ny - 1) * spacing / 2 };
+  const bounds = { ...BOUNDS, yMin: -(ny - 1) * spacing / 2, yMax: (ny - 1) * spacing / 2, zMin: -(nz - 1) * spacing / 2, zMax: (nz - 1) * spacing / 2 };
   config = { ...config, worldScale: config.worldScale || (config.frameSize || 520) / 1440 };
   const count = nx * ny * nz;
   const { solid, solidCells, rotors, dx, dy, dz } = makeGeometry(config, nx, ny, nz, bounds);
@@ -171,7 +171,8 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
   const bodyForce = makeBodyForce(config, nx, ny, nz, rotors, referenceSpeed, solid, bounds, spacing);
   // Both modes regularize viscosity. TRT decouples viscous and odd kinetic relaxation.
   const trt = config.solverMode !== "bgk";
-  const tau = trt ? 0.54 : 0.62;
+  const tau = config.kinematicViscosity ? 0.5 + 3 * config.kinematicViscosity / (spacing * config.worldScale * referenceSpeed / 0.065) : trt ? 0.54 : 0.62;
+  if (!(tau > 0.501 && tau < 2)) throw new Error("Requested viscosity is outside the supported lattice range.");
   const omega = 1 / tau;
   const omegaOdd = trt ? 1 / (0.5 + (3/16) / (tau - 0.5)) : omega;
   let distributions = resume?.distributions || new Float32Array(count * 19);
@@ -188,7 +189,7 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
     const initial = equilibrium(q, 1, inlet[0], inlet[1], inlet[2]);
     distributions.fill(initial, base, base + count);
   }
-  const fluid = [], boundary = [], sources = new Int32Array(count * 19);
+  const fluid = [], boundary = [], bounceLinks = [], sources = new Int32Array(count * 19);
   for (let iy=0;iy<ny;iy++) for(let iz=0;iz<nz;iz++) for(let ix=0;ix<nx;ix++) {
     const index=ix+nx*(iz+nz*iy);
     if(ix===0||ix===nx-1||iy===0||iy===ny-1||iz===0||iz===nz-1){
@@ -200,21 +201,21 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
       for(let q=0;q<19;q++){
         const source=index-CX[q]-nx*CZ[q]-nx*nz*CY[q];
         sources[q*count+index]=solid[source]?OPPOSITE[q]*count+index:q*count+source;
+        if (solid[source] && q) bounceLinks.push({ source: OPPOSITE[q] * count + index, q });
       }
     }
   }
-  const inletEquilibrium = WEIGHT.map((_,q)=>equilibrium(q,1,...inlet));
+  const collisionCells = [...fluid, ...boundary.filter(face => !solid[face.index]).map(face => face.index)];
   let stableChecks=resume?.stableChecks||0;
   let maxLatticeSpeed=0, maxDensityDeviation=0;
+  let meanDensity = 1, densityDrift = 0;
+  const boundaryScratch = new Float64Array(4);
+  let surfaceForce = [0, 0, 0];
 
   for (let step = 0; step < steps; step += 1) {
     let deltaSquared = 0, velocitySquared = 0;
     const diagnosticStep = step % 20 === 0;
-    for (let index = 0; index < count; index += 1) {
-      if (solid[index]) {
-        for (let q = 0; q < 19; q += 1) postCollision[q * count + index] = WEIGHT[q];
-        continue;
-      }
+    for (const index of collisionCells) {
       let density = 0;
       let ux = 0;
       let uy = 0;
@@ -244,10 +245,32 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
       collideCell(distributions,index,count,density,ux,uy,uz,forceX,forceY,forceZ,omega,omegaOdd,postCollision);
     }
 
-    for (const face of boundary) for(let q=0;q<19;q++) next[q*count+face.index]=face.inflow?inletEquilibrium[q]:postCollision[q*count+face.inside];
+    for (const face of boundary) {
+      boundaryScratch.fill(0);
+      for (let q = 0; q < 19; q++) {
+        const value = postCollision[q * count + face.inside];
+        boundaryScratch[0] += value;
+        boundaryScratch[1] += value * CX[q];
+        boundaryScratch[2] += value * CY[q];
+        boundaryScratch[3] += value * CZ[q];
+      }
+      const rho = boundaryScratch[0];
+      const ux = boundaryScratch[1] / rho, uy = boundaryScratch[2] / rho, uz = boundaryScratch[3] / rho;
+      for (let q = 0; q < 19; q++) {
+        const neq = postCollision[q * count + face.inside] - equilibrium(q, rho, ux, uy, uz);
+        next[q * count + face.index] = equilibrium(q, face.inflow ? rho : 1, face.inflow ? inlet[0] : ux, face.inflow ? inlet[1] : uy, face.inflow ? inlet[2] : uz) + neq;
+      }
+    }
     for(let q=0;q<19;q++){
       const base=q*count;
       for(const index of fluid) next[base+index]=postCollision[sources[base+index]];
+    }
+    if (diagnosticStep || step === steps - 1) {
+      surfaceForce = [0, 0, 0];
+      for (const link of bounceLinks) {
+        const exchanged = 2 * postCollision[link.source], q = link.q;
+        surfaceForce[0] -= exchanged * CX[q]; surfaceForce[1] -= exchanged * CY[q]; surfaceForce[2] -= exchanged * CZ[q];
+      }
     }
     [distributions, next] = [next, distributions];
     iterations = startIteration + step + 1;
@@ -258,7 +281,7 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
       stableChecks = residual < 0.001 ? stableChecks+1 : 0;
       if (iterations >= 200 && stableChecks >= 3) break;
     }
-    if ((step+1)%20===0) yield { progress:(step+1)/steps, iterations, residual };
+    if ((step+1)%5===0) yield { progress:(step+1)/steps, iterations, residual };
   }
 
   const velocityX = new Float32Array(count);
@@ -267,7 +290,7 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
   const pressure = new Float32Array(count);
   const physicalVelocityScale = referenceSpeed / 0.065;
   const physicalPressureScale = (config.density ?? 1.225) * physicalVelocityScale ** 2 / 3;
-  let maxSpeed = 0;
+  let maxSpeed = 0, densitySum = 0, densityCells = 0;
   let minPressure = Infinity;
   let maxPressure = -Infinity;
   for (let index = 0; index < count; index += 1) {
@@ -284,6 +307,7 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
       uz += value * CZ[q];
     }
     if (!Number.isFinite(density) || density < 0.6 || density > 1.4) throw new Error("CFD потерял устойчивость на последнем шаге. Выбери BGK или снизь нагрузку.");
+    densitySum += density; densityCells++;
     velocityX[index] = (ux + 0.5 * bodyForce.fx[index]) / density * physicalVelocityScale;
     velocityY[index] = (uy + 0.5 * bodyForce.fy[index]) / density * physicalVelocityScale;
     velocityZ[index] = (uz + 0.5 * bodyForce.fz[index]) / density * physicalVelocityScale;
@@ -320,6 +344,8 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
     }
   }
 
+  meanDensity = densitySum / Math.max(1, densityCells); densityDrift = meanDensity - 1;
+  const forceScale = (config.density ?? 1.225) * (spacing * config.worldScale) ** 2 * physicalVelocityScale ** 2;
   const temperatureK = (config.temperature ?? 15) + 273.15;
   const viscosity = dynamicViscosity(temperatureK);
   const characteristicLength = Math.max(0.12, (config.frameSize ?? 520) / 1000);
@@ -333,6 +359,8 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
     stats: {
       cells: count,
       solidCells,
+      meanDensity, densityDrift, surfaceForce: surfaceForce.map(v => v * forceScale),
+      boundaryMethod: "non-equilibrium extrapolation, velocity inlet / density outlet",
       iterations,
       residual, residualHistory: residualHistory.slice(-120), converged: iterations>=200&&stableChecks>=3, clampedCells,
       maxLatticeMach:maxLatticeSpeed*Math.sqrt(3), maxDensityDeviation,

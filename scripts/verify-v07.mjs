@@ -3,7 +3,13 @@ import fs from "node:fs";
 import vm from "node:vm";
 import path from "node:path";
 const root = path.resolve(import.meta.dirname, "..");
-async function module(name) { const m = new vm.SourceTextModule(fs.readFileSync(path.join(root, "dist", name), "utf8")); await m.link(() => {}); await m.evaluate(); return m.namespace; }
+const loaded = new Map();
+async function load(file) {
+  if (loaded.has(file)) return loaded.get(file);
+  const m = new vm.SourceTextModule(fs.readFileSync(file, "utf8"), { identifier: file }); loaded.set(file, m);
+  await m.link((specifier, parent) => load(path.resolve(path.dirname(parent.identifier), specifier))); return m;
+}
+async function module(name) { const m = await load(path.join(root, "dist", name)); if (m.status !== "evaluated") await m.evaluate(); return m.namespace; }
 const u = await module("units.js"), thermal = await module("systems.js");
 for (const system of ["metric", "imperial"]) for (const kind of Object.values(u.parameterUnits)) for (const value of [-40, 0, 1.23456, 32, 1000]) {
   assert(Math.abs(u.fromDisplay(u.toDisplay(value, kind, system), kind, system) - value) < 1e-8);
