@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.85.0-beta
+
+Single-file offline HTML and a GitHub Windows launcher build. Both README files start with launch instructions. Pages serves an offline download.
+
+Smagorinsky LES, torque-preserving actuator sources, force convergence, boundary mass flow balance and averaged force diagnostics. CFD disk thrust includes thermal derating. Analytical shear-wave and actuator balance checks are in verification-v085.json.
+
+Detailed motor housings, camera mounts, arm lights, smooth part normals and cached twisted propeller geometry. Blade phase is integrated and preserved when RPM reaches zero.
+
+The numerical grid remains coarse and its base viscosity remains elevated. No experimental drone validation, grid independence or tested Windows executable is claimed.
+
 ## 0.8.0
 
 Russian and English interface, including help, warnings, chart labels and diagnostics. Language is saved separately from the unit system.

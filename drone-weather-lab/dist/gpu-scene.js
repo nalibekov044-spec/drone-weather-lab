@@ -1,4 +1,4 @@
-import { geometryFor, triangulateParts } from './drone-builder.js';
+import { geometryFor, triangulateParts, visualDetails } from './drone-builder.js';
 const vertex = `
 precision mediump float;
 attribute vec3 position;
@@ -52,7 +52,7 @@ function rotate(point, pose) {
 function color(value, alpha = 1) {
   return [parseInt(value.slice(1, 3), 16) / 255, parseInt(value.slice(3, 5), 16) / 255, parseInt(value.slice(5, 7), 16) / 255, alpha];
 }
-const materials = { body: '#6a7d8e', arm: '#253b4b', motor: '#49d8ba', battery: '#222a35', camera: '#4c7698', landing: '#b3c0cb', payload: '#ca9455', blade: '#cddce5', detail: '#52ccf5' };
+const materials = { body: '#d8e1e8', arm: '#253b4b', motor: '#283b50', battery: '#222a35', camera: '#4c7698', landing: '#b3c0cb', payload: '#ca9455', blade: '#cddce5', detail: '#52ccf5', motorRing: '#9aacbc', hub: '#c2d6e4', vent: '#102333', trim: '#3cbfae', frontLight: '#d7f5ff', rearLight: '#f47166', strap: '#121e2b', lens: '#294f75', cameraMount: '#2c4355', gps: '#dae4eb', antenna: '#3e5264', carbon: '#1a2938' };
 export class GPUScene {
   constructor(hud) {
     this.canvas = document.createElement('canvas');
@@ -89,7 +89,7 @@ export class GPUScene {
     for (const [name, components, start] of [['position', 3, 0], ['normal', 3, 12], ['color', 4, 24]]) { gl.enableVertexAttribArray(this.attributes[name]); gl.vertexAttribPointer(this.attributes[name], components, gl.FLOAT, false, 40, start); }
     gl.uniform3fv(this.locations.offset, pose?.position || [0, 0, 0]);
 
-    gl.uniformMatrix3fv(this.locations.rotation, false, pose ? new Float32Array([[1, 0, 0], [0, 1, 0], [0, 0, 1]].flatMap(p => rotate(p, pose))) : this.identity);
+    gl.uniformMatrix3fv(this.locations.rotation, false, pose?.matrix || (pose ? new Float32Array([[1, 0, 0], [0, 1, 0], [0, 0, 1]].flatMap(p => rotate(p, pose))) : this.identity));
     gl.uniform1f(this.locations.pointSize, size * this.dpr); gl.uniform1f(this.locations.lit, lit ? 1 : 0);
     gl.drawArrays(mode, 0, buffer.count);
   }
@@ -113,11 +113,7 @@ export class GPUScene {
     if (this.modelKey !== key) {
       this.modelKey = key;
       const parts = [...(design.parts || [])];
-      if (!scene.model && parameters.dronePreset !== "custom") {
-        if (parameters.dronePreset !== 'custom') parts.push({ kind: 'ellipsoid', center: [0, -0.18, -0.29], size: [0.075, 0.075, 0.045], role: 'detail' });
-        parts.push({ kind: 'box', center: [0, 0.255, -0.09], size: [0.23, 0.012, 0.025], role: 'detail' });
-        parts.push({ kind: 'box', center: [0, 0.255, 0.17], size: [0.23, 0.012, 0.025], role: 'detail' });
-      }
+      if (!scene.model) parts.push(...visualDetails(parameters, design));
       if (scene.mode === 'airflow') {
         const s = parameters.obstacleSize || 1;
         if (parameters.flowObstacle === 'wall') parts.push({ kind: 'box', center: [1.28, 0, 0], size: [0.18 * s, 1.44 * s, 1.24 * s], role: 'payload' });
@@ -134,9 +130,15 @@ export class GPUScene {
       for (const face of faces) {
         const [a, b, c] = face.points, u = b.map((v, i) => v - a[i]), v = c.map((v, i) => v - a[i]);
         const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]], norm = Math.hypot(...n) || 1;
-        const ellipsoid = !scene.model && parts.find(p => p.role === face.role && p.kind === 'ellipsoid');
+        const part = face.part;
         for (const p of face.points) {
-          const smooth = ellipsoid ? p.map((v, i) => (v - ellipsoid.center[i]) / (ellipsoid.size[i] ** 2)) : n;
+          let smooth = n;
+          if (part && (part.kind === 'ellipsoid' || part.kind === 'cylinder' && Math.abs(n[1] / norm) < 0.9)) {
+            const c = Math.cos(part.rotation || 0), s = Math.sin(part.rotation || 0);
+            const x = p[0] - part.center[0], y = p[1] - part.center[1], z = p[2] - part.center[2];
+            const a = (x * c + z * s) / (part.size[0] ** 2), b = part.kind === 'cylinder' ? 0 : y / (part.size[1] ** 2), d = (-x * s + z * c) / (part.size[2] ** 2);
+            smooth = [a * c - d * s, b, a * s + d * c];
+          }
           const magnitude = Math.hypot(...smooth) || 1;
           data.push(...p, ...smooth.map(v => v / magnitude), ...color(materials[face.role] || '#8194a4'));
         }
@@ -148,18 +150,48 @@ export class GPUScene {
     }
     if (!pose.pitch && !pose.roll && !(pose.position?.[1])) this.draw('shadow', this.gl.TRIANGLES);
     this.draw('body', this.gl.TRIANGLES, true, pose);
-    const data = [];
-    for (let i = 0; i < design.rotors.length; i++) {
-      const r = design.rotors[i], radius = parameters.diameter * 0.0254 / (2 * design.worldScale);
-      const a = time * Math.min(18, (result.effectiveRpms[i] || 0) / 900) * (i % 2 ? -1 : 1);
-      for (const sign of [-1, 1]) {
-        const points = [[0, -0.012], [radius * 0.25, -0.035], [radius, -0.018], [radius, 0.018], [radius * 0.25, 0.035], [0, 0.012]].map(([x, z]) => [r.x + sign * x * Math.cos(a) - z * Math.sin(a), r.diskY + 0.01, r.z + sign * x * Math.sin(a) + z * Math.cos(a)]);
-        const tint = color(i % 2 ? '#adc6d8' : '#76ccb9');
-        for (let j = 1; j < points.length - 1; j++) for (const p of [points[0], points[j], points[j + 1]]) data.push(...p, 0, 1, 0, ...tint);
+    const radius = parameters.diameter * 0.0254 / (2 * design.worldScale);
+    const bladeKey = `${radius}|${parameters.pitch}`;
+    if (this.bladeKey !== bladeKey) {
+      this.bladeKey = bladeKey;
+      const data = [], rings = [];
+      for (let j = 0; j <= 12; j++) {
+        const fraction = 0.12 + 0.88 * j / 12, x = radius * fraction;
+        const chord = radius * (0.14 * Math.sin(Math.PI * fraction * 0.8) + 0.04) * (j === 12 ? 0.6 : 1);
+        const twist = Math.min(0.65, Math.atan(parameters.pitch * 0.0254 / (2 * Math.PI * x * design.worldScale)));
+        const sweep = radius * 0.11 * fraction * fraction, thickness = chord * 0.13;
+        rings.push([[-0.5, 0], [0.15, thickness], [0.5, 0], [0.12, -thickness * 0.45]].map(([z, y]) => [x, y * Math.cos(twist) - z * chord * Math.sin(twist), sweep + y * Math.sin(twist) + z * chord * Math.cos(twist)]));
       }
+      const triangle = (a, b, c, sign) => {
+        const points = [a, b, c].map(v => [v[0] * sign, v[1], v[2] * sign]);
+        const u = points[1].map((v, i) => v - points[0][i]), w = points[2].map((v, i) => v - points[0][i]);
+        const normal = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]], length = Math.hypot(...normal) || 1;
+        for (const point of points) data.push(...point, ...normal.map(v => v / length), ...color('#c2d4df'));
+      };
+      for (const sign of [-1, 1]) {
+        for (let j = 0; j < rings.length - 1; j++) for (let k = 0; k < 4; k++) {
+          const next = (k + 1) % 4;
+          triangle(rings[j][k], rings[j + 1][k], rings[j + 1][next], sign);
+          triangle(rings[j][k], rings[j + 1][next], rings[j][next], sign);
+        }
+        for (const ring of [rings[0], rings.at(-1)]) { triangle(ring[0], ring[1], ring[2], sign); triangle(ring[0], ring[2], ring[3], sign); }
+      }
+      this.upload('blades', data);
     }
-    this.upload('blades', data, true); this.draw('blades', this.gl.TRIANGLES, true, pose);
+    const dt = Math.max(0, Math.min(0.1, time - (this.bladeTime ?? time))); this.bladeTime = time;
+    this.bladeAngles ||= [];
+    for (let i = 0; i < design.rotors.length; i++) {
+      const rotor = design.rotors[i];
+      const speed = Math.min(24, (result.effectiveRpms[i] || 0) / 900) * (i % 2 ? -1 : 1);
+      const angle = this.bladeAngles[i] = ((this.bladeAngles[i] || 0) + dt * speed) % (Math.PI * 2);
+      const position = rotate([rotor.x, rotor.diskY + 0.01, rotor.z], pose).map((v, axis) => v + (pose.position?.[axis] || 0));
+      const c = Math.cos(angle), s = Math.sin(angle);
+      const handedness = i % 2 ? -1 : 1;
+      const matrix = new Float32Array([[c, 0, s], [0, 1, 0], [-s * handedness, 0, c * handedness]].flatMap(v => rotate(v, pose)));
+      this.draw('blades', this.gl.TRIANGLES, true, { position, matrix });
+    }
   }
+
   airflow(lines, field, settings, time, key) {
     const cacheKey = `${key}|${settings.colorMode}`;
     const shades = settings.colorMode === 'pressure' ? ['#658aff', '#98b1d6', '#a3c9ca', '#d1ca88', '#f0b651', '#ff8059'] : settings.colorMode === 'vorticity' ? ['#326f86', '#409cbd', '#54d5ba', '#ddd078', '#f68c63', '#ff546b'] : ['#315c86', '#3b86ac', '#45b6c8', '#58d6d0', '#90eddf', '#e2fff6'];

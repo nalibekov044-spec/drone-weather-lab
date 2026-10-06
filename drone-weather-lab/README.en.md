@@ -1,26 +1,24 @@
-# Drone Weather Lab 0.8
+# Drone Weather Lab 0.85 Beta
 
 [Русская документация](README.md)
 
 Explore how wind, weather and design choices affect a multirotor drone. Change the mass, propellers or motors, watch the position hold response, inspect the computed airflow, and compare two configurations under the same weather.
 
-## Quick start
+## Open the simulator
 
-If you have a published simulator link, open it directly. No installation is needed to use a hosted copy.
+**[Online simulator](https://nalibekov044-spec.github.io/drone-weather-lab/)** · **[Release downloads](https://github.com/nalibekov044-spec/drone-weather-lab/releases)**
 
-To run the downloaded project:
+The online copy opens directly. There is no installation. The links show this version after it has been uploaded to GitHub and Pages has been enabled.
 
-1. Extract the ZIP. Open the folder containing `README.md`, `Start.cmd` and `dist`.
-2. On Windows, double click `Start.cmd`. Python 3 must be installed. The simulator opens automatically; keep the console window open.
-3. Alternatively, open a terminal in that folder and run:
+To use a downloaded copy:
 
-```sh
-python scripts/start.py
-```
+1. Download `Drone-Weather-Lab-0.85-Beta.html` from the release. If you download a ZIP, extract it first.
+2. Double click the HTML file. If your computer asks which application to use, choose a web browser.
+3. The simulator runs without Python, Node.js, a terminal or an internet connection. External documentation links need internet access.
 
-On Windows, `py scripts/start.py` also works. The address is `http://127.0.0.1:8000/`. If the port is busy, use `python scripts/start.py --port 8001`. Press Ctrl+C to stop.
+On Windows, `Start.cmd` opens the same file. The `dist` folder is for hosting and development. Use the HTML file at the project root for a normal offline launch.
 
-Opening `dist/index.html` by double clicking is not the supported launch method. JavaScript modules and calculation workers need an HTTP server. The simulator uses HTML, CSS and JavaScript. Python only serves the files locally; it does not perform the drone calculations. No npm installation or external rendering library is required.
+A Windows build is configured in GitHub Actions. After Build release downloads succeeds, the release receives `Drone-Weather-Lab-0.85-Beta.exe`. It contains the same HTML, extracts it to a local application folder and opens the default browser. It uses .NET Framework 4 and the Windows HTML file association. The executable has not been built or tested on Windows while preparing this archive, and publisher signing is not configured. The HTML download works independently of that build.
 
 ## Try a first experiment
 
@@ -32,19 +30,19 @@ Select English in the language menu and Metric in the units menu. These choices 
 4. Enable CFD geometry to see the solid cell centres used by the solver. Thin arms or landing gear may not survive on a coarse grid even when they are visible in the rendered model.
 5. Open Compare and capture A. Increase payload or change the drone, then capture B. Both calculations use A's weather and healthy motors. Imported CAD and individual motor RPM are not included in this comparison.
 
-![Drone model rendered with the project shaders](docs/model-v08.png)
+## Changes in 0.85 Beta
 
-The image is an offscreen render of the actual model and project shaders, not a screenshot of the complete interface.
+The offline simulator is a single HTML file containing the interface, translations, 3D scene and both background workers. GitHub Pages also serves this file as a download. A separate Actions job builds the Windows launcher and checks that its embedded HTML extracts unchanged.
 
-## What changed in 0.8
+Motors now have rings, vents and hubs. The models include camera mounts, battery straps, a navigation module and arm lights. Propellers have thickness and a twisted profile. Their geometry is uploaded once when the propeller settings change; animation uses cached geometry and retains the blade angle when a motor stops. Smooth normals now follow the actual part, including rotated ellipsoids and cylinders.
 
-The interface, help, warnings and chart labels are available in Russian and English. The 3D model uses WebGL with depth testing, lit materials, solid blades and cached geometry. Canvas remains a fallback if WebGL is unavailable. Mean-flow streamlines and their moving particles use the GPU too. The initial line count is now 360 and can be increased to 600.
+Smagorinsky LES adds local eddy viscosity from the non-equilibrium stress tensor. Rotor disks receive an estimated torque Q = P / ω. Force and torque are normalised over the source cells, and neighbouring disks turn in opposite directions. LES and swirl can be switched off separately.
 
-The built-in drones have body, arms, motors, battery, camera and landing gear where appropriate. Physical parts use the same geometry for rendering and the CFD solid mask. Animated blades represent a rotor disk in CFD; small visual details such as battery straps are decorative. Imported meshes retain the full geometry in WebGL and use a simplified preview in Canvas.
+CFD stopping checks velocity and force changes. Diagnostics show both residuals, boundary mass flow balance, mean force over the last ten samples and peak added viscosity. CFD thrust now includes thermal motor derating, rounded to 10% to avoid restarting the solve every frame.
 
-Velocity inlet and reference-density outlet boundaries now retain the neighbouring non-equilibrium distribution. The solver also reports force on all solid objects through momentum exchange and mean density deviation. This force is a diagnostic and does not replace the flight model's drag equation.
+![Four drone presets rendered with the project shaders](docs/model-v085.png)
 
-A/B comparison evaluates seven metrics with identical weather. Force arrows show weight, actual controller thrust and estimated wind force in Flight. Their lengths use a common visual scale relative to weight.
+This is an offscreen render of the project geometry and shaders, not a screenshot of the complete interface.
 
 ## Settings and results
 
@@ -111,13 +109,25 @@ C𝒹 is the drag coefficient, A is projected area in m², and V is speed in m/s
 
 The CFD solver uses D3Q19 lattice Boltzmann distributions, TRT or BGK collision, Guo body forcing, stationary bounce-back solids and actuator disk momentum sources. Streamlines are integrated through the computed field with RK4. Moving particles advance by local travel time. Playback speed changes animation only. More lines improve visibility; they do not refine the numerical grid.
 
+Rotor torque is estimated as $Q=P_{shaft}/\omega$, where $\omega=2\pi n$. Shaft power and RPM are adjusted to the estimated disk operating point. The tangential source preserves the requested torque around Y without adding a net lateral force.
+
+The LES relation is $\nu_t=(C_s\Delta)^2|S|$, with $C_s=0.12$. Local relaxation time comes from the non-equilibrium stress tensor $\Pi$:
+
+$$\tau_{eff}=\frac{\tau_0+\sqrt{\tau_0^2+18C_s^2\sqrt{2\Pi:\Pi}/\rho}}{2}$$
+
+The tensor and density use lattice units; $\Pi:\Pi$ is the sum of squared tensor components, including symmetric off-diagonal entries. The tensor includes a Guo forcing correction. Added viscosity sits on top of the base numerical viscosity. It does not restore the physical viscosity of air. No separate near-wall damping model is implemented.
+
+Boundary mass flow is integrated as $\sum\rho u_n\Delta A$, using trapezoidal weights at face edges. An imbalance during development can correspond to mass changing inside the domain. It is a diagnostic rather than proof of accuracy.
+
 ## Accuracy and checks
 
-The included `verification-v08.json` records a sphere case at 3 m/s, diameter 0.36 m and kinematic viscosity 0.035 m²/s. Both grids use the same viscosity. Their drag estimates were 1.313 N and 1.263 N, a relative difference of about 3.94%. Both reached the residual stopping criterion. This is a limited grid sensitivity check, not proof of grid independence or validation against a real drone.
+Checks for this version are recorded in `verification-v085.json`. A periodic shear wave on 32 cells over 200 steps differs from the analytical amplitude decay by 0.36% for BGK and 0.17% for TRT. The actuator test produces 3.99999996 N for a requested 4 N and 0.0599999999 N·m for a requested 0.06 N·m, with negligible net lateral force.
 
-Regression checks cover collision mass and momentum conservation, uniform flows in different directions, hover symmetry, continued solves, worker cancellation, CAD topology, unit conversion, decimal controls, motor degradation, translation coverage, equal-weather comparison and GPU buffer reuse. The GLSL shaders were compiled and linked using Mesa GLES. Integration tests use a simulated DOM and Canvas; a complete visual inspection in a browser was not available for this release.
+Checks cover uniform flow with LES, boundary balance, sphere drag direction and symmetry, finite drone fields with rotor torque, mass and momentum conservation, continued worker calculations, translations, precise input and UI integration. Shaders compile on Mesa GLES. Model appearance was inspected in an offscreen GPU render. The complete page has not been run in a normal browser here, and the Windows launcher has not been run on Windows.
 
-For the default drone calculations, numerical viscosity is raised for stability. The physical and solver Reynolds numbers differ. The grids contain approximately 13k, 31k or 61k cells. These grids do not resolve real blade aerodynamics, boundary layers or developed turbulence. Icing and rain use empirical corrections. Safety, acoustic effects, vortex ring state and structural strength are not established by these results.
+The LES sphere case on the Fast grid reaches the velocity and force stopping criteria, with a boundary flow imbalance of about 0.007%. The 200-step drone case has not converged and is labelled accordingly in the report. Its peak lattice Mach number is about 0.24, so compressibility remains a material limitation. `verification-v08.json` retains the previous two-grid check; grid independence is not established for 0.85 Beta.
+
+Numerical viscosity is elevated and physical and solver Reynolds numbers differ. The available grids have about 13k, 31k and 61k cells. LES and rotor torque do not resolve individual blades, boundary layers or real blade-tip vortices. Rain, ice and motor degradation use estimated coefficients. There is no wind-tunnel or real-drone comparison yet.
 
 To run the checks, install Node.js with support for `vm.SourceTextModule`, then run:
 
@@ -125,26 +135,31 @@ To run the checks, install Node.js with support for `vm.SourceTextModule`, then 
 node --experimental-vm-modules scripts/verify.mjs
 node --experimental-vm-modules scripts/verify-v06.mjs
 node --experimental-vm-modules scripts/verify-v07.mjs
-node --experimental-vm-modules scripts/verify-v08.mjs
+node --experimental-vm-modules scripts/verify-v085.mjs
 node --experimental-vm-modules scripts/verify-ui.mjs
+node --experimental-vm-modules scripts/verify-ui.mjs --offline
+node scripts/verify-standalone.mjs
 ```
 
-`verify-v08.mjs` regenerates the numerical report. Timings depend on the machine.
+`verify-v085.mjs` regenerates the numerical report. Timings depend on the machine.
 
-## Publish on GitHub Pages
+## Publish on GitHub
 
-Upload the project contents at the repository root. Keep `README.md`, `README.en.md`, `dist`, `scripts`, `docs` and `.github`. Do not upload only the ZIP or place everything inside an extra version folder.
+1. Upload the archive contents at the repository root, including `.github`, `desktop`, `docs`, `dist`, `scripts`, both README files and the standalone HTML. Do not add another version folder around them.
+2. For the website, open Settings, Pages and select GitHub Actions. Wait for Deploy GitHub Pages to succeed. Copy the address from Settings, Pages and check it without signing in.
+3. For downloadable files, open Actions, select Build release downloads and choose Run workflow. A successful run provides the files under Artifacts.
+4. To attach builds automatically to a release, create the tag `v0.85.0-beta`. In Releases, choose Draft a new release, create that tag from `main` and select Set as a pre-release. Publishing it runs the build and attaches the HTML, ZIP and Windows executable.
 
-The workflow is `.github/workflows/pages.yml`. In repository Settings, open Pages and select GitHub Actions as the source. Push or upload changes to `main`. If needed, open Actions, choose Deploy GitHub Pages and run the workflow. Use the website address shown by the successful deployment as the public demo link. For this repository, the expected address is `https://nalibekov044-spec.github.io/drone-weather-lab/`; its public availability was not verified while preparing this release.
+Release text is in `RELEASE.en.md`. The source archive does not contain a compiled executable. A Windows job builds it. If that job fails, its log is available in Actions; the HTML download remains usable independently.
 
-A saved repository and a working public website are separate outcomes. Test the deployed link without signing in before sharing it with a reviewer.
+After editing source modules, rebuild the single file with `node scripts/build-standalone.mjs`. This is only for developers. Pages and release jobs rebuild it automatically. Developers working with separate modules can use `python scripts/start.py`; visitors do not need it.
 
 ## Troubleshooting
 
 | Problem | What to check |
 | --- | --- |
-| Blank page after opening an HTML file | Start the local HTTP server instead |
-| Start.cmd closes or reports Python missing | Install Python 3, then retry with `py scripts/start.py` |
+| Blank page after opening HTML | Open the root HTML file in a browser, rather than `dist/index.html` |
+| Start.cmd does not open the simulator | Open the HTML file directly in a browser |
 | Calculation is slow | Start with Fast and Quick; reduce the line count separately |
 | WebGL is unavailable | The scene falls back to Canvas; try an updated browser or graphics driver |
 | Thrust reserve is negative | Check weight, propeller dimensions, RPM and motor power limits |
@@ -170,4 +185,4 @@ A saved repository and a working public website are separate outcomes. Test the 
 
 ## References
 
-[Guo, Zheng and Shi, non-equilibrium boundary extrapolation](https://cpb.iphy.ac.cn/en/article/doi/10.1088/1009-1963/11/4/310) · [NASA, CFD verification and validation](https://www.grc.nasa.gov/www/wind/valid/tutorial/tutorial.html) · [NASA, drag equation](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/drag-equation/)
+[OpenLB, Smagorinsky formulation](https://www.openlb.net/DoxyGen/html/d7/dcf/collisionLES_8h_source.html) · [Microsoft, .NET Framework versions](https://learn.microsoft.com/en-us/dotnet/framework/install/versions-and-dependencies) · [Guo, Zheng and Shi, non-equilibrium boundary extrapolation](https://cpb.iphy.ac.cn/en/article/doi/10.1088/1009-1963/11/4/310) · [NASA, CFD verification and validation](https://www.grc.nasa.gov/www/wind/valid/tutorial/tutorial.html) · [NASA, drag equation](https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/drag-equation/)

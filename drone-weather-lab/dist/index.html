@@ -11,12 +11,13 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.8</span></p>
+        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.85 Beta</span></p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
         <label class="unit-control">Язык<select id="language"><option value="ru">Русский</option><option value="en">English</option></select></label>
         <label class="unit-control">Единицы<select id="unitSystem"><option value="metric">Метрические</option><option value="imperial">Имперские</option></select></label>
+        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.85-Beta.html" download>Скачать для запуска без установки</a>
         <button id="showShortcuts" class="button" type="button" aria-expanded="false" aria-controls="shortcutHelp">Клавиши <kbd>?</kbd></button>
         <button id="toggleSimulation" class="button button-primary" type="button">Пауза</button>
         <button id="resetSimulation" class="button" type="button">Сбросить</button>
@@ -113,6 +114,8 @@
             <label>Решатель<select id="solverMode"><option value="trt">TRT · две релаксации</option><option value="bgk">BGK · более вязкий</option></select></label>
             <label>Расчёт<select id="iterationBudget"><option value="quick">Эскиз</option><option value="standard" selected>Стандарт</option><option value="deep">Длинный</option></select></label>
             <label>Скорость частиц<select id="flowRate"><option value="0.15">0,15×</option><option value="0.35" selected>0,35×</option><option value="1">Реальное время</option></select></label>
+            <label>Вихревая вязкость<select id="turbulenceModel"><option value="smagorinsky" selected>Smagorinsky LES</option><option value="none">Без модели LES</option></select></label>
+            <label class="check-control"><input id="rotorSwirl" type="checkbox" checked> Закрутка от винтов</label>
             <button id="continueCFD" class="button" type="button" disabled>Считать дальше</button>
           </div>
           <details class="calculation-details" open><summary>Сходимость и диагностика CFD</summary><div id="cfdDiagnostics">Расчёт в фоне. Частицы движутся в поле среднего ветра, а не имитируют CFD каждого порыва.</div><canvas id="residualCanvas" class="residual-chart" width="720" height="150" aria-label="График невязки по итерациям, логарифмическая шкала"></canvas></details>
@@ -248,7 +251,7 @@
 
     <details class="model-note">
       <summary>Точность и ограничения модели</summary>
-      <p>CFD : численное решение поля воздуха. Здесь используется D3Q19 LBM: 19 направлений переноса на кубической сетке, неподвижные твёрдые границы и источники импульса в дисках винтов. Суммарная сила источников соответствует расчётной вертикальной тяге режима зависания. Лопасти, их вращение, пограничный слой, отрыв и развитая турбулентность не разрешаются. Порывы относятся к модели полёта; CFD показывает средний ветер. Численная вязкость повышена для устойчивости, поэтому физический Re не равен Re решателя. Невязка : изменение скорости между итерациями, а не доказательство точности. CAD-сетка не определяет массу и C𝒹 автоматически. Расчёт предварительный и не подтверждает безопасность реального полёта.</p>
+      <p>CFD : численное решение поля воздуха. Здесь используется D3Q19 LBM: 19 направлений переноса на кубической сетке, неподвижные твёрдые границы и источники импульса в дисках винтов. Суммарная сила источников соответствует расчётной вертикальной тяге режима зависания. Лопасти и пограничный слой не разрешаются. Закрутка задаётся источником момента диска; LES добавляет локальную вязкость для неразрешённых вихрей. Это не проверенная модель развитой турбулентности. Порывы относятся к модели полёта; CFD показывает средний ветер. Численная вязкость повышена для устойчивости, поэтому физический Re не равен Re решателя. Невязка : изменение скорости между итерациями, а не доказательство точности. CAD-сетка не определяет массу и C𝒹 автоматически. Расчёт предварительный и не подтверждает безопасность реального полёта.</p>
       <p>Основы модели: <a href="https://www.grc.nasa.gov/www/k-12/airplane/propth.html" target="_blank" rel="noopener">теория диска винта : NASA</a>; <a href="https://www1.grc.nasa.gov/beginners-guide-to-aeronautics/drag-equation/" target="_blank" rel="noopener">сила сопротивления : NASA</a>.</p>
     </details>
     <details class="model-note" open><summary>Инженерные показатели</summary><div id="engineeringMetrics" class="engineering-grid">:</div><p id="engineeringWarnings" role="status"></p></details>

@@ -104,10 +104,10 @@ const state = {
 let parameterCache = null;
 let flowSnapshot = { key: "", result: null };
 
-function cfdSettings() { return { quality: $("cfdQuality").value, solverMode: $("solverMode").value, iterationBudget: $("iterationBudget").value }; }
+function cfdSettings() { return { quality: $("cfdQuality").value, solverMode: $("solverMode").value, iterationBudget: $("iterationBudget").value, smagorinsky: $("turbulenceModel").value === "smagorinsky" ? 0.12 : 0, rotorSwirl: $("rotorSwirl").checked }; }
 function meanFlowResult(parameters) {
   // A mean-flow solve must not restart at every animated gust or thermal time step.
-  const healths = state.motorHealths.map(h => Math.round(h * 10) / 10);
+  const healths = effectiveMotorHealths().map(h => Math.round(h * 10) / 10);
   const key = JSON.stringify([parameters, state.motorRpms, healths]);
   if (flowSnapshot.key !== key) flowSnapshot = { key, result: calculate(parameters, { motorRpms: state.motorRpms, motorHealths: healths }) };
   return flowSnapshot.result;
@@ -127,8 +127,16 @@ function drawResidual(stats) {
   const first = history[0].iteration, last = history[history.length - 1].iteration;
   ctx.strokeStyle = "#66d9ff"; ctx.lineWidth = 2; ctx.beginPath();
   history.forEach((p, i) => { const x = x0 + (p.iteration - first) / Math.max(1, last - first) * pw; i ? ctx.lineTo(x, y(p.residual)) : ctx.moveTo(x, y(p.residual)); });
+  ctx.stroke();
+  const forceHistory = stats?.forceHistory || [];
+  ctx.strokeStyle = "#f6b766"; ctx.beginPath(); let forceStarted = false;
+  for (const point of forceHistory) {
+    if (!Number.isFinite(point.residual)) continue;
+    const x = x0 + (point.iteration - first) / Math.max(1, last - first) * pw;
+    forceStarted ? ctx.lineTo(x, y(point.residual)) : ctx.moveTo(x, y(point.residual)); forceStarted = true;
+  }
   ctx.stroke(); ctx.lineWidth = 1; ctx.fillStyle = "#a2bab3";
-  ctx.fillText(t(`${first}`), x0, h - 5); ctx.fillText(t(`${last} итераций`), w - 142, h - 5); ctx.fillText(t("Невязка · логарифмическая шкала · цель 0,1%"), x0, 14);
+  ctx.fillText(t(`${first}`), x0, h - 5); ctx.fillText(t(`${last} итераций`), w - 142, h - 5); ctx.fillText(t("Невязка · скорость голубая, сила жёлтая · логарифмическая шкала"), x0, 14);
 }
 
 function updateProbe() {
@@ -154,9 +162,12 @@ airflowScene.onCFDStatus = info => {
       <span>Сила дисков<strong>${quantity(s.appliedThrust, "force")}</strong><small>Интеграл источника импульса в воздухе, связан с вертикальной тягой.</small></span>
       <span>∇·u, RMS<strong>${format(s.divergenceRms, 2)} с⁻¹</strong><small>Остаточная сжимаемость / дискретизация вдали от стенок; в идеале ноль.</small></span>
       <span>Итерации<strong>${s.iterations} · ${format(s.simulatedTime, 2)} с</strong><small>Численное время установления, не время полёта.</small></span>
-      <span>Сила на всех твёрдых телах<strong>${s.surfaceForce.map(v => quantity(v, "force")).join("; ")}</strong><small>По обмену импульсом. Мгновенный результат решателя, без связи с полётом.</small></span>
+      <span>Сила на всех твёрдых телах<strong>${s.meanSurfaceForce.map(v => quantity(v, "force")).join("; ")}</strong><small>Среднее последних десяти измерений. По обмену импульсом, без связи с моделью полёта.</small></span>
+      <span>Невязка силы<strong>${Number.isFinite(s.forceResidual) ? format(s.forceResidual * 100, 2) + "%" : "…"}</strong><small>Изменение силы за 20 итераций. Для остановки нужно меньше 0,5%.</small></span>
+      <span>Баланс воздуха<strong>${format(s.massFlow.relativeImbalance * 100, 2)}%</strong><small>Разница входящего и выходящего массового расхода. Во время установления часть воздуха накапливается внутри.</small></span>
+      <span>Пиковая добавочная вязкость<strong>${format(s.maxEddyViscosity, 6)} м²/с</strong><small>Модель LES оценивает перенос импульса неразрешёнными вихрями. Базовая вязкость решателя остаётся повышенной.</small></span>
       <span>Средняя плотность<strong>${format(s.densityDrift * 100, 3)}%</strong><small>Отклонение средней плотности от входной.</small></span>
-    </div><p>${s.method}. Число Маха сетки: ${format(s.maxLatticeMach, 3)}; отклонение плотности до ${format(s.maxDensityDeviation * 100, 2)}%. ${s.maxLatticeMach > 0.2 ? "Высокая сжимаемость: результат требует осторожности." : ""} ${s.solidCells < 8 ? "Корпус плохо разрешён: увеличь сетку или размер модели." : ""} ${getParameters().dronePreset === "custom" && getParameters().armThickness < s.spacingM * 2000 ? "Лучи тоньше двух ячеек: их обтекание не разрешено." : ""} Сеточная сходимость и сравнение с экспериментом не выполнены. CFD использует средний ветер; ресурс моторов округлён до 10%. Давление относительно входа.</p>`;
+    </div><p>${s.method}. Число Маха сетки: ${format(s.maxLatticeMach, 3)}; отклонение плотности до ${format(s.maxDensityDeviation * 100, 2)}%. ${s.maxLatticeMach > 0.2 ? "Высокая сжимаемость: результат требует осторожности." : ""} ${s.solidCells < 8 ? "Корпус плохо разрешён: увеличь сетку или размер модели." : ""} ${getParameters().dronePreset === "custom" && getParameters().armThickness < s.spacingM * 2000 ? "Лучи тоньше двух ячеек: их обтекание не разрешено." : ""} Сеточная сходимость и сравнение с экспериментом не выполнены. CFD использует средний ветер; доступность моторов с учётом температуры округлена до 10%. Давление относительно входа.</p>`;
     drawResidual(s); updateProbe();
   } else if (info.status === "error") {
     ui.cfdStatus.textContent = "ошибка расчёта";
@@ -543,7 +554,7 @@ $("resetSimulation").addEventListener("click", () => {
   $("airflowZoom").value = "1";
   $("airflowLayer").value = "volume";
   $("cfdQuality").value = "balanced";
-  $("solverMode").value = "trt"; $("iterationBudget").value = "standard"; $("flowRate").value = "0.35";
+  $("turbulenceModel").value = "smagorinsky"; $("rotorSwirl").checked = true; $("solverMode").value = "trt"; $("iterationBudget").value = "standard"; $("flowRate").value = "0.35";
   $("flowColor").value = "speed";
   inputs.flowObstacle.value = "none";
   inputs.obstacleSize.value = "1";
@@ -640,12 +651,12 @@ $("exportReport").addEventListener("click", () => {
   const result = calculate(parameters, { motorRpms: state.motorRpms, motorHealths: effectiveMotorHealths() });
   airflowScene.ensureCFD(parameters, meanFlowResult(parameters), cfdSettings());
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd.status === "ready";
-  const report = { version: "0.8.0", generatedAt: new Date().toISOString(), displayUnits: unitSystem, parameters, result, motors: { temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire, exposure: state.motorExposure, ignition: state.motorIgnition },
+  const report = { version: "0.85.0-beta", generatedAt: new Date().toISOString(), displayUnits: unitSystem, parameters, result, motors: { temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire, exposure: state.motorExposure, ignition: state.motorIgnition },
     importedMesh: state.model ? { name: state.model.name, triangles: state.model.triangleCount, closed: state.model.closed, spanMm: Number($("modelSpan").value), upAxis: $("modelUp").value, yaw: Number($("modelYaw").value), usedInCFD: Boolean(airflowScene.meshCFD) } : null,
     cfd: matchingCFD ? { configuration: JSON.parse(airflowScene.cfd.fieldKey), stats: airflowScene.cfd.field.stats } : { status: "not-current-or-not-calculated" },
-    limitations: ["TRT/BGK D3Q19 actuator-disk approximation; no experiment or grid-convergence validation.", "CFD mean wind, motor health rounded to 10%; flight dynamics include smoothed gusts.", "Physical and effective solver Reynolds numbers differ.", "Mass and drag coefficient entered manually; imported mesh only changes CFD geometry when enabled."] };
+    limitations: ["TRT/BGK D3Q19 actuator-disk approximation; no experiment or grid-convergence validation.", "CFD mean wind, motor availability with thermal derating rounded to 10%; flight dynamics include smoothed gusts.", "Physical and effective solver Reynolds numbers differ.", "Mass and drag coefficient entered manually; imported mesh only changes CFD geometry when enabled."] };
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
-  const anchor = document.createElement("a"); anchor.href = url; anchor.download = "drone-weather-lab-v0.8-report.json"; anchor.click();
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = "drone-weather-lab-v0.85-beta-report.json"; anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
@@ -691,8 +702,10 @@ $("continueCFD").addEventListener("click", () => airflowScene.continueCFD());
 for (const id of ["probeX", "probeY", "probeZ"]) $(id).addEventListener("input", updateProbe);
 
 const parameterHelp = {
+  turbulenceModel: "Smagorinsky LES добавляет вязкость по локальному тензору напряжений. Cₛ = 0,12. Это приближённая модель неразрешённых вихрей; она не делает грубую сетку точной.",
+  rotorSwirl: "Момент Q = P / ω оценивается по мощности вала и рабочим оборотам. Источник закручивает воздух вокруг диска; соседние моторы вращаются в противоположные стороны. Лопасти не разрешаются.",
   solverMode: "TRT разделяет симметричную и антисимметричную части распределения. В этой реализации вязкость ниже, чем у BGK. Это всё ещё приближённый низко-Re расчёт, а не DNS реального дрона.",
-  iterationBudget: "Эскиз: 100/220/360 шагов в зависимости от сетки. Стандарт: вдвое больше; длинный: вшестеро. Считать дальше продолжает текущее поле. Остановка: невязка ниже 0,1% три проверки подряд, минимум 200 шагов.",
+  iterationBudget: "Эскиз: 100/220/360 шагов в зависимости от сетки. Стандарт: вдвое больше; длинный: вшестеро. Считать дальше продолжает текущее поле. Остановка: невязка скорости ниже 0,1% и силы ниже 0,5% три проверки подряд, минимум 200 шагов.",
   flowRate: "Меняет только скорость просмотра частиц. Их путь и локальная скорость берутся из численного поля. Не меняет ветер и результат расчёта.",
   armLength: "Расстояние от центра дрона до оси мотора до растяжения рамы. Изменяет реальное плечо тяги и положение дисков в CFD.",
   frameStretch: "Удлиняет расположение моторов по оси Z, вдоль корпуса. Масса и лобовая площадь автоматически не пересчитываются.",

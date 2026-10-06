@@ -1,0 +1,139 @@
+{
+  "version": "0.85.0-beta",
+  "purpose": "Numerical checks, not experimental drone validation",
+  "shearWave": [
+    {
+      "mode": "BGK",
+      "n": 32,
+      "steps": 200,
+      "latticeViscosity": 0.10000000000000002,
+      "measured": 0.00230418470884816,
+      "expected": 0.0023126060957586216,
+      "relativeError": 0.0036415137562364475
+    },
+    {
+      "mode": "TRT",
+      "n": 32,
+      "steps": 200,
+      "latticeViscosity": 0.10000000000000002,
+      "measured": 0.002308658434501591,
+      "expected": 0.0023126060957586216,
+      "relativeError": 0.0017070184430763025
+    }
+  ],
+  "uniformMassImbalance": 0,
+  "actuator": {
+    "forceN": [
+      -6.889775763796457e-10,
+      -3.999999959205668,
+      1.8147176799460096e-9
+    ],
+    "torqueNm": 0.059999999883949585
+  },
+  "sphere": {
+    "cells": 13175,
+    "solidCells": 81,
+    "meanDensity": 0.9999827761271332,
+    "densityDrift": -0.000017223872866845014,
+    "surfaceForce": [
+      1.3397384905815124,
+      0,
+      0
+    ],
+    "meanSurfaceForce": [
+      1.3423827433131854,
+      0,
+      0
+    ],
+    "forceResidual": 0.004538280286754671,
+    "forceSamples": 10,
+    "massFlow": {
+      "incoming": 7.50467690602959,
+      "outgoing": 7.504150105490027,
+      "net": -0.0005268005395633324,
+      "relativeImbalance": 0.00007019876225623774
+    },
+    "smagorinsky": 0.12,
+    "maxEddyViscosity": 0.008407110615126917,
+    "boundaryMethod": "non-equilibrium extrapolation, velocity inlet / density outlet",
+    "iterations": 561,
+    "residual": 0.0003024796628115308,
+    "converged": true,
+    "clampedCells": 0,
+    "maxLatticeMach": 0.14385288407452645,
+    "maxDensityDeviation": 0.09781196713447571,
+    "divergenceRms": 0.1502121332137311,
+    "spacingM": 0.072,
+    "simulatedTime": 0.87516,
+    "worldScale": 0.36,
+    "appliedThrust": 0,
+    "appliedTorques": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "effectiveReynolds": 30.857142857142808,
+    "numericalViscosity": 0.03500000000000006,
+    "elapsedMs": 3560,
+    "maxSpeed": 3.2533018970241567,
+    "minPressure": -2.3737800121307373,
+    "maxPressure": 5.818408489227295,
+    "maxVorticity": 21.635598923847503,
+    "reynolds": 73935.28106047599,
+    "method": "D3Q19 TRT + Guo + Smagorinsky LES"
+  },
+  "drone": {
+    "cells": 13175,
+    "solidCells": 16,
+    "meanDensity": 0.9998440414127686,
+    "densityDrift": -0.00015595858723138623,
+    "surfaceForce": [
+      4.812328580597357,
+      -2.750019776209401,
+      2.8185347803222074
+    ],
+    "meanSurfaceForce": [
+      11.900160540428612,
+      -2.954076793031143,
+      7.862761589573628
+    ],
+    "forceResidual": 0.011044205031020255,
+    "forceSamples": 10,
+    "massFlow": {
+      "incoming": 27.129767366698456,
+      "outgoing": 27.107402455706787,
+      "net": -0.022364910991669262,
+      "relativeImbalance": 0.0008247078918351072
+    },
+    "smagorinsky": 0.12,
+    "maxEddyViscosity": 0.018213983923984635,
+    "boundaryMethod": "non-equilibrium extrapolation, velocity inlet / density outlet",
+    "iterations": 200,
+    "residual": 0.026498602183550043,
+    "converged": false,
+    "clampedCells": 0,
+    "maxLatticeMach": 0.24103045426596698,
+    "maxDensityDeviation": 0.05694805085659027,
+    "divergenceRms": 0.9423078673862088,
+    "spacingM": 0.07777777777777778,
+    "simulatedTime": 0.1685185185185185,
+    "worldScale": 0.3888888888888889,
+    "appliedThrust": 30.400615,
+    "appliedTorques": [
+      0.4023205296596341,
+      -0.4023205296596341,
+      0.4023205296596341,
+      -0.4023205296596341
+    ],
+    "effectiveReynolds": 35.099999999999966,
+    "numericalViscosity": 0.09572649572649583,
+    "elapsedMs": 1147,
+    "maxSpeed": 12.846900765123712,
+    "minPressure": -43.212646484375,
+    "maxPressure": 23.093156814575195,
+    "maxVorticity": 109.9888573021562,
+    "reynolds": 216053.40281208628,
+    "method": "D3Q19 TRT + Guo + Smagorinsky LES"
+  }
+}

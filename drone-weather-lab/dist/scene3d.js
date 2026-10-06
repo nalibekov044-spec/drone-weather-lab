@@ -158,7 +158,7 @@ export class DroneScene3D {
     this.camera = {
       yaw: mode === "airflow" ? -0.82 : -0.72,
       pitch: mode === "airflow" ? 0.35 : 0.48,
-      distance: mode === "airflow" ? 6.2 : 4.6,
+      distance: mode === "airflow" ? 6.2 : 3.5,
       target: [0, 0, 0]
     };
     this.dragging = false;
@@ -616,6 +616,12 @@ export class DroneScene3D {
       geometryParts: design.parts,
       rotorCenters: design.rotors,
       solverMode: settings.solverMode || "trt",
+      smagorinsky: settings.smagorinsky || 0,
+      rotorTorques: result.rotorThrusts.map((thrust, i) => {
+        if (!settings.rotorSwirl || result.effectiveRpms[i] < 1 || result.thrusts[i] < 1e-6) return 0;
+        const throttle = Math.sqrt(thrust / result.thrusts[i]);
+        return (i % 2 ? -1 : 1) * result.shaftPowers[i] * throttle * throttle / (result.effectiveRpms[i] * Math.PI / 30);
+      }),
       iterationBudget: settings.iterationBudget || "standard",
       rotorThrusts: result.rotorThrusts.map(t => Math.round(t * 10) / 10),
       modelRevision: this.modelRevision,
