@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.92 Beta
+
+Six updates.
+
+- Flight log: a real chart with axes, eight channels, a value under the mouse and a summary with Wh and mAh used.
+- Mission plan: a charge chart by stage, the distance of each stage and the time left after the plan.
+- Altitude ceiling: the highest altitude where the drone can still hover, and what limits it.
+- A/B comparison: better or worse for each value, percentages, thrust to weight and a list of changed settings.
+- Centre of gravity: thrust and weight moments now have opposite signs. The component table shows how much thrust each motor needs.
+- Display fixes: propeller clearance no longer shows ":", presets get a clearance, and My drone follows the language and units.
+
 ## 0.91 Beta
 
 - Three calculation modes: visible tab, focus only and background allowed. Coming back does not fast forward the flight.

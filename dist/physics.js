@@ -317,6 +317,14 @@ export function rotorPositions(count, radius = 1) {
   });
 }
 
+// Rotor centres in the horizontal plane, metres from the frame centre: x = X axis, y = Z axis.
+export function rotorPlanPositions(p, design = p.dronePreset === "custom" ? geometryFor(p) : null) {
+  return design ? design.rotors.map(r => ({
+    x: r.x * design.worldScale,
+    y: r.z * design.worldScale
+  })) : rotorPositions(p.rotors, p.frameSize / 2000);
+}
+
 export function dragAreas(p, windDirection = p.windDirection || 0) {
   const cad = p.cadAerodynamics;
   if (!cad?.horizontal?.length) return {
@@ -519,16 +527,18 @@ export function calculate(parameters, options = {}) {
     .rotors);
   const rotorThrusts = thrusts.map(t => t * Math.min(1, requiredVertical / Math.max(1e-9, availableThrust)));
 
-  const positions = design ? design.rotors.map(r => ({
-    x: r.x * design.worldScale,
-    y: r.z * design.worldScale
-  })) : rotorPositions(p.rotors, p.frameSize / 2000);
+  const positions = rotorPlanPositions(p, design);
   let rollMoment = 0;
   let pitchMoment = 0;
   let yawMoment = 0;
+  // 0.92: thrust pushes up and weight pushes down, so their moments have opposite signs.
+  // Moments use the hover share of each rotor thrust: in position hold the motors carry the weight,
+  // not the full commanded thrust. A centre of gravity offset can now be cancelled by uneven thrust.
+  rotorThrusts.forEach((thrust, index) => {
+    rollMoment -= positions[index].y * thrust;
+    pitchMoment += positions[index].x * thrust;
+  });
   thrusts.forEach((thrust, index) => {
-    rollMoment += positions[index].y * thrust;
-    pitchMoment -= positions[index].x * thrust;
     const omega = effectiveRpms[index] * Math.PI / 30;
     yawMoment += (index % 2 ? -1 : 1) * (omega > 0 ? shaftPowers[index] / omega : 0);
   });

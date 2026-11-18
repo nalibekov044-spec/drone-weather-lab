@@ -1,25 +1,22 @@
-# Drone Weather Lab 0.91 Beta
+# Drone Weather Lab 0.92 Beta
 
 [Русский](README.md) · [English](README.en.md)
 
-El simulador muestra cómo el viento, la altitud, las hélices y la batería afectan a un multicóptero. La versión 0.91 permite elegir cuándo se hacen los cálculos. También mejora la batería, las hélices y el CFD, con 21 correcciones pequeñas.
+El simulador muestra cómo el viento, la altitud, las hélices y la batería afectan a un multicóptero. La versión 0.92 trae seis mejoras.
 
 ## Cómo abrirlo
 
-Descomprime el archivo y abre **Drone-Weather-Lab-0.91-Beta.html** o `Start.cmd`. No hace falta instalar nada. Si el navegador bloquea los cálculos locales, ejecuta `python scripts/start.py`.
+Descomprime el archivo y abre **Drone-Weather-Lab-0.92-Beta.html** o `Start.cmd`. No hace falta instalar nada.
 
-## Modos de cálculo
+## Novedades
 
-Hay tres modos: pestaña visible, solo con foco y permitir segundo plano. En segundo plano el vuelo sigue sin dibujar. Aun así, el navegador puede frenar o congelar la pestaña. Al volver, el vuelo no salta hacia adelante.
-
-## Cambios
-
-- El pronóstico de batería usa coeficientes a mitad de cada paso.
-- Se corrigieron la velocidad de punta de pala y el par de reacción.
-- El plan de misión conserva la presión manual.
-- El CFD usa los mismos límites físicos en todas las mallas.
-- Cuatro botones de tono junto al tema. La lista de 21 cambios está en `docs/CHANGES-0.91.md`.
+- Registro de vuelo con gráfico, ejes, ocho magnitudes y un resumen con Wh y mAh.
+- Plan de misión con gráfico de carga, distancia por etapa y margen tras la misión.
+- Techo de altitud: la mayor altitud de vuelo estacionario y su límite.
+- Comparación A/B con mejor o peor, porcentajes y lista de ajustes cambiados.
+- Centro de gravedad: se corrigió el signo de los momentos. La tabla de componentes muestra el empuje de cada motor.
+- Correcciones de unidades y de la separación entre hélices.
 
 ## Límites
 
-El modelo no se ha comparado con un dron real. El CFD usa una malla gruesa. Las pruebas están en `docs/VERIFICATION-0.91.md`.
+El modelo no se ha comparado con un dron real. Las pruebas están en `docs/VERIFICATION-0.92.md`.

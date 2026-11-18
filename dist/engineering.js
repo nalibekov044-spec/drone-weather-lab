@@ -146,71 +146,120 @@ export function calibrateProp(thrustN, shaftWatts, rpm, diameterM, density) {
     cp: shaftWatts / (density * n ** 3 * diameterM ** 5)
   };
 }
-export function missionForecast(p, stages) {
+// Conditions of one mission stage: airspeed is ground speed plus headwind.
+function stageConditions(p, stage) {
+  const q = {
+    ...p,
+    altitude: stage.altitude,
+    windSpeed: stage.wind + stage.speed
+  };
+  if (p.temperatureMode === 'standard') q.temperature = 15 - .0065 * stage.altitude;
+  return q;
+}
+
+// Integrates constant-demand flight in one set of conditions until the time budget, the reserve or a model limit.
+// The arithmetic is the 0.91 stage loop; `onStep` only observes the state after each step.
+function flyConditions(p, q, start, budgetSeconds, onStep) {
+  let state = start,
+    elapsed = 0,
+    reason = 'complete',
+    watts = 0;
+  while (elapsed < budgetSeconds) {
+    if (state.soc <= (p.reserveCharge ?? 15) + 1e-8) {
+      reason = 'reserve';
+      break;
+    }
+    const result = calculate(q, {
+      batteryState: state
+    });
+    watts = result.electricalPower;
+    if (!result.feasible) {
+      reason = 'flight-limit';
+      break;
+    }
+    const c = batteryCircuit(q, state, watts);
+    if (!c.feasible || !c.controllerPowered) {
+      reason = 'power-limit';
+      break;
+    }
+    const toReserve = (state.soc - (p.reserveCharge ?? 15)) / 100 * c.capacityAh * 3600 / Math.max(1e-9, c
+      .current);
+    const dt = Math.min(2, budgetSeconds - elapsed, toReserve);
+    if (dt <= 1e-7) {
+      reason = 'reserve';
+      break;
+    }
+    const advanced = dischargeStep(state, q, watts, q.windSpeed, result.density, dt, p.reserveCharge ?? 15);
+    state = advanced.state;
+    elapsed += advanced.seconds;
+    if (advanced.seconds < 1e-8) {
+      reason = "reserve";
+      break;
+    }
+    onStep?.(state, elapsed);
+  }
+  return {
+    state,
+    elapsed,
+    reason,
+    watts
+  };
+}
+
+export function missionForecast(p, stages, options = {}) {
   validateMissionStages(stages);
   let state = initialBattery(p),
     seconds = 0;
-  const rows = [];
-  for (const stage of stages) {
+  const rows = [],
+    trace = [{
+      seconds: 0,
+      soc: state.soc,
+      stage: 0
+    }];
+  for (const [index, stage] of stages.entries()) {
     finite(stage.minutes, .1, 120, 'duration');
     finite(stage.speed, 0, 40, 'speed');
     finite(stage.altitude, 0, 5000, 'altitude');
     finite(stage.wind, 0, 40, 'wind');
-    const q = {
-      ...p,
-      altitude: stage.altitude,
-      windSpeed: stage.wind + stage.speed
-    };
-    if (p.temperatureMode === 'standard') q.temperature = 15 - .0065 * stage.altitude;
-    const start = state.outputWh;
-    let elapsed = 0,
-      reason = 'complete',
-      watts = 0;
-    while (elapsed < stage.minutes * 60) {
-      if (state.soc <= (p.reserveCharge ?? 15) + 1e-8) {
-        reason = 'reserve';
-        break;
-      }
-      const result = calculate(q, {
-        batteryState: state
-      });
-      watts = result.electricalPower;
-      if (!result.feasible) {
-        reason = 'flight-limit';
-        break;
-      }
-      const c = batteryCircuit(q, state, watts);
-      if (!c.feasible || !c.controllerPowered) {
-        reason = 'power-limit';
-        break;
-      }
-      const toReserve = (state.soc - (p.reserveCharge ?? 15)) / 100 * c.capacityAh * 3600 / Math.max(1e-9, c
-        .current);
-      const dt = Math.min(2, stage.minutes * 60 - elapsed, toReserve);
-      if (dt <= 1e-7) {
-        reason = 'reserve';
-        break;
-      }
-      const advanced = dischargeStep(state, q, watts, q.windSpeed, result.density, dt, p.reserveCharge ?? 15);
-      state = advanced.state;
-      elapsed += advanced.seconds;
-      seconds += advanced.seconds;
-      if (advanced.seconds < 1e-8) {
-        reason = "reserve";
-        break;
-      }
-    }
+    const q = stageConditions(p, stage);
+    const start = state.outputWh,
+      offset = seconds;
+    const run = flyConditions(p, q, state, stage.minutes * 60, (s, elapsed) => trace.push({
+      seconds: offset + elapsed,
+      soc: s.soc,
+      stage: index
+    }));
+    state = run.state;
+    seconds += run.elapsed;
     rows.push({
       name: String(stage.name || '').slice(0, 60),
-      seconds: elapsed,
+      seconds: run.elapsed,
       wh: state.outputWh - start,
       soc: state.soc,
       temperature: state.temperature,
-      watts,
-      reason,
-      distanceM: stage.speed * elapsed
+      watts: run.watts,
+      reason: run.reason,
+      distanceM: stage.speed * run.elapsed
     });
-    if (reason !== 'complete') break;
+    if (run.reason !== 'complete') break;
+  }
+  const complete = rows.length === stages.length && rows.every(r => r.reason === 'complete');
+  // 0.92: how long the drone could continue in the conditions of the last stage before the planned reserve.
+  let margin = null;
+  if (complete && options.margin !== false) {
+    const last = stages.at(-1),
+      extra = [],
+      run = flyConditions(p, stageConditions(p, last), state, (options.marginMinutes ?? 120) * 60, (s,
+        elapsed) => extra.push({
+        seconds: seconds + elapsed,
+        soc: s.soc
+      }));
+    margin = {
+      seconds: run.elapsed,
+      reason: run.reason,
+      soc: run.state.soc,
+      trace: extra
+    };
   }
   return {
     rows,
@@ -218,7 +267,124 @@ export function missionForecast(p, stages) {
     wh: state.outputWh,
     soc: state.soc,
     temperature: state.temperature,
-    complete: rows.length === stages.length && rows.every(r => r.reason === 'complete')
+    complete,
+    distanceM: rows.reduce((sum, r) => sum + r.distanceM, 0),
+    trace,
+    margin
+  };
+}
+
+// 0.92: hover feasibility versus altitude. Pressure always follows the barometric formula here;
+// temperature follows the standard atmosphere or stays as configured.
+const ceilingLimits = r => !r.battery.controllerPowered ? 'controller' : !r.thrustFeasible ? 'thrust' : !r
+  .powerFeasible ? 'power' : !r.tiltFeasible ? 'tilt' : !r.batteryFeasible ? 'battery' : r.verticalDemand < 0 ?
+  'updraft' : r.feasible ? 'none' : 'other';
+export function altitudeEnvelope(p, options = {}) {
+  const maxAltitude = finite(options.maxAltitude ?? 6000, 500, 8000, 'maximum altitude'),
+    step = finite(options.step ?? 500, 50, 2000, 'altitude step'),
+    margin = finite(options.reserveMargin ?? 30, 0, 300, 'reserve margin'),
+    standard = (options.temperature ?? 'standard') === 'standard';
+  const at = altitude => {
+    const q = {
+      ...p,
+      altitude,
+      pressureMode: 'auto'
+    };
+    if (standard) q.temperatureMode = 'standard';
+    else if (q.temperatureMode === 'standard') q.temperature = 15 - .0065 * altitude;
+    const r = calculate(q);
+    return {
+      altitude,
+      temperature: q.temperatureMode === 'standard' ? 15 - .0065 * altitude : q.temperature,
+      density: r.density,
+      pressureHpa: r.pressure / 100,
+      watts: r.electricalPower,
+      reserve: r.reserve,
+      minutes: r.flightMinutes,
+      hoverRpm: r.hoverRpm,
+      feasible: r.feasible,
+      limit: ceilingLimits(r)
+    };
+  };
+  // Scan finely, then bisect the first transition: feasibility need not be monotonic in every setting.
+  const ceiling = test => {
+    let previous = at(0);
+    if (!test(previous)) return {
+      altitude: 0,
+      below: true,
+      limit: previous.limit === 'none' ? 'margin' : previous.limit
+    };
+    const scan = Math.min(25, step);
+    for (let h = scan; h <= maxAltitude + 1e-9; h += scan) {
+      const current = at(Math.min(h, maxAltitude));
+      if (!test(current)) {
+        let low = previous.altitude,
+          high = current.altitude;
+        for (let i = 0; i < 24; i++) {
+          const mid = (low + high) / 2;
+          if (test(at(mid))) low = mid;
+          else high = mid;
+        }
+        const limit = at(high);
+        return {
+          altitude: low,
+          below: false,
+          limit: limit.limit === 'none' ? 'margin' : limit.limit
+        };
+      }
+      previous = current;
+    }
+    return {
+      altitude: maxAltitude,
+      above: true,
+      limit: 'none'
+    };
+  };
+  const rows = [];
+  for (let h = 0; h <= maxAltitude + 1e-9; h += step) rows.push(at(Math.min(h, maxAltitude)));
+  return {
+    rows,
+    hover: ceiling(r => r.feasible),
+    margin: ceiling(r => r.feasible && r.reserve >= margin),
+    reserveMargin: margin,
+    maxAltitude,
+    temperature: standard ? 'standard' : 'settings'
+  };
+}
+
+// 0.92: thrust share of each motor needed to hold a horizontal centre-of-gravity offset.
+// Solves the minimum-norm mixer: total thrust = weight, roll and pitch moments cancel the offset,
+// yaw torque stays zero (rotor torque is proportional to thrust in this model). 1 = average motor.
+export function cgMotorLoads(cg, positions) {
+  if (!Array.isArray(cg) || cg.length !== 2 || !cg.every(Number.isFinite)) throw Error('centre of gravity');
+  if (!Array.isArray(positions) || positions.length < 3) throw Error('rotor positions');
+  const n = positions.length,
+    rows = [positions.map(() => 1), positions.map(r => r.x), positions.map(r => r.y)];
+  if (n >= 4) rows.push(positions.map((_, i) => i % 2 ? -1 : 1));
+  const target = [n, n * cg[0], n * cg[1], 0].slice(0, rows.length);
+  const m = rows.length,
+    gram = rows.map(a => rows.map(b => a.reduce((sum, v, i) => sum + v * b[i], 0)));
+  // Gaussian elimination with partial pivoting on the small m × m system.
+  const aug = gram.map((row, i) => [...row, target[i]]);
+  for (let c = 0; c < m; c++) {
+    let pivot = c;
+    for (let r = c + 1; r < m; r++)
+      if (Math.abs(aug[r][c]) > Math.abs(aug[pivot][c])) pivot = r;
+    if (Math.abs(aug[pivot][c]) < 1e-12) throw Error('rotor layout');
+    [aug[c], aug[pivot]] = [aug[pivot], aug[c]];
+    for (let r = 0; r < m; r++) {
+      if (r === c) continue;
+      const f = aug[r][c] / aug[c][c];
+      for (let k = c; k <= m; k++) aug[r][k] -= f * aug[c][k];
+    }
+  }
+  const lambda = aug.map((row, i) => row[m] / row[i]);
+  const shares = positions.map((_, i) => rows.reduce((sum, row, j) => sum + row[i] * lambda[j], 0));
+  return {
+    offset: Math.hypot(cg[0], cg[1]),
+    shares,
+    max: Math.max(...shares),
+    min: Math.min(...shares)
   };
 }
 export function scenarioSweep(p) {

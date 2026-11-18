@@ -1,0 +1,10 @@
+$ node --experimental-vm-modules scripts/verify-ui.mjs 
+v0.6 UI: generator, STL export, valid/invalid JSON import, continuation and probe passed.
+v0.7 UI: exact decimal edits, rejected range overflow, unit preference, canonical preservation, hotkeys and motor cards passed.
+UI integration passed: initialization, flight, graph, CFD worker messages, weather, coefficients, JSON export and reset. Visual appearance not tested.
+v0.8 UI: A/B capture, compare tab, clear comparison, finite GPU buffers and model buffer reuse passed. WebGL calls stubbed; shader compilation tested separately.
+v0.87 UI: battery discharge, replacement, empty-pack controller shutdown, standard atmosphere and frozen-charge mode passed.
+v0.88 UI: explicit battery cells, nominal voltage, forecast label, independent CAD dimensions, aspect lock, projected-area opt-in and reset passed.
+v0.88 preset battery configuration reset passed.
+v0.89 UI: expanded hotkeys, physical layout, help close, camera reset, export/save, battery shortcut, all-reset and CAD analysis reuse passed.
+exit: 0

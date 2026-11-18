@@ -22,7 +22,8 @@ import {
   installLanguage
 } from "./i18n.js";
 import {
-  compareConfigurations
+  compareConfigurations,
+  changedParameters
 } from "./comparison.js";
 import {
   baseDefaults,
@@ -1377,7 +1378,7 @@ $("exportReport").addEventListener("click", () => {
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd
     .status === "ready";
   const report = {
-    version: "0.91.0-beta",
+    version: "0.92.0-beta",
     enduranceForecast: state.forecast,
     powerBudget: state.powerBudget,
     battery: state.battery,
@@ -1428,7 +1429,7 @@ $("exportReport").addEventListener("click", () => {
   }));
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "drone-weather-lab-v0.91-beta-report.json";
+  anchor.download = "drone-weather-lab-v0.92-beta-report.json";
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
@@ -1689,6 +1690,8 @@ $("unitSystem").addEventListener("change", () => {
   if (airflowScene.cfd.field?.stats) airflowScene.emitCFDStatus();
   state.graphDirty = true;
   state.lastMetrics = 0;
+  renderComparison();
+  workbench?.unitsChanged?.();
 });
 $("showShortcuts").addEventListener("click", () => {
   $("shortcutHelp").hidden = !$("shortcutHelp").hidden;
@@ -1751,16 +1754,24 @@ function renderComparison() {
     electricalPower: "Мощность",
     current: "Ток батареи",
     maxWind: "Предел ветра",
-    availableThrust: "Доступная тяга"
+    availableThrust: "Доступная тяга",
+    thrustToWeight: "Тяга / вес"
   };
-  const display = (key, value, difference = false) => key === "flightMinutes" && value === 0 && !difference ?
-    "n/a" : key === "tilt" ? `${format(value)}°` : key === "reserve" ? `${format(value)}%` : key ===
-    "electricalPower" ? `${format(value, 0)} W` : key === "current" ? `${format(value)} A` : key ===
-    "flightMinutes" ? `${format(value)} min` : quantity(value, key === "availableThrust" ? "force" : "speed");
+  const signed = (text, value) => value > 0 ? `+${text}` : text;
+  const display = (key, value) => key === "tilt" ? `${format(value)}°` : key === "reserve" ? `${format(value)}%` :
+    key === "electricalPower" ? `${format(value, 0)} Вт` : key === "current" ? `${format(value)} А` : key ===
+    "flightMinutes" ? `${format(value)} мин` : key === "thrustToWeight" ? `${format(value, 2)}×` : quantity(value,
+      key === "availableThrust" ? "force" : "speed");
+  const verdictText = {
+    better: "лучше",
+    worse: "хуже",
+    same: "без изменений",
+    na: "н/д"
+  };
   const table = document.createElement("table");
   table.className = "comparison-table";
   const head = table.createTHead().insertRow();
-  for (const name of ["", "A", "B", "Δ B − A"]) {
+  for (const name of ["", "A", "B", "Δ B − A", "Итог для B"]) {
     const th = document.createElement("th");
     th.textContent = name;
     head.append(th);
@@ -1768,13 +1779,82 @@ function renderComparison() {
   const body = table.createTBody();
   for (const item of rows) {
     const row = body.insertRow();
-    for (const value of [t(names[item.key]), display(item.key, item.a), item.b == null ? "…" : display(item
-        .key, item.b), item.b == null ? "…" : display(item.key, item.b - item.a, true)]) {
+    // 0.92: flight time outside the hover limits is "not available", not zero minutes.
+    const a = item.aAvailable ? display(item.key, item.a) : "н/д",
+      b = item.b == null ? "…" : item.bAvailable ? display(item.key, item.b) : "н/д";
+    let delta = "…";
+    if (item.b != null) delta = item.verdict === "na" ? "н/д" : signed(display(item.key, item.b - item.a), item.b -
+      item.a);
+    const cells = [t(names[item.key]), a, b, delta].map(value => {
       const cell = row.insertCell();
       cell.textContent = value;
+      return cell;
+    });
+    const percentCell = cells[3];
+    if (item.b != null && item.percent !== null && !["reserve", "tilt"].includes(item.key) && item.verdict !==
+      "same") {
+      const small = document.createElement("small");
+      small.textContent = ` (${signed(format(item.percent, 0), item.percent)}%)`;
+      percentCell.append(small);
+    }
+    const verdict = row.insertCell();
+    verdict.className = `comparison-verdict verdict-${item.b == null ? "na" : item.verdict}`;
+    verdict.textContent = item.b == null ? "…" : verdictText[item.verdict];
+  }
+  const parts = [table];
+  if (comparisonB) {
+    // 0.92: list the design and battery settings that differ; weather is always taken from A.
+    const heading = document.createElement("h3");
+    heading.className = "comparison-subhead";
+    heading.textContent = "Что отличается в B";
+    const changes = changedParameters(comparisonA, comparisonB);
+    if (!changes.length) {
+      const p = document.createElement("p");
+      p.className = "comparison-note";
+      p.textContent = "Настройки дрона и батареи у A и B совпадают.";
+      parts.push(heading, p);
+    } else {
+      const list = document.createElement("ul");
+      list.className = "comparison-changes";
+      for (const change of changes) {
+        const li = document.createElement("li"),
+          name = document.createElement("span"),
+          from = document.createElement("span"),
+          arrow = document.createElement("span"),
+          to = document.createElement("strong");
+        name.textContent = parameterLabel(change.key);
+        from.textContent = parameterText(change.key, change.a);
+        arrow.textContent = " → ";
+        to.textContent = parameterText(change.key, change.b);
+        li.append(name, from, arrow, to);
+        list.append(li);
+      }
+      parts.push(heading, list);
     }
   }
-  $("comparisonResult").replaceChildren(table);
+  $("comparisonResult").replaceChildren(...parts);
+}
+
+// 0.92: readable name and value of a saved parameter, taken from its control in the current language.
+function parameterLabel(id) {
+  if (id === "customCG") return t("Центр тяжести");
+  if (id === "calibratedProps") return $("calibratedProps")?.closest?.("label")?.textContent?.trim() || id;
+  const label = inputs[id]?.closest?.("label");
+  const text = label?.querySelector?.("span")?.firstChild?.nodeValue?.trim() || label?.textContent?.trim();
+  return text || id;
+}
+
+function parameterText(id, value) {
+  if (value === undefined || value === null) return "н/д";
+  if (typeof value === "boolean") return value ? "да" : "нет";
+  if (id === "customCG" && Array.isArray(value)) return `${value.map(v => format(toDisplay(v * 1000, "mm",
+    unitSystem), 1)).join(" / ")} ${unitSpec("mm", unitSystem).label}`;
+  if (inputs[id]?.tagName === "SELECT") return [...inputs[id].options].find(o => o.value === String(value))
+    ?.textContent || String(value);
+  if (typeof value !== "number") return String(value);
+  if (parameterUnits[id]) return quantity(value, parameterUnits[id], ["dragArea", "batteryResistance"].includes(id) ?
+    3 : 2);
+  return outputConfig[id] ? outputConfig[id](value) : format(value, 2);
 }
 $("captureA").addEventListener("click", () => {
   comparisonA = {
@@ -1848,6 +1928,7 @@ function applyWorkbenchParameters(values, options = {}) {
 }
 workbench = installWorkbench({
   activityLoop,
+  getUnitSystem: () => unitSystem,
   state,
   getParameters,
   applyParameters: applyWorkbenchParameters,

@@ -2381,8 +2381,191 @@ select {
 
 #telemetryCanvas {
   width: 100%;
-  height: 160px;
+  height: 240px;
   background: var(--bg)
+}
+
+/* 0.92 · charts, centre of gravity, mission margin and A/B verdicts */
+.lab-chart {
+  display: block;
+  width: 100%;
+  height: 230px;
+  margin: 14px 0 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  cursor: crosshair
+}
+
+.telemetry-form {
+  max-width: 340px;
+  margin: 4px 0 0
+}
+
+.telemetry-readout,
+.telemetry-summary {
+  display: block;
+  min-height: 1.6em;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums
+}
+
+.telemetry-summary {
+  color: var(--text)
+}
+
+.component-row,
+.component-head {
+  grid-template-columns: minmax(120px, 2fr) repeat(4, minmax(60px, 1fr)) 58px 42px
+}
+
+.component-head {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 2px;
+  color: var(--muted);
+  font-size: 10px
+}
+
+.component-share {
+  align-self: center;
+  text-align: right;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted)
+}
+
+#ceilingTable .table-scroll {
+  max-height: none
+}
+
+.cg-loads:empty {
+  display: none
+}
+
+.cg-line {
+  font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text) !important
+}
+
+.cg-line strong {
+  color: var(--accent);
+  font-weight: 600
+}
+
+.cg-bars {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  min-height: 92px;
+  padding: 8px 0 0;
+  margin: 6px 0 10px
+}
+
+.cg-bars span {
+  flex: 1 1 0;
+  max-width: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted)
+}
+
+.cg-bars i {
+  display: block;
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  opacity: .75
+}
+
+.cg-bars b {
+  font-weight: 500;
+  color: var(--text);
+  margin-top: 4px
+}
+
+.cg-status,
+.mission-verdict {
+  margin: 8px 0 14px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--text) !important;
+  font-size: 13px !important
+}
+
+.cg-status[data-tone="danger"],
+.mission-verdict[data-tone="danger"] {
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 13%, transparent)
+}
+
+.comparison-verdict {
+  font-weight: 550;
+  white-space: nowrap
+}
+
+.comparison-table td small {
+  color: var(--muted);
+  font-size: 12px
+}
+
+.verdict-better {
+  color: var(--accent)
+}
+
+.verdict-worse {
+  color: var(--danger)
+}
+
+.verdict-same,
+.verdict-na {
+  color: var(--muted)
+}
+
+.comparison-subhead {
+  font-size: 15px;
+  font-weight: 550;
+  margin: 26px 0 10px
+}
+
+.comparison-note {
+  color: var(--muted)
+}
+
+.comparison-changes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden
+}
+
+.comparison-changes li {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.4fr) auto auto auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums
+}
+
+.comparison-changes li span:first-child {
+  color: var(--muted)
+}
+
+.comparison-changes li strong {
+  color: var(--accent);
+  font-weight: 550
 }
 
 [hidden] {
@@ -2495,9 +2678,20 @@ select {
   }
 
   .component-row,
+  .component-head,
   .stage-row,
   .stage-head {
     min-width: 570px
+  }
+
+  .component-row,
+  .component-head {
+    min-width: 640px
+  }
+
+  .comparison-changes li {
+    grid-template-columns: 1fr;
+    gap: 2px
   }
 
   #componentRows,
@@ -2774,7 +2968,7 @@ select {
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.91 Beta</span></p>
+        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.92 Beta</span></p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
@@ -2793,7 +2987,7 @@ select {
       <p>Клавиши работают в русской и английской раскладке вне полей ввода. G и C тоже переключают графики и обтекание. R сохраняет батарею и моторы; Shift + R сбрасывает все настройки и CAD.</p>
     </section>
 
-    <div class="release-notice">0.91 · Проверка конфигурации</div>
+    <div class="release-notice">0.92 · Проверка конфигурации</div>
     <nav class="mode-tabs" aria-label="Режим визуализации" role="tablist">
       <button class="mode-tab active" id="flightTab" type="button" role="tab" aria-selected="true" aria-controls="flightView" data-view="flight">Полёт</button>
       <button class="mode-tab" id="graphTab" type="button" role="tab" aria-selected="false" aria-controls="graphView" data-view="graph">Графики</button>
@@ -4128,11 +4322,45 @@ const additionalTranslations = {
 return { additionalTranslations };
 })();
 const m8 = (() => {
+// 0.92 interface strings that are written in Russian in app.js and translated in the page.
+const v092Translations = {
+  "Тяга / вес": "Thrust / weight",
+  "Итог для B": "Result for B",
+  "лучше": "better",
+  "хуже": "worse",
+  "без изменений": "no change",
+  "н/д": "n/a",
+  "Что отличается в B": "What differs in B",
+  "Настройки дрона и батареи у A и B совпадают.": "Drone and battery settings of A and B are the same.",
+  "Центр тяжести": "Centre of gravity",
+  "да": "yes",
+  "нет": "no",
+  "0.92 · Проверка конфигурации": "0.92 · Configuration checks"
+};
+const v092Spanish = {
+  "Тяга / вес": "Empuje / peso",
+  "Итог для B": "Resultado para B",
+  "лучше": "mejor",
+  "хуже": "peor",
+  "без изменений": "sin cambio",
+  "н/д": "n/d",
+  "Что отличается в B": "Qué cambia en B",
+  "Настройки дрона и батареи у A и B совпадают.": "Los ajustes del dron y de la batería de A y B coinciden.",
+  "Центр тяжести": "Centro de gravedad",
+  "да": "sí",
+  "нет": "no",
+  "0.92 · Проверка конфигурации": "0.92 · Revisión de configuración"
+};
+
+return { v092Translations, v092Spanish };
+})();
+const m9 = (() => {
 const { spanish } = m3;
 const { v089Translations } = m4;
 const { v088Translations } = m5;
 const { releaseTranslations } = m6;
 const { additionalTranslations } = m7;
+const { v092Translations, v092Spanish } = m8;
 const pairs = `
 Единицы|Units
 Метрические|Metric
@@ -4441,7 +4669,8 @@ CFD потерял устойчивость на последнем шаге. В
 с|s
 `;
 const dictionary = {"0.91 · Проверка конфигурации":"0.91 · Configuration checks",
-"Численная вязкость":"Numerical viscosity","Сравнивай сетки при одной вязкости.":"Compare grids at the same viscosity.","Быстрое · 15 тыс.":"Fast · 15k cells","Среднее · 34 тыс.":"Balanced · 34k cells","Детальнее · 65 тыс.":"Fine · 65k cells", "Мой дрон · Батареи · План · Журнал":"My drone · Batteries · Mission · Log", "Расчёт отменён":"Calculation cancelled", "Поле устарело":"Field is outdated", "Нажми «Рассчитать поток» для текущих настроек.":"Select Calculate flow for the current settings.", "0.9 · Конструктор полёта":"0.9 · Design your flight", "Заряд батареи":"Battery charge", ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations, ...v089Translations };
+"Численная вязкость":"Numerical viscosity","Сравнивай сетки при одной вязкости.":"Compare grids at the same viscosity.","Быстрое · 15 тыс.":"Fast · 15k cells","Среднее · 34 тыс.":"Balanced · 34k cells","Детальнее · 65 тыс.":"Fine · 65k cells", "Мой дрон · Батареи · План · Журнал":"My drone · Batteries · Mission · Log", "Расчёт отменён":"Calculation cancelled", "Поле устарело":"Field is outdated", "Нажми «Рассчитать поток» для текущих настроек.":"Select Calculate flow for the current settings.", "0.9 · Конструктор полёта":"0.9 · Design your flight", "Заряд батареи":"Battery charge", ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations, ...v089Translations, ...v092Translations };
+Object.assign(spanish, v092Spanish);
 let language = 'ru';
 try { const stored=localStorage.getItem('drone-lab-language'),browser=typeof navigator!=='undefined'?navigator.language:'ru';language=['ru','en','es'].includes(stored)?stored:browser.startsWith('es')?'es':browser.startsWith('ru')?'ru':'en'; } catch {}
 const cache = new Map();
@@ -4453,13 +4682,15 @@ function rebuildDictionary() {
 }
 rebuildDictionary();
 function getLanguage() { return language; }
+// Dashes between words become colons; 0.92 keeps a lone dash, which marks a missing value in tables.
+const punctuation = text => text.trim() === '\u2014' ? text : text.replaceAll('\u2014', ':');
 function t(value) {
   const text = String(value);
-  if (language === 'ru') return text.replaceAll('\u2014', ':');
-  if (!/[А-Яа-яЁё]/.test(text)) return text.replaceAll('\u2014', ':');
+  if (language === 'ru') return punctuation(text);
+  if (!/[А-Яа-яЁё]/.test(text)) return punctuation(text);
   if (cache.has(text)) return cache.get(text);
   const dict=language==='es'?spanish:dictionary;
-  const out = (dict[text] || text.replace(matcher, match => dict[match] || dictionary[match])).replaceAll('\u2014', ':');
+  const out = punctuation(dict[text] || text.replace(matcher, match => dict[match] || dictionary[match]));
   if (cache.size > 1500) cache.clear();
   cache.set(text, out); return out;
 }
@@ -4509,7 +4740,7 @@ function installLanguage() {
 
 return { dictionary, rebuildDictionary, getLanguage, t, setLanguage, installLanguage };
 })();
-const m9 = (() => {
+const m10 = (() => {
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const curves = {
   lipo: {
@@ -4826,7 +5057,7 @@ function powerBudget(circuit, motorInputs, efficiencies, escEfficiency, avionics
 
 return { curves, batterySeries, initialBattery, openCircuitCellVoltage, batteryCircuit, stepBattery, escAvailability, stepESC, dischargeStep, forecastBattery, powerBudget };
 })();
-const m10 = (() => {
+const m11 = (() => {
 // One geometry definition for rendering, collision masks, rotor locations and CAD export.
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const builderDefaults = {
@@ -5202,15 +5433,15 @@ function displayParts(p, g, exploded = false) {
 
 return { builderDefaults, designGeometry, containsPart, triangulateParts, exportDesignSTL, visualDetails, geometryFor, displayParts };
 })();
-const m11 = (() => {
+const m12 = (() => {
 const { maximumTipSpeed } = m2;
 const { batteryCircuit,
   initialBattery,
   escAvailability,
-  batterySeries } = m9;
+  batterySeries } = m10;
 const { builderDefaults,
   designGeometry,
-  geometryFor } = m10;
+  geometryFor } = m11;
 const G = 9.80665;
 const INCH = 0.0254;
 
@@ -5516,6 +5747,14 @@ function rotorPositions(count, radius = 1) {
   });
 }
 
+// Rotor centres in the horizontal plane, metres from the frame centre: x = X axis, y = Z axis.
+function rotorPlanPositions(p, design = p.dronePreset === "custom" ? geometryFor(p) : null) {
+  return design ? design.rotors.map(r => ({
+    x: r.x * design.worldScale,
+    y: r.z * design.worldScale
+  })) : rotorPositions(p.rotors, p.frameSize / 2000);
+}
+
 function dragAreas(p, windDirection = p.windDirection || 0) {
   const cad = p.cadAerodynamics;
   if (!cad?.horizontal?.length) return {
@@ -5718,16 +5957,18 @@ function calculate(parameters, options = {}) {
     .rotors);
   const rotorThrusts = thrusts.map(t => t * Math.min(1, requiredVertical / Math.max(1e-9, availableThrust)));
 
-  const positions = design ? design.rotors.map(r => ({
-    x: r.x * design.worldScale,
-    y: r.z * design.worldScale
-  })) : rotorPositions(p.rotors, p.frameSize / 2000);
+  const positions = rotorPlanPositions(p, design);
   let rollMoment = 0;
   let pitchMoment = 0;
   let yawMoment = 0;
+  // 0.92: thrust pushes up and weight pushes down, so their moments have opposite signs.
+  // Moments use the hover share of each rotor thrust: in position hold the motors carry the weight,
+  // not the full commanded thrust. A centre of gravity offset can now be cancelled by uneven thrust.
+  rotorThrusts.forEach((thrust, index) => {
+    rollMoment -= positions[index].y * thrust;
+    pitchMoment += positions[index].x * thrust;
+  });
   thrusts.forEach((thrust, index) => {
-    rollMoment += positions[index].y * thrust;
-    pitchMoment -= positions[index].x * thrust;
     const omega = effectiveRpms[index] * Math.PI / 30;
     yawMoment += (index % 2 ? -1 : 1) * (omega > 0 ? shaftPowers[index] / omega : 0);
   });
@@ -5856,15 +6097,15 @@ function graphSeries(parameters, variableName, metricName, from, to, samples = 9
   return points.filter(point => Number.isFinite(point.y));
 }
 
-return { G, INCH, dronePresets, baseDefaults, graphVariables, graphMetrics, pressureFromAltitude, atmosphere, rotorPositions, dragAreas, relativeAirflow, calculate, graphSeries };
+return { G, INCH, dronePresets, baseDefaults, graphVariables, graphMetrics, pressureFromAltitude, atmosphere, rotorPositions, rotorPlanPositions, dragAreas, relativeAirflow, calculate, graphSeries };
 })();
-const m12 = (() => {
+const m13 = (() => {
 const { validateMissionStages } = m2;
 const { calculate,
-  pressureFromAltitude } = m11;
+  pressureFromAltitude } = m12;
 const { batteryCircuit,
   initialBattery,
-  dischargeStep } = m9;
+  dischargeStep } = m10;
 const cellTypes = {
   lipo: {
     nominal: 3.7,
@@ -6000,71 +6241,120 @@ function calibrateProp(thrustN, shaftWatts, rpm, diameterM, density) {
     cp: shaftWatts / (density * n ** 3 * diameterM ** 5)
   };
 }
-function missionForecast(p, stages) {
+// Conditions of one mission stage: airspeed is ground speed plus headwind.
+function stageConditions(p, stage) {
+  const q = {
+    ...p,
+    altitude: stage.altitude,
+    windSpeed: stage.wind + stage.speed
+  };
+  if (p.temperatureMode === 'standard') q.temperature = 15 - .0065 * stage.altitude;
+  return q;
+}
+
+// Integrates constant-demand flight in one set of conditions until the time budget, the reserve or a model limit.
+// The arithmetic is the 0.91 stage loop; `onStep` only observes the state after each step.
+function flyConditions(p, q, start, budgetSeconds, onStep) {
+  let state = start,
+    elapsed = 0,
+    reason = 'complete',
+    watts = 0;
+  while (elapsed < budgetSeconds) {
+    if (state.soc <= (p.reserveCharge ?? 15) + 1e-8) {
+      reason = 'reserve';
+      break;
+    }
+    const result = calculate(q, {
+      batteryState: state
+    });
+    watts = result.electricalPower;
+    if (!result.feasible) {
+      reason = 'flight-limit';
+      break;
+    }
+    const c = batteryCircuit(q, state, watts);
+    if (!c.feasible || !c.controllerPowered) {
+      reason = 'power-limit';
+      break;
+    }
+    const toReserve = (state.soc - (p.reserveCharge ?? 15)) / 100 * c.capacityAh * 3600 / Math.max(1e-9, c
+      .current);
+    const dt = Math.min(2, budgetSeconds - elapsed, toReserve);
+    if (dt <= 1e-7) {
+      reason = 'reserve';
+      break;
+    }
+    const advanced = dischargeStep(state, q, watts, q.windSpeed, result.density, dt, p.reserveCharge ?? 15);
+    state = advanced.state;
+    elapsed += advanced.seconds;
+    if (advanced.seconds < 1e-8) {
+      reason = "reserve";
+      break;
+    }
+    onStep?.(state, elapsed);
+  }
+  return {
+    state,
+    elapsed,
+    reason,
+    watts
+  };
+}
+
+function missionForecast(p, stages, options = {}) {
   validateMissionStages(stages);
   let state = initialBattery(p),
     seconds = 0;
-  const rows = [];
-  for (const stage of stages) {
+  const rows = [],
+    trace = [{
+      seconds: 0,
+      soc: state.soc,
+      stage: 0
+    }];
+  for (const [index, stage] of stages.entries()) {
     finite(stage.minutes, .1, 120, 'duration');
     finite(stage.speed, 0, 40, 'speed');
     finite(stage.altitude, 0, 5000, 'altitude');
     finite(stage.wind, 0, 40, 'wind');
-    const q = {
-      ...p,
-      altitude: stage.altitude,
-      windSpeed: stage.wind + stage.speed
-    };
-    if (p.temperatureMode === 'standard') q.temperature = 15 - .0065 * stage.altitude;
-    const start = state.outputWh;
-    let elapsed = 0,
-      reason = 'complete',
-      watts = 0;
-    while (elapsed < stage.minutes * 60) {
-      if (state.soc <= (p.reserveCharge ?? 15) + 1e-8) {
-        reason = 'reserve';
-        break;
-      }
-      const result = calculate(q, {
-        batteryState: state
-      });
-      watts = result.electricalPower;
-      if (!result.feasible) {
-        reason = 'flight-limit';
-        break;
-      }
-      const c = batteryCircuit(q, state, watts);
-      if (!c.feasible || !c.controllerPowered) {
-        reason = 'power-limit';
-        break;
-      }
-      const toReserve = (state.soc - (p.reserveCharge ?? 15)) / 100 * c.capacityAh * 3600 / Math.max(1e-9, c
-        .current);
-      const dt = Math.min(2, stage.minutes * 60 - elapsed, toReserve);
-      if (dt <= 1e-7) {
-        reason = 'reserve';
-        break;
-      }
-      const advanced = dischargeStep(state, q, watts, q.windSpeed, result.density, dt, p.reserveCharge ?? 15);
-      state = advanced.state;
-      elapsed += advanced.seconds;
-      seconds += advanced.seconds;
-      if (advanced.seconds < 1e-8) {
-        reason = "reserve";
-        break;
-      }
-    }
+    const q = stageConditions(p, stage);
+    const start = state.outputWh,
+      offset = seconds;
+    const run = flyConditions(p, q, state, stage.minutes * 60, (s, elapsed) => trace.push({
+      seconds: offset + elapsed,
+      soc: s.soc,
+      stage: index
+    }));
+    state = run.state;
+    seconds += run.elapsed;
     rows.push({
       name: String(stage.name || '').slice(0, 60),
-      seconds: elapsed,
+      seconds: run.elapsed,
       wh: state.outputWh - start,
       soc: state.soc,
       temperature: state.temperature,
-      watts,
-      reason,
-      distanceM: stage.speed * elapsed
+      watts: run.watts,
+      reason: run.reason,
+      distanceM: stage.speed * run.elapsed
     });
-    if (reason !== 'complete') break;
+    if (run.reason !== 'complete') break;
+  }
+  const complete = rows.length === stages.length && rows.every(r => r.reason === 'complete');
+  // 0.92: how long the drone could continue in the conditions of the last stage before the planned reserve.
+  let margin = null;
+  if (complete && options.margin !== false) {
+    const last = stages.at(-1),
+      extra = [],
+      run = flyConditions(p, stageConditions(p, last), state, (options.marginMinutes ?? 120) * 60, (s,
+        elapsed) => extra.push({
+        seconds: seconds + elapsed,
+        soc: s.soc
+      }));
+    margin = {
+      seconds: run.elapsed,
+      reason: run.reason,
+      soc: run.state.soc,
+      trace: extra
+    };
   }
   return {
     rows,
@@ -6072,7 +6362,124 @@ function missionForecast(p, stages) {
     wh: state.outputWh,
     soc: state.soc,
     temperature: state.temperature,
-    complete: rows.length === stages.length && rows.every(r => r.reason === 'complete')
+    complete,
+    distanceM: rows.reduce((sum, r) => sum + r.distanceM, 0),
+    trace,
+    margin
+  };
+}
+
+// 0.92: hover feasibility versus altitude. Pressure always follows the barometric formula here;
+// temperature follows the standard atmosphere or stays as configured.
+const ceilingLimits = r => !r.battery.controllerPowered ? 'controller' : !r.thrustFeasible ? 'thrust' : !r
+  .powerFeasible ? 'power' : !r.tiltFeasible ? 'tilt' : !r.batteryFeasible ? 'battery' : r.verticalDemand < 0 ?
+  'updraft' : r.feasible ? 'none' : 'other';
+function altitudeEnvelope(p, options = {}) {
+  const maxAltitude = finite(options.maxAltitude ?? 6000, 500, 8000, 'maximum altitude'),
+    step = finite(options.step ?? 500, 50, 2000, 'altitude step'),
+    margin = finite(options.reserveMargin ?? 30, 0, 300, 'reserve margin'),
+    standard = (options.temperature ?? 'standard') === 'standard';
+  const at = altitude => {
+    const q = {
+      ...p,
+      altitude,
+      pressureMode: 'auto'
+    };
+    if (standard) q.temperatureMode = 'standard';
+    else if (q.temperatureMode === 'standard') q.temperature = 15 - .0065 * altitude;
+    const r = calculate(q);
+    return {
+      altitude,
+      temperature: q.temperatureMode === 'standard' ? 15 - .0065 * altitude : q.temperature,
+      density: r.density,
+      pressureHpa: r.pressure / 100,
+      watts: r.electricalPower,
+      reserve: r.reserve,
+      minutes: r.flightMinutes,
+      hoverRpm: r.hoverRpm,
+      feasible: r.feasible,
+      limit: ceilingLimits(r)
+    };
+  };
+  // Scan finely, then bisect the first transition: feasibility need not be monotonic in every setting.
+  const ceiling = test => {
+    let previous = at(0);
+    if (!test(previous)) return {
+      altitude: 0,
+      below: true,
+      limit: previous.limit === 'none' ? 'margin' : previous.limit
+    };
+    const scan = Math.min(25, step);
+    for (let h = scan; h <= maxAltitude + 1e-9; h += scan) {
+      const current = at(Math.min(h, maxAltitude));
+      if (!test(current)) {
+        let low = previous.altitude,
+          high = current.altitude;
+        for (let i = 0; i < 24; i++) {
+          const mid = (low + high) / 2;
+          if (test(at(mid))) low = mid;
+          else high = mid;
+        }
+        const limit = at(high);
+        return {
+          altitude: low,
+          below: false,
+          limit: limit.limit === 'none' ? 'margin' : limit.limit
+        };
+      }
+      previous = current;
+    }
+    return {
+      altitude: maxAltitude,
+      above: true,
+      limit: 'none'
+    };
+  };
+  const rows = [];
+  for (let h = 0; h <= maxAltitude + 1e-9; h += step) rows.push(at(Math.min(h, maxAltitude)));
+  return {
+    rows,
+    hover: ceiling(r => r.feasible),
+    margin: ceiling(r => r.feasible && r.reserve >= margin),
+    reserveMargin: margin,
+    maxAltitude,
+    temperature: standard ? 'standard' : 'settings'
+  };
+}
+
+// 0.92: thrust share of each motor needed to hold a horizontal centre-of-gravity offset.
+// Solves the minimum-norm mixer: total thrust = weight, roll and pitch moments cancel the offset,
+// yaw torque stays zero (rotor torque is proportional to thrust in this model). 1 = average motor.
+function cgMotorLoads(cg, positions) {
+  if (!Array.isArray(cg) || cg.length !== 2 || !cg.every(Number.isFinite)) throw Error('centre of gravity');
+  if (!Array.isArray(positions) || positions.length < 3) throw Error('rotor positions');
+  const n = positions.length,
+    rows = [positions.map(() => 1), positions.map(r => r.x), positions.map(r => r.y)];
+  if (n >= 4) rows.push(positions.map((_, i) => i % 2 ? -1 : 1));
+  const target = [n, n * cg[0], n * cg[1], 0].slice(0, rows.length);
+  const m = rows.length,
+    gram = rows.map(a => rows.map(b => a.reduce((sum, v, i) => sum + v * b[i], 0)));
+  // Gaussian elimination with partial pivoting on the small m × m system.
+  const aug = gram.map((row, i) => [...row, target[i]]);
+  for (let c = 0; c < m; c++) {
+    let pivot = c;
+    for (let r = c + 1; r < m; r++)
+      if (Math.abs(aug[r][c]) > Math.abs(aug[pivot][c])) pivot = r;
+    if (Math.abs(aug[pivot][c]) < 1e-12) throw Error('rotor layout');
+    [aug[c], aug[pivot]] = [aug[pivot], aug[c]];
+    for (let r = 0; r < m; r++) {
+      if (r === c) continue;
+      const f = aug[r][c] / aug[c][c];
+      for (let k = c; k <= m; k++) aug[r][k] -= f * aug[c][k];
+    }
+  }
+  const lambda = aug.map((row, i) => row[m] / row[i]);
+  const shares = positions.map((_, i) => rows.reduce((sum, row, j) => sum + row[i] * lambda[j], 0));
+  return {
+    offset: Math.hypot(cg[0], cg[1]),
+    shares,
+    max: Math.max(...shares),
+    min: Math.min(...shares)
   };
 }
 function scenarioSweep(p) {
@@ -6098,9 +6505,275 @@ function csvText(rows) {
   }).join(',')).join('\r\n');
 }
 
-return { cellTypes, packExamples, buildPack, componentBalance, calibrateProp, missionForecast, scenarioSweep, csvText };
+return { cellTypes, packExamples, buildPack, componentBalance, calibrateProp, missionForecast, altitudeEnvelope, cgMotorLoads, scenarioSweep, csvText };
 })();
-const m13 = (() => {
+const m14 = (() => {
+// 0.92: small line chart for the flight log, mission plan and altitude ceiling.
+// Colours come from the active theme, so the charts follow theme changes like the main graph.
+function palette() {
+  const style = getComputedStyle(document.documentElement);
+  const read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
+  return {
+    bg: read('--plot-bg', read('--bg', '#081310')),
+    line: read('--line', '#223a35'),
+    text: read('--text', '#edf8f4'),
+    muted: read('--muted', '#91aaa3'),
+    accent: read('--accent', '#75f3c8'),
+    blue: read('--blue', '#6d8dff'),
+    warning: read('--warning', '#ffd166'),
+    danger: read('--danger', '#ff6b75')
+  };
+}
+
+// Decimals that a tick step needs, e.g. 0.05 → 2.
+const stepDigits = step => Math.max(0, Math.min(4, -Math.floor(Math.log10(Math.abs(step) || 1) + 1e-9)));
+
+// "Nice" axis ticks: 1, 2 or 5 times a power of ten.
+function niceTicks(min, max, count = 5) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
+  if (max - min < 1e-12) {
+    const pad = Math.max(1, Math.abs(max) * .1);
+    min -= pad;
+    max += pad;
+  }
+  const raw = (max - min) / Math.max(1, count),
+    power = 10 ** Math.floor(Math.log10(raw)),
+    step = [1, 2, 5, 10].map(f => f * power).find(s => s >= raw) || 10 * power;
+  const ticks = [];
+  for (let v = Math.ceil(min / step - 1e-9) * step; v <= max + step * 1e-9; v += step) ticks.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+  return ticks;
+}
+
+function drawLineChart(canvas, options) {
+  const rect = canvas.getBoundingClientRect(),
+    dpr = Math.min(2, window.devicePixelRatio || 1),
+    width = Math.max(240, rect.width || canvas.width),
+    height = Math.max(120, rect.height || canvas.height);
+  if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+  }
+  const ctx = canvas.getContext('2d'),
+    c = palette(),
+    font = '11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = c.bg;
+  ctx.fillRect(0, 0, width, height);
+  ctx.font = font;
+  const series = (options.series || []).filter(s => s.points?.length);
+  const all = series.flatMap(s => s.points);
+  if (!all.length) {
+    ctx.fillStyle = c.muted;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(options.empty || '', 16, height / 2);
+    return null;
+  }
+  const margin = {
+    top: 22,
+    right: 16,
+    bottom: 34,
+    left: width < 480 ? 46 : 58
+  };
+  const plot = {
+    x: margin.left,
+    y: margin.top,
+    w: width - margin.left - margin.right,
+    h: height - margin.top - margin.bottom
+  };
+  let xMin = options.xMin ?? Math.min(...all.map(p => p.x)),
+    xMax = options.xMax ?? Math.max(...all.map(p => p.x));
+  if (xMax - xMin < 1e-9) xMax = xMin + 1;
+  const extraY = (options.hLines || []).map(l => l.y);
+  let yMin = options.yMin ?? Math.min(...all.map(p => p.y), ...extraY),
+    yMax = options.yMax ?? Math.max(...all.map(p => p.y), ...extraY);
+  if (options.yMin === undefined || options.yMax === undefined) {
+    const pad = yMax - yMin > 1e-9 ? (yMax - yMin) * .08 : Math.max(1, Math.abs(yMax) * .1);
+    if (options.yMin === undefined) yMin -= pad;
+    if (options.yMax === undefined) yMax += pad;
+  }
+  const yTicks = niceTicks(yMin, yMax, Math.max(2, Math.floor(plot.h / 34)));
+  if (options.yMin === undefined && yTicks.length) yMin = Math.min(yMin, yTicks[0]);
+  if (options.yMax === undefined && yTicks.length) yMax = Math.max(yMax, yTicks.at(-1));
+  const yStep = yTicks.length > 1 ? yTicks[1] - yTicks[0] : 1;
+  const X = v => plot.x + (v - xMin) / (xMax - xMin) * plot.w,
+    Y = v => plot.y + plot.h - (v - yMin) / Math.max(1e-12, yMax - yMin) * plot.h;
+  const fx = options.xFormat || (v => String(v)),
+    fy = options.yFormat || (v => String(v));
+  for (const band of options.bands || []) {
+    ctx.fillStyle = band.color || 'rgba(240,95,90,.12)';
+    ctx.fillRect(X(band.x0), plot.y, X(band.x1) - X(band.x0), plot.h);
+  }
+  ctx.strokeStyle = c.line;
+  ctx.lineWidth = 1;
+  ctx.fillStyle = c.muted;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (const v of yTicks) {
+    if (v < yMin - 1e-9 || v > yMax + 1e-9) continue;
+    ctx.beginPath();
+    ctx.moveTo(plot.x, Y(v));
+    ctx.lineTo(plot.x + plot.w, Y(v));
+    ctx.stroke();
+    ctx.fillText(fy(v, yStep), plot.x - 8, Y(v));
+  }
+  const xTicks = options.xTicks || niceTicks(xMin, xMax, Math.max(2, Math.floor(plot.w / 90)));
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'center';
+  for (const v of xTicks) {
+    if (v < xMin - 1e-9 || v > xMax + 1e-9) continue;
+    ctx.beginPath();
+    ctx.moveTo(X(v), plot.y + plot.h);
+    ctx.lineTo(X(v), plot.y + plot.h + 4);
+    ctx.stroke();
+    ctx.fillText(fx(v), X(v), plot.y + plot.h + 8);
+  }
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  if (options.yLabel) ctx.fillText(options.yLabel, plot.x, 13);
+  if (options.xLabel) {
+    ctx.textAlign = 'right';
+    ctx.fillText(options.xLabel, plot.x + plot.w, 13);
+  }
+  // Vertical markers, e.g. mission stage boundaries.
+  ctx.textAlign = 'left';
+  for (const marker of options.vLines || []) {
+    const x = X(marker.x);
+    ctx.strokeStyle = c.line;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, plot.y);
+    ctx.lineTo(x, plot.y + plot.h);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (marker.label) {
+      ctx.fillStyle = c.muted;
+      ctx.fillText(marker.label, x + 4, plot.y + 12);
+    }
+  }
+  for (const line of options.hLines || []) {
+    ctx.strokeStyle = c[line.tone || 'warning'] || line.tone;
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.moveTo(plot.x, Y(line.y));
+    ctx.lineTo(plot.x + plot.w, Y(line.y));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (line.label) {
+      ctx.fillStyle = c[line.tone || 'warning'] || line.tone;
+      ctx.textAlign = line.align === 'left' ? 'left' : 'right';
+      ctx.fillText(line.label, line.align === 'left' ? plot.x + 6 : plot.x + plot.w - 4, Y(line.y) - 5);
+      ctx.textAlign = 'left';
+    }
+  }
+  for (const s of series) {
+    ctx.strokeStyle = c[s.tone || 'accent'] || s.tone;
+    ctx.lineWidth = s.width || 2;
+    ctx.setLineDash(s.dashed ? [5, 4] : []);
+    ctx.beginPath();
+    s.points.forEach((p, i) => i ? ctx.lineTo(X(p.x), Y(p.y)) : ctx.moveTo(X(p.x), Y(p.y)));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (const p of s.points.filter(p => p.dot)) {
+      ctx.fillStyle = c[s.tone || 'accent'] || s.tone;
+      ctx.beginPath();
+      ctx.arc(X(p.x), Y(p.y), 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  const layout = {
+    plot,
+    xMin,
+    xMax,
+    yMin,
+    yMax,
+    X,
+    Y,
+    width,
+    height,
+    toX: offsetX => xMin + (offsetX - plot.x) / plot.w * (xMax - xMin)
+  };
+  // Hover crosshair.
+  if (options.hover && Number.isFinite(options.hover.x)) {
+    const hx = X(options.hover.x);
+    ctx.strokeStyle = c.text;
+    ctx.globalAlpha = .45;
+    ctx.beginPath();
+    ctx.moveTo(hx, plot.y);
+    ctx.lineTo(hx, plot.y + plot.h);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    if (Number.isFinite(options.hover.y)) {
+      ctx.fillStyle = c.text;
+      ctx.beginPath();
+      ctx.arc(hx, Y(options.hover.y), 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  return layout;
+}
+
+return { stepDigits, niceTicks, drawLineChart };
+})();
+const m15 = (() => {
+const { t } = m9;
+// Inputs and saved designs keep their original units. Conversion is a view concern.
+const definitions = {
+  kg: ["кг", "lb", 2.20462262185], mm: ["мм", "in", 1 / 25.4],
+  cm: ["см", "in", 1 / 2.54], m: ["м", "ft", 3.28083989501],
+  inch: ["мм", "in", 1, 25.4], speed: ["м/с", "mph", 2.23693629205],
+  area: ["м²", "ft²", 10.7639104167], temperature: ["°C", "°F", 1.8, 1, 32],
+  rain: ["мм/ч", "in/h", 1 / 25.4], hpa: ["гПа", "psi", 0.0145037738],
+  pressure: ["Па", "lbf/ft²", 0.020885434233], force: ["Н", "lbf", 0.22480894387],
+  density: ["кг/м³", "slug/ft³", 0.00194032033198], volume: ["л", "ft³", 0.03531466672],
+  resistance: ["мОм", "мОм", 1000, 1000]
+};
+const parameterUnits = {
+  batteryMass: "kg", mass: "kg", payload: "kg", frameSize: "mm", diameter: "inch", pitch: "inch", dragArea: "area",
+  windSpeed: "speed", verticalWind: "speed", rainRate: "rain", temperature: "temperature",
+  altitude: "m", pressureHpa: "hpa", batteryTemp: "temperature", payloadX: "cm", payloadY: "cm",
+  bodyLength: "mm", bodyWidth: "mm", bodyHeight: "mm", armLength: "mm", armThickness: "mm",
+  motorDiameter: "mm", motorHeight: "mm", modelSpan: "mm", probeX: "m", probeY: "m", probeZ: "m",
+  batteryResistance: "resistance"
+};
+function unitSpec(kind, system = "metric") {
+  const d = definitions[kind];
+  if (!d) return { label: "", factor: 1, offset: 0 };
+  return system === "imperial" ? { label: t(d[1]), factor: d[2], offset: d[4] || 0 }
+    : { label: t(d[0]), factor: d[3] || 1, offset: 0 };
+}
+function toDisplay(value, kind, system) { const u = unitSpec(kind, system); return value * u.factor + u.offset; }
+function fromDisplay(value, kind, system) { const u = unitSpec(kind, system); return (value - u.offset) / u.factor; }
+function parseExact(text) {
+  const normalized = String(text).trim().replace(",", ".");
+  return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(normalized) ? Number(normalized) : NaN;
+}
+function validateExact(text, min, max, kind, system) {
+  const value = fromDisplay(parseExact(text), kind, system);
+  const tolerance = Math.max(1, Math.abs(min || 0), Math.abs(max || 0)) * 1e-10;
+  return { value, valid: Number.isFinite(value) && value >= min - tolerance && value <= max + tolerance };
+}
+const graphKinds = { availableThrust: "force", windForce: "force", maxWind: "speed", diskLoading: "pressure" };
+const shortcutBindings = {
+  Space: "pause", Digit1: "flight", Digit2: "graph", Digit3: "airflow", Digit4: "compare",
+  Digit5: "engineering", Digit6: "batteries", Digit7: "mission", Digit8: "history",
+  KeyF: "repair", KeyR: "reset", KeyG: "graph", KeyC: "airflow", KeyH: "help",
+  KeyB: "battery", KeyE: "report", KeyS: "save", KeyV: "vectors", KeyO: "camera"
+};
+function shortcutAction(event) {
+  if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return null;
+  const target = event.target;
+  if (target?.isContentEditable || target?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="textbox"], [role="slider"], [role="combobox"]')) return null;
+  const key = String(event.key || "").toLowerCase();
+  if (key === "escape") return "closeHelp";
+  if (target?.closest?.('button, summary, a[href], [role="button"]')) return null;
+  if (key === "?" || (event.code === "Slash" && event.shiftKey)) return "help";
+  if (event.shiftKey) return event.code === "KeyR" || key === "r" ? "resetAll" : null;
+  return shortcutBindings[event.code] || ({ " ": "pause", "1": "flight", "2": "graph", "3": "airflow", "4": "compare", "5":"engineering", "6":"batteries", "7":"mission", "8":"history", f: "repair", r: "reset", g: "graph", c: "airflow", h: "help", b: "battery", e: "report", s: "save", v: "vectors", o: "camera" })[key] || null;
+}
+
+return { parameterUnits, unitSpec, toDisplay, fromDisplay, parseExact, validateExact, graphKinds, shortcutBindings, shortcutAction };
+})();
+const m16 = (() => {
 const add = (a, b, s = 1) => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s];
 const norm = a => { const l = Math.hypot(...a) || 1; return a.map(v => v / l); };
 
@@ -6174,7 +6847,7 @@ function traceLines(field, config, count, layer) {
 
 return { sampleField, traceLines };
 })();
-const m14 = (() => {
+const m17 = (() => {
 const labText = {"Not converged: force differences also include iteration error.":["Поле не установилось: разница сил включает итерационную ошибку.","Sin converger: la diferencia de fuerzas incluye error iterativo."],
 "Calculation activity":["Работа расчётов", "Actividad de cálculo"],"Visible tab":["Видимая вкладка", "Pestaña visible"],"Site has focus":["Только при фокусе", "Solo con foco"],"Allow background":["Разрешить в фоне", "Permitir en segundo plano"],"Background work can be throttled or frozen by your browser. Returning does not fast-forward the flight.":["Браузер может замедлить или заморозить фоновые расчёты. При возвращении время полёта не перескакивает.", "El navegador puede ralentizar o congelar el cálculo en segundo plano. Al volver no se adelanta el vuelo."],"Waiting for activity":["Ожидание активности", "Esperando actividad"],"Calculating in background":["Расчёт в фоне", "Calculando en segundo plano"],"Calculations active":["Расчёт разрешён", "Cálculo permitido"],"Match numerical viscosity across grids":["Одинаковая численная вязкость", "Igualar viscosidad numérica entre mallas"],"Grid comparison":["Сравнение сеток", "Comparación de mallas"],"Compare forces with the same viscosity and settings. A small residual or a small difference between two grids does not prove accuracy.":["Сравнивай силы при одной вязкости и настройках. Малая невязка или разница между двумя сетками не доказывает точность.", "Compara fuerzas con igual viscosidad y ajustes. Un residuo pequeño o poca diferencia entre dos mallas no demuestra precisión."],"Grid":["Сетка", "Malla"],"Cell · mm":["Ячейка · мм", "Celda · mm"],"Viscosity · m²/s":["Вязкость · м²/с", "Viscosidad · m²/s"],"Force XYZ · N":["Сила XYZ · Н", "Fuerza XYZ · N"],"Change · N":["Разница · Н", "Diferencia · N"],"Convergence":["Установление", "Convergencia"],"Converged":["Установился", "Convergente"],"Not converged":["Не установился", "Sin converger"],"Enter a name":["Введи название", "Introduce un nombre"],"Slice is outdated":["Срез устарел: обнови после расчёта", "Corte desactualizado: recalcula"],"Expand panels":["Развернуть панели", "Expandir paneles"],"Custom draft":["Свой черновик", "Borrador propio"],"Active configuration":["Рабочая конфигурация", "Configuración actual"],"Geometry, power and airflow":["Геометрия, питание и обтекание", "Geometría, energía y flujo"],
   "Battery charge history":["История заряда батареи","Historial de carga de batería"], "Flow speed slice":["Срез скорости потока","Corte de velocidad del flujo"],
@@ -6755,26 +7428,121 @@ const labText = {"Not converged: force differences also include iteration error.
     "Rosa"
   ]
 };
+// 0.92 strings: flight log chart, mission margin, altitude ceiling, centre of gravity and units.
+Object.assign(labText, {
+  "Motor shares solve the mixer for this centre of gravity: total thrust equals weight, roll and pitch moments cancel, yaw torque stays zero. They use the selected RPM and current wind.": ["Доли моторов найдены из условия равновесия для этого центра тяжести: сумма тяг равна весу, моменты крена и тангажа взаимно гасятся, момент рыскания остаётся нулевым. Используются выбранные обороты и текущий ветер.", "Los repartos de los motores resuelven el equilibrio para este centro de gravedad: el empuje total iguala el peso, los momentos de alabeo y cabeceo se anulan y el par de guiñada queda en cero. Usan las RPM elegidas y el viento actual."],
+  "Mass · kg": ["Масса · кг", "Masa · kg"],
+  "X · mm": ["X · мм", "X · mm"],
+  "Y · mm (up)": ["Y · мм (вверх)", "Y · mm (arriba)"],
+  "Z · mm": ["Z · мм", "Z · mm"],
+  "Share": ["Доля", "Parte"],
+  "CG": ["ЦТ", "CDG"],
+  "kg·m²": ["кг·м²", "kg·m²"],
+  "Every motor stays within the thrust available at the selected RPM.": ["Каждому мотору хватает тяги, доступной при выбранных оборотах.", "A cada motor le basta el empuje disponible con las RPM elegidas."],
+  "The centre of gravity is outside the motor footprint: one motor would need negative thrust.": ["Центр тяжести вне контура моторов: одному из моторов понадобилась бы отрицательная тяга.", "El centro de gravedad queda fuera del contorno de los motores: un motor necesitaría empuje negativo."],
+  "Not enough thrust": ["Не хватает тяги", "Empuje insuficiente"],
+  "needs": ["нужно", "necesita"],
+  "of": ["из", "de"],
+  "available at the selected RPM": ["доступных при выбранных оборотах", "disponibles con las RPM elegidas"],
+  "CG offset in the rotor plane": ["Смещение ЦТ в плоскости винтов", "Desplazamiento del CDG en el plano de las hélices"],
+  "most loaded": ["больше всех нагружен", "más cargado"],
+  "least loaded": ["меньше всех", "menos cargado"],
+  "of average thrust": ["к средней тяге", "respecto al empuje medio"],
+  "W": ["Вт", "W"],
+  "A": ["А", "A"],
+  "V": ["В", "V"],
+  "min": ["мин", "min"],
+  "Wh": ["Вт·ч", "Wh"],
+  "mAh": ["мА·ч", "mAh"],
+  "propellers overlap": ["винты пересекаются", "las hélices se solapan"],
+  "Charge during the mission": ["Заряд во время полёта по плану", "Carga durante la misión"],
+  "Distance": ["Дистанция", "Distancia"],
+  "Temperature": ["Температура", "Temperatura"],
+  "time": ["время", "tiempo"],
+  "After the plan": ["После плана", "Tras la misión"],
+  "remaining in last-stage conditions until the reserve": ["запас в условиях последнего участка до резерва", "margen en las condiciones de la última etapa hasta la reserva"],
+  "more than": ["больше", "más de"],
+  "then": ["затем", "después"],
+  "The plan stops in stage": ["План прерывается на участке", "La misión se detiene en la etapa"],
+  "after": ["через", "tras"],
+  "Altitude ceiling": ["Высотный потолок", "Techo de altitud"],
+  "Finds the highest altitude where the drone can still hover with the current mass, battery, selected RPM and wind. Air pressure follows the barometric formula.": ["Находит наибольшую высоту, на которой дрон ещё может висеть при текущей массе, батарее, выбранных оборотах и ветре. Давление воздуха считается по барометрической формуле.", "Busca la mayor altitud a la que el dron aún puede mantenerse en vuelo estacionario con la masa, la batería, las RPM elegidas y el viento actuales. La presión sigue la fórmula barométrica."],
+  "Air temperature": ["Температура воздуха", "Temperatura del aire"],
+  "Standard atmosphere · −6.5 °C per km": ["Стандартная атмосфера · −6,5 °C на км", "Atmósfera estándar · −6,5 °C por km"],
+  "As in the settings": ["Как в настройках", "Como en los ajustes"],
+  "Required thrust reserve · %": ["Нужный запас тяги · %", "Reserva de empuje requerida · %"],
+  "Search up to · m": ["Искать до высоты · м", "Buscar hasta · m"],
+  "Find ceiling": ["Найти потолок", "Buscar techo"],
+  "Thrust reserve versus altitude": ["Запас тяги в зависимости от высоты", "Reserva de empuje según la altitud"],
+  "A higher RPM command can raise the ceiling while motor power allows. Battery temperature stays as configured; climb energy and icing at altitude are not modelled.": ["Более высокие обороты могут поднять потолок, пока хватает мощности моторов. Температура батареи остаётся как в настройках; энергия набора высоты и обледенение на высоте не моделируются.", "Unas RPM mayores pueden elevar el techo mientras la potencia de los motores lo permita. La temperatura de la batería se mantiene como en los ajustes; no se modelan la energía de ascenso ni el hielo en altura."],
+  "not enough thrust at the selected RPM": ["не хватает тяги при выбранных оборотах", "falta empuje con las RPM elegidas"],
+  "motor power or maximum RPM": ["предел мощности моторов или максимальных оборотов", "límite de potencia de motor o de RPM máximas"],
+  "tilt limit in this wind": ["предел наклона при этом ветре", "límite de inclinación con este viento"],
+  "battery current or voltage": ["предел тока или напряжения батареи", "límite de corriente o tensión de la batería"],
+  "controller supply voltage": ["питание контроллера", "alimentación del controlador"],
+  "updraft larger than weight": ["восходящий поток больше веса", "corriente ascendente mayor que el peso"],
+  "thrust reserve below the required margin": ["запас тяги ниже нужного", "reserva de empuje por debajo de la requerida"],
+  "model limit": ["ограничение модели", "límite del modelo"],
+  "above": ["выше", "por encima de"],
+  "checked range": ["проверенный диапазон", "rango comprobado"],
+  "not even at": ["даже не на высоте", "ni siquiera a"],
+  "limit": ["ограничение", "límite"],
+  "Hover ceiling": ["Потолок висения", "Techo de vuelo estacionario"],
+  "With thrust reserve": ["С запасом тяги", "Con reserva de empuje"],
+  "Altitude": ["Высота", "Altitud"],
+  "Density": ["Плотность", "Densidad"],
+  "Thrust reserve · %": ["Запас тяги · %", "Reserva de empuje · %"],
+  "Check ceiling values": ["Проверь значения для потолка", "Revisa los valores del techo"],
+  "Show": ["Показать", "Mostrar"],
+  "Flight log chart": ["График журнала полёта", "Gráfico del registro de vuelo"],
+  "Charge": ["Заряд", "Carga"],
+  "Voltage under load": ["Напряжение под нагрузкой", "Tensión bajo carga"],
+  "Battery current": ["Ток батареи", "Corriente de batería"],
+  "Battery power": ["Мощность от батареи", "Potencia de batería"],
+  "Battery temperature": ["Температура батареи", "Temperatura de batería"],
+  "Hottest motor": ["Самый горячий мотор", "Motor más caliente"],
+  "Wind now": ["Ветер сейчас", "Viento actual"],
+  "Drift from hold point": ["Снос от точки удержания", "Deriva desde el punto fijo"],
+  "flight time": ["время полёта", "tiempo de vuelo"],
+  "No samples yet: the log records one point per simulated second while the flight runs.": ["Записей пока нет: журнал сохраняет одну точку в модельную секунду, пока идёт полёт.", "Aún no hay muestras: el registro guarda un punto por segundo simulado mientras dura el vuelo."],
+  "Point at the chart to read a value.": ["Наведи на график, чтобы прочитать значение.", "Señala el gráfico para leer un valor."],
+  "min.": ["мин.", "mín."],
+  "mean": ["сред.", "media"],
+  "max.": ["макс.", "máx."],
+  "used": ["израсходовано", "consumido"],
+  "all motors carry the same thrust": ["все моторы нагружены одинаково", "todos los motores llevan el mismo empuje"],
+  "at": ["при", "con"],
+  "charge reserve reached": ["достигнут резерв заряда", "reserva de carga alcanzada"],
+  "flight limit": ["ограничение полёта", "límite de vuelo"],
+  "power limit": ["ограничение питания", "límite de potencia"]
+});
 
 return { labText };
 })();
-const m15 = (() => {
+const m18 = (() => {
 const { gridIdentity,
   compareGridResults } = m1;
 const { inputNumber,
   validateMissionStages } = m2;
-const { getLanguage } = m8;
+const { getLanguage } = m9;
 const { buildPack,
   packExamples,
   componentBalance,
   calibrateProp,
   missionForecast,
   scenarioSweep,
-  csvText } = m12;
-const { calculate } = m11;
-const { geometryFor } = m10;
-const { sampleField } = m13;
-const { labText } = m14;
+  altitudeEnvelope,
+  cgMotorLoads,
+  csvText } = m13;
+const { calculate,
+  rotorPlanPositions } = m12;
+const { drawLineChart,
+  stepDigits } = m14;
+const { toDisplay,
+  unitSpec } = m15;
+const { geometryFor } = m11;
+const { sampleField } = m16;
+const { labText } = m17;
 const $ = id => document.getElementById(id);
 const escape = s => String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
 const L = s => getLanguage() === 'en' ? s : (labText[s]?.[getLanguage() === 'es' ? 1 : 0] || s);
@@ -6821,6 +7589,15 @@ function installWorkbench(api) {
     invalidate,
     setCG
   } = api;
+  // 0.92: values follow the selected unit system and language; plain electrical units are translated.
+  const units = () => api.getUnitSystem?.() || 'metric';
+  const qty = (value, kind, digits = 2) =>
+    `${fmt(toDisplay(value, kind, units()), digits)} ${unitSpec(kind, units()).label}`;
+  const unitLabel = kind => unitSpec(kind, units()).label;
+  const clock = seconds => {
+    const s = Math.max(0, Math.round(seconds));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
   const sections = {
     engineering: 'My drone',
     batteries: 'Batteries',
@@ -6865,7 +7642,7 @@ function installWorkbench(api) {
     `<div class="activity-strip"><output id="activityState" role="status"></output><span>${k('Background work can be throttled or frozen by your browser. Returning does not fast-forward the flight.')}</span></div>`
     );
   document.querySelector('.release-notice').innerHTML =
-    `<div><span class="version-orbit">.91</span><div>${k('Active configuration')}<small>${k('Geometry, power and airflow')}</small></div></div><div class="release-tags">CAD · ENERGY · CFD</div>`;
+    `<div><span class="version-orbit">.92</span><div>${k('Active configuration')}<small>${k('Geometry, power and airflow')}</small></div></div><div class="release-tags">CAD · ENERGY · CFD</div>`;
   document.querySelector('.controls-panel').insertAdjacentHTML('afterbegin',
     `<div class="controls-tools"><input id="controlSearch" type="search" placeholder="${L('Find a parameter')}" aria-label="${L('Find a parameter')}">${button('collapseControls','Collapse panels')}</div>`
   );
@@ -7069,11 +7846,14 @@ function installWorkbench(api) {
     position: [0, 60, 0]
   }];
   $('engineeringView').innerHTML =
-    `<header class="lab-heading"><span class="panel-label">01 / ENGINEERING</span><h2>${k('Your geometry. Your numbers.')}</h2><p>${k('CAD supplies dimensions and a silhouette. Enter mass and Cd from your design or measurements.')}</p></header><div class="lab-card"><h3>${k('Component ledger')}</h3><p>${k('Positions are X / Y / Z in mm, Y up. Include the battery once. Applying this ledger sets payload to zero.')}</p><div id="componentRows"></div><div class="lab-actions">${button('addComponent','Add component')}${button('ledgerBattery','Use installed battery mass')}${button('applyComponents','Apply mass and centre of gravity')}</div><output id="componentSummary" class="result-ribbon"></output><p class="lab-note">${k('Inertia uses point masses about the centre of gravity; component shape inertia and attitude control are not solved.')}</p></div><div class="lab-card"><h3>${k('Independent design calculation')}</h3><div id="customCalculation"></div><div class="lab-actions">${button('recalculateCustom','Calculate design')}${button('useCustom','Open frame builder')}${button('jumpCAD','Open CAD controls')}</div><p>${k('Uses configured initial charge and healthy motors, separately from the live flight. Enable CAD projected area in the CAD controls to use the measured silhouette.')}</p></div><div class="lab-card"><h3>${k('Propeller bench data')}</h3><div class="lab-form">${number('benchThrust','Thrust per motor · N',8,.01,1000,.1)}${number('benchPower','Shaft power per motor · W',100,.1,10000,.1)}${number('benchRpm','Measured RPM',4800,1,28000,10)}</div>${button('calibrateProp','Calculate Ct / Cp')}<output id="benchResult" class="result-ribbon"></output><p class="lab-note">${k('Use shaft power, not electrical input. Coefficients apply to this operating point; they do not fit a full propeller map.')}</p></div>`;
+    `<header class="lab-heading"><span class="panel-label">01 / ENGINEERING</span><h2>${k('Your geometry. Your numbers.')}</h2><p>${k('CAD supplies dimensions and a silhouette. Enter mass and Cd from your design or measurements.')}</p></header><div class="lab-card"><h3>${k('Component ledger')}</h3><p>${k('Positions are X / Y / Z in mm, Y up. Include the battery once. Applying this ledger sets payload to zero.')}</p><div id="componentRows"></div><div class="lab-actions">${button('addComponent','Add component')}${button('ledgerBattery','Use installed battery mass')}${button('applyComponents','Apply mass and centre of gravity')}</div><output id="componentSummary" class="result-ribbon"></output><div id="componentLoads" class="cg-loads" aria-live="polite"></div><p class="lab-note">${k('Inertia uses point masses about the centre of gravity; component shape inertia and attitude control are not solved.')} ${k('Motor shares solve the mixer for this centre of gravity: total thrust equals weight, roll and pitch moments cancel, yaw torque stays zero. They use the selected RPM and current wind.')}</p></div><div class="lab-card"><h3>${k('Independent design calculation')}</h3><div id="customCalculation"></div><div class="lab-actions">${button('recalculateCustom','Calculate design')}${button('useCustom','Open frame builder')}${button('jumpCAD','Open CAD controls')}</div><p>${k('Uses configured initial charge and healthy motors, separately from the live flight. Enable CAD projected area in the CAD controls to use the measured silhouette.')}</p></div><div class="lab-card"><h3>${k('Propeller bench data')}</h3><div class="lab-form">${number('benchThrust','Thrust per motor · N',8,.01,1000,.1)}${number('benchPower','Shaft power per motor · W',100,.1,10000,.1)}${number('benchRpm','Measured RPM',4800,1,28000,10)}</div>${button('calibrateProp','Calculate Ct / Cp')}<output id="benchResult" class="result-ribbon"></output><p class="lab-note">${k('Use shaft power, not electrical input. Coefficients apply to this operating point; they do not fit a full propeller map.')}</p></div>`;
 
   function renderComponents() {
-    $('componentRows').innerHTML = components.map((c, i) =>
-      `<div class="component-row"><input aria-label="${L('Name')}" data-component="${i}" data-field="name" value="${escape(c.name)}" maxlength="50"><input aria-label="kg" type="number" data-component="${i}" data-field="mass" value="${c.mass}" min=".001" max="30" step=".01">${c.position.map((v,j)=>`<input aria-label="${['X','Y','Z'][j]} mm" type="number" data-component="${i}" data-field="${j}" value="${v}" min="-2000" max="2000" step="1">`).join('')}<button type="button" class="button" data-remove="${i}" aria-label="${L('Remove')}">×</button></div>`
+    // 0.92: column headings and the mass share of each part.
+    $('componentRows').innerHTML =
+      `<div class="component-head" aria-hidden="true">${['Name', 'Mass · kg', 'X · mm', 'Y · mm (up)', 'Z · mm', 'Share'].map(k).join('')}<span></span></div>` +
+      components.map((c, i) =>
+      `<div class="component-row"><input aria-label="${L('Name')}" data-component="${i}" data-field="name" value="${escape(c.name)}" maxlength="50"><input aria-label="${L('Mass · kg')}" type="number" data-component="${i}" data-field="mass" value="${c.mass}" min=".001" max="30" step=".01">${c.position.map((v,j)=>`<input aria-label="${['X','Y','Z'][j]} mm" type="number" data-component="${i}" data-field="${j}" value="${v}" min="-2000" max="2000" step="1">`).join('')}<output class="component-share" data-share="${i}"></output><button type="button" class="button" data-remove="${i}" aria-label="${L('Remove')}">×</button></div>`
     ).join('');
     $('componentRows').querySelectorAll('input').forEach(el => el.addEventListener('input', () => {
       const c = components[+el.dataset.component],
@@ -7093,14 +7873,62 @@ function installWorkbench(api) {
   }
 
   function ledgerPreview() {
+    let b;
     try {
-      const b = componentBalance(components);
-      $('componentSummary').textContent =
-        `${fmt(b.mass)} kg · CG ${b.cg.map(v=>fmt(v*1000,1)).join(' / ')} mm · Ixx/Iyy/Izz ${b.inertia.map(v=>fmt(v,5)).join(' / ')} kg·m²`;
-      return b;
+      b = componentBalance(components);
     } catch {
       $('componentSummary').textContent = L('Check component values');
+      $('componentLoads').replaceChildren();
+      $('componentRows').querySelectorAll('[data-share]').forEach(o => o.textContent = '');
       return null;
+    }
+    $('componentSummary').textContent =
+      `${qty(b.mass, 'kg')} · ${L('CG')} ${b.cg.map(v=>fmt(toDisplay(v*1000, 'mm', units()),1)).join(' / ')} ${unitLabel('mm')} · Ixx/Iyy/Izz ${b.inertia.map(v=>fmt(v,5)).join(' / ')} ${L('kg·m²')}`;
+    $('componentRows').querySelectorAll('[data-share]').forEach(o => {
+      o.textContent = `${fmt(components[+o.dataset.share].mass / b.mass * 100, 1)}%`;
+    });
+    renderLoads(b);
+    return b;
+  }
+
+  // 0.92: what the centre of gravity offset means for each motor.
+  function renderLoads(b) {
+    const box = $('componentLoads');
+    try {
+      const p = getParameters(),
+        q = {
+          ...p,
+          mass: b.mass,
+          payload: 0,
+          customCG: b.cg
+        },
+        r = calculate(q),
+        positions = rotorPlanPositions(q),
+        loads = cgMotorLoads([b.cg[0], b.cg[2]], positions),
+        average = r.requiredThrust / positions.length,
+        needs = loads.shares.map(s => average * s),
+        worstIndex = needs.reduce((best, need, i) => need / Math.max(1e-9, r.thrusts[i]) > needs[best] / Math.max(
+          1e-9, r.thrusts[best]) ? i : best, 0),
+        maxIndex = loads.shares.indexOf(loads.max),
+        minIndex = loads.shares.indexOf(loads.min);
+      const percent = v => Math.abs(v) < .05 ? '0%' : `${v > 0 ? '+' : '−'}${fmt(Math.abs(v), 1)}%`;
+      let tone = 'ok',
+        message = L('Every motor stays within the thrust available at the selected RPM.');
+      if (loads.min < 0) {
+        tone = 'danger';
+        message = L('The centre of gravity is outside the motor footprint: one motor would need negative thrust.');
+      } else if (needs[worstIndex] > r.thrusts[worstIndex]) {
+        tone = 'danger';
+        message =
+          `${L('Not enough thrust')}: M${worstIndex + 1} ${L('needs')} ${qty(needs[worstIndex], 'force')} ${L('of')} ${qty(r.thrusts[worstIndex], 'force')} ${L('available at the selected RPM')}.`;
+      }
+      const even = loads.max - loads.min < 5e-4;
+      box.innerHTML =
+        `<p class="cg-line">${escape(L('CG offset in the rotor plane'))}: <strong>${escape(qty(loads.offset * 1000, 'mm', 1))}</strong> · ${even ? escape(L('all motors carry the same thrust')) : `${escape(L('most loaded'))} M${maxIndex + 1}: <strong>${escape(percent((loads.max - 1) * 100))}</strong> · ${escape(L('least loaded'))} M${minIndex + 1}: <strong>${escape(percent((loads.min - 1) * 100))}</strong> ${escape(L('of average thrust'))}`}</p>` +
+        `<div class="cg-bars">${loads.shares.map((s, i) => `<span title="M${i + 1}"><i style="height:${Math.round(Math.max(2, Math.min(64, s / Math.max(1.5, loads.max) * 64)))}px"></i><b>M${i + 1}</b><small>${escape(fmt(s * 100, 0))}%</small></span>`).join('')}</div>` +
+        `<p class="cg-status" data-tone="${tone}">${escape(message)}</p>`;
+    } catch {
+      box.replaceChildren();
     }
   }
   renderComponents();
@@ -7145,16 +7973,20 @@ function installWorkbench(api) {
     const p = getParameters(),
       r = calculate(p),
       g = geometryFor(p);
+    // 0.92: built-in presets also get a clearance: gap between neighbouring propeller tips on the frame circle.
+    const clearance = Number.isFinite(g.clearance) ? g.clearance : p.frameSize / 1000 * Math.sin(Math.PI / p
+      .rotors) - p.diameter * .0254;
     $('customCalculation').innerHTML = table(['Quantity', 'Value'], [
       ['CAD', state.model?.name || L('Built-in geometry')],
-      [L('Projected area'), `${fmt(r.projectedArea,4)} m² · Cd ${fmt(p.dragCoefficient)}`],
-      [L('Mass'), `${fmt(r.mass)} kg`],
-      [L('Required thrust'), `${fmt(r.requiredThrust)} N`],
-      [L('Available thrust'), `${fmt(r.availableThrust)} N`],
-      [L('Power'), `${fmt(r.electricalPower,0)} W`],
-      [L('Initial current'), `${fmt(r.current)} A`],
-      [L('Quick endurance'), `${fmt(r.flightMinutes)} min`],
-      [L('Propeller clearance'), g.clearance === undefined ? '—' : `${fmt(g.clearance*1000,1)} mm`],
+      [L('Projected area'), `${qty(r.projectedArea, 'area', 4)} · Cd ${fmt(p.dragCoefficient)}`],
+      [L('Mass'), qty(r.mass, 'kg')],
+      [L('Required thrust'), qty(r.requiredThrust, 'force')],
+      [L('Available thrust'), qty(r.availableThrust, 'force')],
+      [L('Power'), `${fmt(r.electricalPower,0)} ${L('W')}`],
+      [L('Initial current'), `${fmt(r.current)} ${L('A')}`],
+      [L('Quick endurance'), r.feasible ? `${fmt(r.flightMinutes)} ${L('min')}` : '—'],
+      [L('Propeller clearance'), Number.isFinite(clearance) ?
+        `${qty(clearance * 1000, 'mm', 1)}${clearance < 0 ? ' · ' + L('propellers overlap') : ''}` : '—'],
       [L('Hover status'), L(r.feasible ? 'Within model limits' : 'Outside model limits')]
     ]);
   }
@@ -7219,19 +8051,19 @@ function installWorkbench(api) {
     }],
     lastMission = null;
   $('missionView').innerHTML =
-    `<header class="lab-heading"><span class="panel-label">03 / PLANNING</span><h2>${k('Plan before take-off')}</h2><p>${k('Sequential constant-demand stages. Airspeed is speed + headwind; climb energy, acceleration and route direction changes are not modelled.')}</p></header><div class="lab-card"><div id="missionRows"></div><div class="lab-actions">${button('addStage','Add stage')}${button('runMission','Calculate mission')}${button('exportMission','Export mission CSV')}</div><div id="missionResult"></div></div><div class="lab-card"><h3>${k('Wind envelope')}</h3>${button('runEnvelope','Compare five wind conditions')}<div id="envelopeResult"></div></div>`;
+    `<header class="lab-heading"><span class="panel-label">03 / PLANNING</span><h2>${k('Plan before take-off')}</h2><p>${k('Sequential constant-demand stages. Airspeed is speed + headwind; climb energy, acceleration and route direction changes are not modelled.')}</p></header><div class="lab-card"><div id="missionRows"></div><div class="lab-actions">${button('addStage','Add stage')}${button('runMission','Calculate mission')}${button('exportMission','Export mission CSV')}</div><div id="missionResult"></div><canvas id="missionCanvas" class="lab-chart" hidden aria-label="${L('Charge during the mission')}"></canvas></div><div class="lab-card"><h3>${k('Wind envelope')}</h3>${button('runEnvelope','Compare five wind conditions')}<div id="envelopeResult"></div></div><div class="lab-card"><h3>${k('Altitude ceiling')}</h3><p>${k('Finds the highest altitude where the drone can still hover with the current mass, battery, selected RPM and wind. Air pressure follows the barometric formula.')}</p><div class="lab-form"><label>${k('Air temperature')}<select id="ceilingTemperature"><option value="standard">${L('Standard atmosphere · −6.5 °C per km')}</option><option value="settings">${L('As in the settings')}</option></select></label>${number('ceilingMargin','Required thrust reserve · %',30,0,200,5)}${number('ceilingMax','Search up to · m',6000,1000,8000,500)}</div>${button('runCeiling','Find ceiling','class="button-primary"')}<output id="ceilingResult" class="result-ribbon" hidden></output><canvas id="ceilingCanvas" class="lab-chart" hidden aria-label="${L('Thrust reserve versus altitude')}"></canvas><div id="ceilingTable"></div><p class="lab-note">${k('A higher RPM command can raise the ceiling while motor power allows. Battery temperature stays as configured; climb energy and icing at altitude are not modelled.')}</p></div>`;
   const renderStages = () => {
     $('missionRows').innerHTML =
       `<div class="stage-head">${['Name','Minutes','Speed · m/s','Altitude · m','Headwind · m/s'].map(k).join('')}<span></span></div>` +
       stages.map((s, i) =>
         `<div class="stage-row"><input aria-label="${L('Name')}" data-stage="${i}" data-field="name" maxlength="60" value="${escape(s.name)}">${['minutes','speed','altitude','wind'].map((f,j)=>`<input aria-label="${L(['Minutes','Speed · m/s','Altitude · m','Headwind · m/s'][j])}" type="number" data-stage="${i}" data-field="${f}" value="${s[f]}" min="${f==='minutes'?.1:0}" max="${f==='minutes'?120:f==='altitude'?5000:40}" step=".1">`).join('')}<button type="button" class="button" data-delete-stage="${i}" aria-label="${L('Remove')}">×</button></div>`
       ).join('');
-    if (!lastMission) $('missionResult').textContent = L('Recalculate after changes');
+    if (!lastMission) staleMission();
     $('missionRows').querySelectorAll('input').forEach(e => e.addEventListener('input', () => {
       stages[+e.dataset.stage][e.dataset.field] = e.dataset.field === 'name' ? e.value : inputNumber(e
         .value);
       lastMission = null;
-      $('missionResult').textContent = L('Recalculate after changes');
+      staleMission();
     }));
     $('missionRows').querySelectorAll('[data-delete-stage]').forEach(e => e.addEventListener('click',
       () => {
@@ -7257,17 +8089,97 @@ function installWorkbench(api) {
     }
   });
 
+  // 0.92: readable stop reasons; the CSV keeps the codes.
+  const reasonLabel = code => L({
+    complete: 'complete',
+    reserve: 'charge reserve reached',
+    'flight-limit': 'flight limit',
+    'power-limit': 'power limit'
+  } [code] || code);
+
+  function staleMission() {
+    $('missionResult').textContent = L('Recalculate after changes');
+    $('missionCanvas').hidden = true;
+  }
+
   function renderMission() {
     if (!lastMission) return;
+    const m = lastMission,
+      reserve = missionReserve;
+    // 0.92: what is left after the plan, or where the plan stops.
+    let verdict;
+    if (m.complete && m.margin) {
+      const capped = m.margin.reason === 'complete';
+      verdict =
+        `${L('After the plan')}: ${fmt(m.soc, 1)}% · ${L('remaining in last-stage conditions until the reserve')} ${fmt(reserve, 0)}%: ${capped ? L('more than') + ' ' : '≈ '}${fmt(m.margin.seconds / 60, 1)} ${L('min')}` +
+        (m.margin.reason === 'reserve' || capped ? '' : ` (${L('then')}: ${reasonLabel(m.margin.reason)} ${L('at')} ${fmt(m.margin.soc, 1)}%)`);
+    } else {
+      const stop = m.rows.at(-1);
+      verdict =
+        `${L('The plan stops in stage')} «${stop?.name || ''}» ${L('after')} ${fmt((stop?.seconds || 0) / 60, 1)} ${L('min')}: ${reasonLabel(stop?.reason || 'flight-limit')}`;
+    }
     $('missionResult').innerHTML =
-      `<p class="result-ribbon">${L(lastMission.complete?'Within model limits':'Stopped at a model limit')} · ${fmt(lastMission.seconds/60)} min · ${fmt(lastMission.wh)} Wh · ${fmt(lastMission.soc)}%</p>` +
-      table(['Stage', 'Minutes', 'Energy · Wh', 'Charge · %', 'Temperature · °C', 'Result'], lastMission
-        .rows.map(r => [r.name, fmt(r.seconds / 60), fmt(r.wh), fmt(r.soc), fmt(r.temperature), L(r
-          .reason)]));
+      `<p class="result-ribbon">${escape(L(m.complete?'Within model limits':'Stopped at a model limit'))} · ${fmt(m.seconds/60)} ${escape(L('min'))} · ${escape(qty(m.distanceM, 'm', 0))} · ${fmt(m.wh)} ${escape(L('Wh'))} · ${fmt(m.soc)}%</p>` +
+      `<p class="mission-verdict" data-tone="${m.complete ? 'ok' : 'danger'}">${escape(verdict)}</p>` +
+      table(['Stage', 'Minutes', 'Distance', 'Energy · Wh', 'Charge · %', 'Temperature', 'Result'], m
+        .rows.map(r => [r.name, fmt(r.seconds / 60), qty(r.distanceM, 'm', 0), fmt(r.wh), fmt(r.soc), qty(r
+          .temperature, 'temperature', 1), reasonLabel(r.reason)]));
+    drawMission();
   }
+
+  function drawMission() {
+    const m = lastMission,
+      canvas = $('missionCanvas');
+    if (!m || state.activeView !== 'mission') return;
+    canvas.hidden = false;
+    let end = 0;
+    const boundaries = m.rows.map(r => ({
+      x: (end += r.seconds) / 60,
+      label: ''
+    }));
+    boundaries.forEach((b, i) => b.label = String(m.rows[i].name || i + 1).slice(0, 14));
+    const plan = m.trace.map(p => ({
+        x: p.seconds / 60,
+        y: p.soc
+      })),
+      extra = m.margin?.trace?.length ? [plan.at(-1), ...m.margin.trace.map(p => ({
+        x: p.seconds / 60,
+        y: p.soc
+      }))] : [];
+    drawLineChart(canvas, {
+      series: [{
+        points: plan
+      }, {
+        points: extra,
+        dashed: true,
+        tone: 'blue'
+      }],
+      yMin: 0,
+      yMax: 100,
+      yLabel: L('Charge · %'),
+      xLabel: `${L('time')} · ${L('min')}`,
+      xFormat: v => fmt(v, 1),
+      yFormat: v => fmt(v, 0),
+      hLines: [{
+        y: missionReserve,
+        label: `${L('reserve')} ${fmt(missionReserve, 0)}%`,
+        align: 'left'
+      }],
+      vLines: [{
+        x: 0,
+        label: String(m.rows[0]?.name || '').slice(0, 14)
+      }, ...boundaries.slice(0, -1).map((b, i) => ({
+        x: b.x,
+        label: String(m.rows[i + 1]?.name || '').slice(0, 14)
+      }))],
+      empty: L('Calculate first')
+    });
+  }
+  let missionReserve = 15;
   $('runMission').addEventListener('click', () => {
     try {
       lastMission = missionForecast(getParameters(), stages);
+      missionReserve = getParameters().reserveCharge ?? 15;
       missionKey = JSON.stringify(getParameters());
       renderMission();
     } catch {
@@ -7277,9 +8189,107 @@ function installWorkbench(api) {
   $('exportMission').addEventListener('click', () => {
     if (!lastMission) return toast('Calculate first');
     download('dwl-mission.csv', csvText([
-      ['stage', 'seconds', 'Wh', 'SOC_percent', 'temperature_C', 'result'], ...lastMission.rows.map(
-        r => [r.name, r.seconds, r.wh, r.soc, r.temperature, r.reason])
+      ['stage', 'seconds', 'distance_m', 'Wh', 'SOC_percent', 'temperature_C', 'result'], ...lastMission.rows.map(
+        r => [r.name, r.seconds, r.distanceM, r.wh, r.soc, r.temperature, r.reason]),
+      ...(lastMission.margin ? [
+        ['after plan, last stage conditions', lastMission.margin.seconds, '', '', lastMission.margin.soc, '',
+          lastMission.margin.reason
+        ]
+      ] : [])
     ]), 'text/csv');
+  });
+
+  // 0.92: altitude ceiling.
+  let lastCeiling = null;
+  const limitText = {
+    thrust: 'not enough thrust at the selected RPM',
+    power: 'motor power or maximum RPM',
+    tilt: 'tilt limit in this wind',
+    battery: 'battery current or voltage',
+    controller: 'controller supply voltage',
+    updraft: 'updraft larger than weight',
+    margin: 'thrust reserve below the required margin',
+    other: 'model limit',
+    none: 'Within model limits'
+  };
+  function renderCeiling() {
+    const e = lastCeiling;
+    if (!e) return;
+    const describe = c => c.above ? `${L('above')} ${qty(e.maxAltitude, 'm', 0)} (${L('checked range')})` : c.below ?
+      `${L('not even at')} ${qty(0, 'm', 0)} (${L(limitText[c.limit] || c.limit)})` :
+      `${qty(c.altitude, 'm', 0)} (${L('limit')}: ${L(limitText[c.limit] || c.limit)})`;
+    $('ceilingResult').hidden = false;
+    $('ceilingResult').innerHTML =
+      `<strong>${escape(L('Hover ceiling'))}:</strong> ${escape(describe(e.hover))}<br><strong>${escape(L('With thrust reserve'))} ≥ ${fmt(e.reserveMargin, 0)}%:</strong> ${escape(describe(e.margin))}`;
+    const tableStep = e.maxAltitude <= 3000 ? 250 : 500;
+    $('ceilingTable').innerHTML = table(['Altitude', 'Air temperature', 'Density', 'Power · W',
+      'Thrust reserve · %', 'Quick endurance', 'Result'
+    ], e.rows.filter(r => Math.abs(r.altitude / tableStep - Math.round(r.altitude / tableStep)) < 1e-9 || r
+      .altitude === e.maxAltitude).map(r => [qty(r.altitude, 'm', 0), qty(r.temperature, 'temperature', 1),
+      qty(r.density, 'density', 3), fmt(r.watts, 0), fmt(r.reserve, 1),
+      r.feasible ? `${fmt(r.minutes, 1)} ${L('min')}` : '—', L(limitText[r.limit] || r.limit)
+    ]));
+    drawCeiling();
+  }
+
+  function drawCeiling() {
+    const e = lastCeiling;
+    if (!e || state.activeView !== 'mission') return;
+    $('ceilingCanvas').hidden = false;
+    const x = h => toDisplay(h, 'm', units());
+    const marks = [e.hover, e.margin].filter(c => !c.above && !c.below);
+    drawLineChart($('ceilingCanvas'), {
+      series: [{
+        points: e.rows.map(r => ({
+          x: x(r.altitude),
+          y: r.reserve
+        }))
+      }],
+      bands: e.rows.slice(1).filter(r => !r.feasible).map((r, i) => ({
+        x0: x(e.rows[e.rows.indexOf(r) - 1].altitude),
+        x1: x(r.altitude)
+      })),
+      hLines: [{
+        y: e.reserveMargin,
+        label: `${fmt(e.reserveMargin, 0)}%`
+      }, {
+        y: 0,
+        tone: 'danger'
+      }],
+      vLines: marks.map(c => ({
+        x: x(c.altitude),
+        label: qty(c.altitude, 'm', 0)
+      })),
+      yLabel: L('Thrust reserve · %'),
+      xLabel: `${L('Altitude')} · ${unitLabel('m')}`,
+      xFormat: v => fmt(v, 0),
+      yFormat: v => fmt(v, 0)
+    });
+  }
+  let ceilingKey = '';
+  const staleCeiling = () => {
+    lastCeiling = null;
+    $('ceilingResult').hidden = false;
+    $('ceilingResult').textContent = L('Recalculate after changes');
+    $('ceilingCanvas').hidden = true;
+    $('ceilingTable').replaceChildren();
+  };
+  for (const id of ['ceilingTemperature', 'ceilingMargin', 'ceilingMax']) $(id).addEventListener('input', () => {
+    if (lastCeiling) staleCeiling();
+  });
+  $('runCeiling').addEventListener('click', () => {
+    try {
+      ceilingKey = JSON.stringify(getParameters());
+      lastCeiling = altitudeEnvelope(getParameters(), {
+        temperature: $('ceilingTemperature').value,
+        reserveMargin: inputNumber($('ceilingMargin').value),
+        maxAltitude: inputNumber($('ceilingMax').value),
+        step: 100
+      });
+      renderCeiling();
+    } catch {
+      toast('Check ceiling values');
+    }
   });
   $('runEnvelope').addEventListener('click', () => {
     $('envelopeResult').innerHTML = table(['Wind · m/s', 'Power · W', 'Reserve · %', 'Quick endurance',
@@ -7296,7 +8306,71 @@ function installWorkbench(api) {
   let telemetry = [],
     lastSample = -Infinity;
   $('historyView').innerHTML =
-    `<header class="lab-heading"><span class="panel-label">04 / RECORDS</span><h2>${k('Keep the useful runs')}</h2><p>${k('The flight log is held in this tab, one sample per simulated second, up to 1800 samples. Project slots store settings, components and mission stages on this device; CAD files stay separate.')}</p></header><div class="lab-card"><div class="lab-form"><label>${k('Project name')}<input id="projectName" maxlength="60" value="My drone"></label><label>${k('Saved projects')}<select id="projectSlots"></select></label></div><div class="lab-actions">${button('saveProject','Save project')}${button('loadProject','Load project')}${button('deleteProject','Delete project')}${button('exportProject','Export project')}<label class="button file-button">${k('Import project')}<input id="importProject" type="file" accept=".json"></label></div><p class="lab-note">${k('Export a file for backup; browser storage can be cleared.')}</p></div><div class="lab-card"><h3>${k('Flight log')}</h3><canvas id="telemetryCanvas" height="160" aria-label="Battery charge history"></canvas><div class="lab-actions">${button('downloadTelemetry','Download flight CSV')}${button('clearTelemetry','Clear log')}</div><output id="telemetryCount"></output></div>`;
+    `<header class="lab-heading"><span class="panel-label">04 / RECORDS</span><h2>${k('Keep the useful runs')}</h2><p>${k('The flight log is held in this tab, one sample per simulated second, up to 1800 samples. Project slots store settings, components and mission stages on this device; CAD files stay separate.')}</p></header><div class="lab-card"><div class="lab-form"><label>${k('Project name')}<input id="projectName" maxlength="60" value="My drone"></label><label>${k('Saved projects')}<select id="projectSlots"></select></label></div><div class="lab-actions">${button('saveProject','Save project')}${button('loadProject','Load project')}${button('deleteProject','Delete project')}${button('exportProject','Export project')}<label class="button file-button">${k('Import project')}<input id="importProject" type="file" accept=".json"></label></div><p class="lab-note">${k('Export a file for backup; browser storage can be cleared.')}</p></div><div class="lab-card"><h3>${k('Flight log')}</h3><div class="lab-form telemetry-form"><label>${k('Show')}<select id="telemetryChannel"></select></label></div><canvas id="telemetryCanvas" class="lab-chart" aria-label="${L('Flight log chart')}"></canvas><output id="telemetryReadout" class="telemetry-readout" aria-live="off"></output><div class="lab-actions">${button('downloadTelemetry','Download flight CSV')}${button('clearTelemetry','Clear log')}</div><output id="telemetryCount" class="telemetry-summary"></output></div>`;
+  // 0.92: the log keeps several channels; the chart shows one with axes, hover readout and a summary.
+  const telemetryChannels = {
+    soc: {
+      label: 'Charge',
+      value: r => r[1],
+      unit: () => '%',
+      digits: 1
+    },
+    voltage: {
+      label: 'Voltage under load',
+      value: r => r[2],
+      unit: () => L('V'),
+      digits: 2
+    },
+    current: {
+      label: 'Battery current',
+      value: r => r[3],
+      unit: () => L('A'),
+      digits: 1
+    },
+    power: {
+      label: 'Battery power',
+      value: r => r[5],
+      unit: () => L('W'),
+      digits: 0
+    },
+    batteryTemp: {
+      label: 'Battery temperature',
+      value: r => r[4],
+      kind: 'temperature',
+      digits: 1
+    },
+    motorTemp: {
+      label: 'Hottest motor',
+      value: r => r[9],
+      kind: 'temperature',
+      digits: 1
+    },
+    wind: {
+      label: 'Wind now',
+      value: r => r[8],
+      kind: 'speed',
+      digits: 1
+    },
+    displacement: {
+      label: 'Drift from hold point',
+      value: r => Math.hypot(r[6], r[7]),
+      kind: 'm',
+      digits: 2
+    }
+  };
+  const fillChannels = () => {
+    const select = $('telemetryChannel'),
+      current = select.value || 'soc';
+    select.replaceChildren(...Object.entries(telemetryChannels).map(([value, c]) => {
+      const o = document.createElement('option');
+      o.value = value;
+      o.textContent = L(c.label);
+      return o;
+    }));
+    select.value = current;
+  };
+  fillChannels();
+  let telemetryHover = null;
   const projectData = () => ({
     format: 'dwl-project',
     version: 1,
@@ -7395,32 +8469,80 @@ function installWorkbench(api) {
     e.target.value = '';
   });
   $('downloadTelemetry').addEventListener('click', () => download('dwl-flight.csv', csvText([
-    ['time_s', 'SOC_percent', 'voltage_V', 'current_A', 'temperature_C', 'power_W', 'x_m', 'z_m'], ...
-    telemetry
+    ['time_s', 'SOC_percent', 'voltage_V', 'current_A', 'temperature_C', 'power_W', 'x_m', 'z_m', 'wind_m_s',
+      'motor_temp_max_C'
+    ], ...telemetry
   ]), 'text/csv'));
   $('clearTelemetry').addEventListener('click', () => {
     telemetry = [];
     lastSample = -Infinity;
+    telemetryHover = null;
     drawTelemetry();
   });
+  $('telemetryChannel').addEventListener('change', () => drawTelemetry());
+  $('telemetryCanvas').addEventListener('mousemove', e => {
+    if (!telemetryLayout || telemetry.length < 2) return;
+    const t = telemetryLayout.toX(e.offsetX) + telemetry[0][0];
+    let best = 0;
+    for (let i = 1; i < telemetry.length; i++)
+      if (Math.abs(telemetry[i][0] - t) < Math.abs(telemetry[best][0] - t)) best = i;
+    telemetryHover = best;
+    drawTelemetry();
+  });
+  $('telemetryCanvas').addEventListener('mouseleave', () => {
+    telemetryHover = null;
+    drawTelemetry();
+  });
+  let telemetryLayout = null;
+
+  // Integrates a channel over time with the trapezoid rule; samples are about one simulated second apart.
+  const integrate = column => telemetry.slice(1).reduce((sum, r, i) => sum + (r[column] + telemetry[i][
+    column]) / 2 * (r[0] - telemetry[i][0]), 0);
 
   function drawTelemetry() {
-    const c = $('telemetryCanvas'),
-      ctx = c.getContext('2d');
-    c.width = 800;
-    c.height = 160;
-    ctx.clearRect(0, 0, 800, 160);
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent');
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    telemetry.forEach((r, i) => {
-      const x = (r[0] - (telemetry[0]?.[0] || 0)) / Math.max(1, (telemetry.at(-1)?.[0] || 0) - (telemetry[
-          0]?.[0] || 0)) * 780 + 10,
-        y = 145 - r[1] * 1.3;
-      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    if (state.activeView !== 'history') return;
+    const channel = telemetryChannels[$('telemetryChannel').value] || telemetryChannels.soc,
+      unit = channel.kind ? unitLabel(channel.kind) : channel.unit(),
+      show = v => channel.kind ? toDisplay(v, channel.kind, units()) : v,
+      start = telemetry[0]?.[0] || 0,
+      points = telemetry.map(r => ({
+        x: r[0] - start,
+        y: show(channel.value(r))
+      })).filter(p => Number.isFinite(p.y));
+    const span = points.at(-1)?.x || 0,
+      step = [5, 10, 15, 30, 60, 120, 300, 600].find(s => span / s <= 6) || 600,
+      xTicks = Array.from({
+        length: Math.floor(span / step) + 1
+      }, (_, i) => i * step);
+    if (telemetryHover !== null && !telemetry[telemetryHover]) telemetryHover = null;
+    const hover = telemetryHover === null ? null : {
+      x: telemetry[telemetryHover][0] - start,
+      y: show(channel.value(telemetry[telemetryHover]))
+    };
+    telemetryLayout = drawLineChart($('telemetryCanvas'), {
+      series: [{
+        points
+      }],
+      xTicks,
+      xFormat: clock,
+      yFormat: (v, step) => fmt(v, stepDigits(step)),
+      yLabel: `${L(channel.label)} · ${unit}`,
+      xLabel: L('flight time'),
+      yMin: channel === telemetryChannels.soc ? 0 : undefined,
+      yMax: channel === telemetryChannels.soc ? 100 : undefined,
+      hover,
+      empty: L('No samples yet: the log records one point per simulated second while the flight runs.')
     });
-    ctx.stroke();
-    $('telemetryCount').textContent = `${telemetry.length} / 1800 · SOC %`;
+    $('telemetryReadout').textContent = hover ?
+      `${clock(hover.x)} · ${L(channel.label)}: ${fmt(hover.y, channel.digits)} ${unit}` : (points.length ? L(
+        'Point at the chart to read a value.') : '');
+    if (points.length) {
+      const values = points.map(p => p.y),
+        mean = values.reduce((s, v) => s + v, 0) / values.length;
+      $('telemetryCount').textContent =
+        `${telemetry.length} / 1800 · ${clock(span)} · ${L('min.')} ${fmt(Math.min(...values), channel.digits)} · ${L('mean')} ${fmt(mean, channel.digits)} · ${L('max.')} ${fmt(Math.max(...values), channel.digits)} ${unit}` +
+        (telemetry.length > 1 ? ` · ${L('used')} ${fmt(integrate(5) / 3600, 2)} ${L('Wh')} / ${fmt(integrate(3) / 3.6, 0)} ${L('mAh')}` : '');
+    } else $('telemetryCount').textContent = `0 / 1800`;
   }
 
   // Scene tools are shared between the canvas fallback and WebGL renderer.
@@ -7702,7 +8824,6 @@ function installWorkbench(api) {
       b.setAttribute('aria-label', name);
     });
     $('controlSearch').setAttribute('aria-label', L('Find a parameter'));
-    $('telemetryCanvas').setAttribute('aria-label', L('Battery charge history'));
     $('sliceCanvas').setAttribute('aria-label', L('Flow speed slice'));
     renderComponents();
     renderStages();
@@ -7728,6 +8849,15 @@ function installWorkbench(api) {
     renderActivity();
     renderCustom();
     renderMission();
+    fillChannels();
+    for (const o of $('ceilingTemperature').options) o.textContent = L(o.value === 'standard' ?
+      'Standard atmosphere · −6.5 °C per km' : 'As in the settings');
+    $('telemetryCanvas').setAttribute('aria-label', L('Flight log chart'));
+    $('missionCanvas').setAttribute('aria-label', L('Charge during the mission'));
+    $('ceilingCanvas').setAttribute('aria-label', L('Thrust reserve versus altitude'));
+    if (lastCeiling) renderCeiling();
+    else if (!$('ceilingResult').hidden) $('ceilingResult').textContent = L('Recalculate after changes');
+    drawTelemetry();
     if ($('envelopeResult').textContent) $('runEnvelope').click();
     $('sliceStatus').textContent = '';
     renderGridRows();
@@ -7738,7 +8868,8 @@ function installWorkbench(api) {
   }
   document.addEventListener('languagechange', refreshLanguage);
   refreshLanguage();
-  let lastUI = -Infinity;
+  let lastUI = -Infinity,
+    shownView = '';
   return {
     tick(now, render = true) {
       if (state.t < lastSample) {
@@ -7748,13 +8879,23 @@ function installWorkbench(api) {
       if (state.t - lastSample >= 1 && state.batteryActual) {
         const c = state.batteryActual;
         telemetry.push([state.t, state.battery.soc, c.terminalVoltage, c.current, state.battery.temperature, c
-          .deliveredPower, state.x, state.y
+          .deliveredPower, state.x, state.y, state.windNow || 0, Math.max(...(state.motorTemps.length ? state
+            .motorTemps : [state.battery.temperature]))
         ]);
         if (telemetry.length > 1800) telemetry.shift();
         lastSample = state.t;
         if (render && state.activeView === 'history') drawTelemetry();
       }
       if (!render) return;
+      // 0.92: charts in hidden tabs have no size; draw them as soon as their tab opens.
+      if (state.activeView !== shownView) {
+        shownView = state.activeView;
+        if (shownView === 'history') drawTelemetry();
+        if (shownView === 'mission') {
+          drawMission();
+          drawCeiling();
+        }
+      }
       if (!$('sliceCanvas').hidden && sliceKey !== currentSliceKey()) {
         $('sliceCanvas').hidden = true;
         $('sliceStatus').textContent = L('Slice is outdated');
@@ -7764,35 +8905,78 @@ function installWorkbench(api) {
           'Waiting for activity' : activityLoop.getState().reason === 'background' ?
           'Calculating in background' : 'Calculations active');
         lastUI = now;
-        if (lastMission && missionKey !== JSON.stringify(getParameters())) {
+        const parameterKey = JSON.stringify(getParameters());
+        if (lastMission && missionKey !== parameterKey) {
           lastMission = null;
-          $('missionResult').textContent = L('Recalculate after changes');
+          staleMission();
+        }
+        if (lastCeiling && ceilingKey !== parameterKey) staleCeiling();
+        if (state.activeView === 'mission') {
+          drawMission();
+          drawCeiling();
         }
         if (render && state.activeView === 'history') drawTelemetry();
-        if (state.activeView === 'engineering') renderCustom();
+        if (state.activeView === 'engineering') {
+          renderCustom();
+          ledgerPreview();
+        }
         if (state.activeView === 'graph' && !$('graphTable').hidden) updateGraphTable();
       }
     },
     refreshLanguage, activityChanged:renderActivity,
+    // 0.92: results shown in display units are re-rendered after a unit switch.
+    unitsChanged() {
+      renderCustom();
+      ledgerPreview();
+      renderMission();
+      if (lastCeiling) renderCeiling();
+      drawTelemetry();
+    },
     acceptCFD
   };
 }
 
 return { installWorkbench };
 })();
-const m16 = (() => {
-const { calculate } = m11;
+const m19 = (() => {
+const { calculate } = m12;
 const weatherKeys = ['windSpeed', 'windDirection', 'gusts', 'gustFrequency', 'turbulence', 'verticalWind', 'rainRate', 'temperature', 'altitude', 'humidity', 'pressureMode', 'pressureHpa', 'icing', 'windTransition'];
+// 0.92: +1 means a larger value is better for the drone, -1 means a smaller value is better.
+const metricDirections = { reserve: 1, tilt: -1, flightMinutes: 1, electricalPower: -1, current: -1, maxWind: 1, availableThrust: 1, thrustToWeight: 1 };
 function compareConfigurations(a, b) {
   const sameWeather = b ? { ...b, ...Object.fromEntries(weatherKeys.map(key => [key, a[key]])) } : null;
   const first = calculate(a), second = sameWeather ? calculate(sameWeather) : null;
-  return ['reserve', 'tilt', 'flightMinutes', 'electricalPower', 'current', 'maxWind', 'availableThrust'].map(key => ({ key, a: first[key], b: second ? second[key] : null }));
+  return ['reserve', 'tilt', 'flightMinutes', 'electricalPower', 'current', 'maxWind', 'availableThrust', 'thrustToWeight'].map(key => {
+    const row = { key, a: first[key], b: second ? second[key] : null };
+    // Flight time is zero when hover is outside the model limits: that is "not available", not "0 minutes".
+    row.aAvailable = key !== 'flightMinutes' || first.feasible;
+    row.bAvailable = !second ? false : key !== 'flightMinutes' || second.feasible;
+    row.verdict = verdict(key, row);
+    row.percent = row.verdict === 'na' || Math.abs(row.a) < 1e-12 ? null : (row.b - row.a) / Math.abs(row.a) * 100;
+    return row;
+  });
+}
+function verdict(key, row) {
+  if (row.b == null || !row.aAvailable || !row.bAvailable) return 'na';
+  const scale = Math.max(Math.abs(row.a), Math.abs(row.b), 1e-9);
+  if (Math.abs(row.b - row.a) <= scale * 0.005) return 'same';
+  return (row.b - row.a) * metricDirections[key] > 0 ? 'better' : 'worse';
+}
+// Parameters that differ between two saved configurations, ignoring weather taken from A and derived CAD data.
+function changedParameters(a, b, ignore = weatherKeys) {
+  if (!a || !b) return [];
+  const skip = new Set([...ignore, 'cadAerodynamics']);
+  return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter(key => !skip.has(key)).filter(key => {
+    const x = a[key], y = b[key];
+    if (typeof x === 'number' && typeof y === 'number') return Math.abs(x - y) > 1e-9 * Math.max(1, Math.abs(x), Math.abs(y));
+    return JSON.stringify(x) !== JSON.stringify(y);
+  }).map(key => ({ key, a: a[key], b: b[key] }));
 }
 
-return { weatherKeys, compareConfigurations };
+return { weatherKeys, metricDirections, compareConfigurations, changedParameters };
 })();
-const m17 = (() => {
-const { t } = m8;
+const m20 = (() => {
+const { t } = m9;
 const TAU = Math.PI * 2;
 
 function colors() {
@@ -8009,8 +9193,8 @@ class GraphRenderer {
 
 return { GraphRenderer };
 })();
-const m18 = (() => {
-const { geometryFor, triangulateParts, visualDetails, displayParts } = m10;
+const m21 = (() => {
+const { geometryFor, triangulateParts, visualDetails, displayParts } = m11;
 const vertex = `
 precision mediump float;
 attribute vec3 position;
@@ -8254,15 +9438,15 @@ class GPUScene {
 
 return { GPUScene };
 })();
-const m19 = (() => {
+const m22 = (() => {
 const { matchedViscosity } = m1;
-const { GPUScene } = m18;
-const { t } = m8;
-const { rotorPositions } = m11;
+const { GPUScene } = m21;
+const { t } = m9;
+const { rotorPositions } = m12;
 const { geometryFor,
   triangulateParts,
-  displayParts } = m10;
-const { sampleField } = m13;
+  displayParts } = m11;
+const { sampleField } = m16;
 const TAU = Math.PI * 2;
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -9499,7 +10683,7 @@ class DroneScene3D {
 
 return { DroneScene3D };
 })();
-const m20 = (() => {
+const m23 = (() => {
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 // Educational model without motor-specific thermal calibration.
@@ -9537,72 +10721,13 @@ function stepMotorThermals(system, parameters, result, windNow, dt) {
 
 return { thermalAvailability, stepMotorThermals };
 })();
-const m21 = (() => {
-const { t } = m8;
-// Inputs and saved designs keep their original units. Conversion is a view concern.
-const definitions = {
-  kg: ["кг", "lb", 2.20462262185], mm: ["мм", "in", 1 / 25.4],
-  cm: ["см", "in", 1 / 2.54], m: ["м", "ft", 3.28083989501],
-  inch: ["мм", "in", 1, 25.4], speed: ["м/с", "mph", 2.23693629205],
-  area: ["м²", "ft²", 10.7639104167], temperature: ["°C", "°F", 1.8, 1, 32],
-  rain: ["мм/ч", "in/h", 1 / 25.4], hpa: ["гПа", "psi", 0.0145037738],
-  pressure: ["Па", "lbf/ft²", 0.020885434233], force: ["Н", "lbf", 0.22480894387],
-  density: ["кг/м³", "slug/ft³", 0.00194032033198], volume: ["л", "ft³", 0.03531466672],
-  resistance: ["мОм", "мОм", 1000, 1000]
-};
-const parameterUnits = {
-  batteryMass: "kg", mass: "kg", payload: "kg", frameSize: "mm", diameter: "inch", pitch: "inch", dragArea: "area",
-  windSpeed: "speed", verticalWind: "speed", rainRate: "rain", temperature: "temperature",
-  altitude: "m", pressureHpa: "hpa", batteryTemp: "temperature", payloadX: "cm", payloadY: "cm",
-  bodyLength: "mm", bodyWidth: "mm", bodyHeight: "mm", armLength: "mm", armThickness: "mm",
-  motorDiameter: "mm", motorHeight: "mm", modelSpan: "mm", probeX: "m", probeY: "m", probeZ: "m",
-  batteryResistance: "resistance"
-};
-function unitSpec(kind, system = "metric") {
-  const d = definitions[kind];
-  if (!d) return { label: "", factor: 1, offset: 0 };
-  return system === "imperial" ? { label: t(d[1]), factor: d[2], offset: d[4] || 0 }
-    : { label: t(d[0]), factor: d[3] || 1, offset: 0 };
-}
-function toDisplay(value, kind, system) { const u = unitSpec(kind, system); return value * u.factor + u.offset; }
-function fromDisplay(value, kind, system) { const u = unitSpec(kind, system); return (value - u.offset) / u.factor; }
-function parseExact(text) {
-  const normalized = String(text).trim().replace(",", ".");
-  return /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(normalized) ? Number(normalized) : NaN;
-}
-function validateExact(text, min, max, kind, system) {
-  const value = fromDisplay(parseExact(text), kind, system);
-  const tolerance = Math.max(1, Math.abs(min || 0), Math.abs(max || 0)) * 1e-10;
-  return { value, valid: Number.isFinite(value) && value >= min - tolerance && value <= max + tolerance };
-}
-const graphKinds = { availableThrust: "force", windForce: "force", maxWind: "speed", diskLoading: "pressure" };
-const shortcutBindings = {
-  Space: "pause", Digit1: "flight", Digit2: "graph", Digit3: "airflow", Digit4: "compare",
-  Digit5: "engineering", Digit6: "batteries", Digit7: "mission", Digit8: "history",
-  KeyF: "repair", KeyR: "reset", KeyG: "graph", KeyC: "airflow", KeyH: "help",
-  KeyB: "battery", KeyE: "report", KeyS: "save", KeyV: "vectors", KeyO: "camera"
-};
-function shortcutAction(event) {
-  if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return null;
-  const target = event.target;
-  if (target?.isContentEditable || target?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="textbox"], [role="slider"], [role="combobox"]')) return null;
-  const key = String(event.key || "").toLowerCase();
-  if (key === "escape") return "closeHelp";
-  if (target?.closest?.('button, summary, a[href], [role="button"]')) return null;
-  if (key === "?" || (event.code === "Slash" && event.shiftKey)) return "help";
-  if (event.shiftKey) return event.code === "KeyR" || key === "r" ? "resetAll" : null;
-  return shortcutBindings[event.code] || ({ " ": "pause", "1": "flight", "2": "graph", "3": "airflow", "4": "compare", "5":"engineering", "6":"batteries", "7":"mission", "8":"history", f: "repair", r: "reset", g: "graph", c: "airflow", h: "help", b: "battery", e: "report", s: "save", v: "vectors", o: "camera" })[key] || null;
-}
-
-return { parameterUnits, unitSpec, toDisplay, fromDisplay, parseExact, validateExact, graphKinds, shortcutBindings, shortcutAction };
-})();
-const m22 = (() => {
+const m24 = (() => {
 const { t,
-  getLanguage } = m8;
+  getLanguage } = m9;
 const { parameterUnits,
   toDisplay,
   unitSpec,
-  validateExact } = m21;
+  validateExact } = m15;
 function installExactControls(controls, getSystem) {
   const entries = [];
   for (const slider of controls) {
@@ -9711,7 +10836,7 @@ function installExactControls(controls, getSystem) {
 
 return { installExactControls };
 })();
-const m23 = (() => {
+const m25 = (() => {
 // Local-only CAD mesh ingestion; no file is sent to a server.
 const MAX_TRIANGLES = 40000;
 const LIMIT_BYTES = 16 * 1024 * 1024;
@@ -9948,9 +11073,9 @@ function meshAerodynamics(triangles) {
 
 return { MAX_TRIANGLES, parseMesh, transformMesh, voxelizeMesh, meshBounds, orientedDimensions, fitMesh, projectedMeshArea, meshAerodynamics };
 })();
-const m24 = (() => {
+const m26 = (() => {
 const { createActivityLoop } = m0;
-const { installWorkbench } = m15;
+const { installWorkbench } = m18;
 const { batteryCircuit,
   initialBattery,
   stepBattery,
@@ -9959,12 +11084,13 @@ const { batteryCircuit,
   batterySeries,
   forecastBattery,
   powerBudget,
-  curves } = m9;
+  curves } = m10;
 const { t,
   getLanguage,
   setLanguage,
-  installLanguage } = m8;
-const { compareConfigurations } = m16;
+  installLanguage } = m9;
+const { compareConfigurations,
+  changedParameters } = m19;
 const { baseDefaults,
   calculate,
   dronePresets,
@@ -9973,27 +11099,27 @@ const { baseDefaults,
   graphVariables,
   pressureFromAltitude,
   relativeAirflow,
-  dragAreas } = m11;
-const { GraphRenderer } = m17;
-const { DroneScene3D } = m19;
+  dragAreas } = m12;
+const { GraphRenderer } = m20;
+const { DroneScene3D } = m22;
 const { stepMotorThermals,
-  thermalAvailability } = m20;
+  thermalAvailability } = m23;
 const { unitSpec,
   parameterUnits,
   toDisplay,
   fromDisplay,
   graphKinds,
-  shortcutAction } = m21;
-const { installExactControls } = m22;
+  shortcutAction } = m15;
+const { installExactControls } = m24;
 const { transformMesh,
   fitMesh,
   meshBounds,
-  orientedDimensions } = m23;
+  orientedDimensions } = m25;
 const { builderDefaults,
   designGeometry,
   geometryFor,
-  exportDesignSTL } = m10;
-const { sampleField } = m13;
+  exportDesignSTL } = m11;
+const { sampleField } = m16;
 const $ = id => document.getElementById(id);
 const numberIds = [
   "mass", "payload", "frameSize", "rotors", "diameter", "pitch", "dragArea", "dragCoefficient",
@@ -11295,7 +12421,7 @@ $("exportReport").addEventListener("click", () => {
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd
     .status === "ready";
   const report = {
-    version: "0.91.0-beta",
+    version: "0.92.0-beta",
     enduranceForecast: state.forecast,
     powerBudget: state.powerBudget,
     battery: state.battery,
@@ -11346,7 +12472,7 @@ $("exportReport").addEventListener("click", () => {
   }));
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "drone-weather-lab-v0.91-beta-report.json";
+  anchor.download = "drone-weather-lab-v0.92-beta-report.json";
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
@@ -11607,6 +12733,8 @@ $("unitSystem").addEventListener("change", () => {
   if (airflowScene.cfd.field?.stats) airflowScene.emitCFDStatus();
   state.graphDirty = true;
   state.lastMetrics = 0;
+  renderComparison();
+  workbench?.unitsChanged?.();
 });
 $("showShortcuts").addEventListener("click", () => {
   $("shortcutHelp").hidden = !$("shortcutHelp").hidden;
@@ -11669,16 +12797,24 @@ function renderComparison() {
     electricalPower: "Мощность",
     current: "Ток батареи",
     maxWind: "Предел ветра",
-    availableThrust: "Доступная тяга"
+    availableThrust: "Доступная тяга",
+    thrustToWeight: "Тяга / вес"
   };
-  const display = (key, value, difference = false) => key === "flightMinutes" && value === 0 && !difference ?
-    "n/a" : key === "tilt" ? `${format(value)}°` : key === "reserve" ? `${format(value)}%` : key ===
-    "electricalPower" ? `${format(value, 0)} W` : key === "current" ? `${format(value)} A` : key ===
-    "flightMinutes" ? `${format(value)} min` : quantity(value, key === "availableThrust" ? "force" : "speed");
+  const signed = (text, value) => value > 0 ? `+${text}` : text;
+  const display = (key, value) => key === "tilt" ? `${format(value)}°` : key === "reserve" ? `${format(value)}%` :
+    key === "electricalPower" ? `${format(value, 0)} Вт` : key === "current" ? `${format(value)} А` : key ===
+    "flightMinutes" ? `${format(value)} мин` : key === "thrustToWeight" ? `${format(value, 2)}×` : quantity(value,
+      key === "availableThrust" ? "force" : "speed");
+  const verdictText = {
+    better: "лучше",
+    worse: "хуже",
+    same: "без изменений",
+    na: "н/д"
+  };
   const table = document.createElement("table");
   table.className = "comparison-table";
   const head = table.createTHead().insertRow();
-  for (const name of ["", "A", "B", "Δ B − A"]) {
+  for (const name of ["", "A", "B", "Δ B − A", "Итог для B"]) {
     const th = document.createElement("th");
     th.textContent = name;
     head.append(th);
@@ -11686,13 +12822,82 @@ function renderComparison() {
   const body = table.createTBody();
   for (const item of rows) {
     const row = body.insertRow();
-    for (const value of [t(names[item.key]), display(item.key, item.a), item.b == null ? "…" : display(item
-        .key, item.b), item.b == null ? "…" : display(item.key, item.b - item.a, true)]) {
+    // 0.92: flight time outside the hover limits is "not available", not zero minutes.
+    const a = item.aAvailable ? display(item.key, item.a) : "н/д",
+      b = item.b == null ? "…" : item.bAvailable ? display(item.key, item.b) : "н/д";
+    let delta = "…";
+    if (item.b != null) delta = item.verdict === "na" ? "н/д" : signed(display(item.key, item.b - item.a), item.b -
+      item.a);
+    const cells = [t(names[item.key]), a, b, delta].map(value => {
       const cell = row.insertCell();
       cell.textContent = value;
+      return cell;
+    });
+    const percentCell = cells[3];
+    if (item.b != null && item.percent !== null && !["reserve", "tilt"].includes(item.key) && item.verdict !==
+      "same") {
+      const small = document.createElement("small");
+      small.textContent = ` (${signed(format(item.percent, 0), item.percent)}%)`;
+      percentCell.append(small);
+    }
+    const verdict = row.insertCell();
+    verdict.className = `comparison-verdict verdict-${item.b == null ? "na" : item.verdict}`;
+    verdict.textContent = item.b == null ? "…" : verdictText[item.verdict];
+  }
+  const parts = [table];
+  if (comparisonB) {
+    // 0.92: list the design and battery settings that differ; weather is always taken from A.
+    const heading = document.createElement("h3");
+    heading.className = "comparison-subhead";
+    heading.textContent = "Что отличается в B";
+    const changes = changedParameters(comparisonA, comparisonB);
+    if (!changes.length) {
+      const p = document.createElement("p");
+      p.className = "comparison-note";
+      p.textContent = "Настройки дрона и батареи у A и B совпадают.";
+      parts.push(heading, p);
+    } else {
+      const list = document.createElement("ul");
+      list.className = "comparison-changes";
+      for (const change of changes) {
+        const li = document.createElement("li"),
+          name = document.createElement("span"),
+          from = document.createElement("span"),
+          arrow = document.createElement("span"),
+          to = document.createElement("strong");
+        name.textContent = parameterLabel(change.key);
+        from.textContent = parameterText(change.key, change.a);
+        arrow.textContent = " → ";
+        to.textContent = parameterText(change.key, change.b);
+        li.append(name, from, arrow, to);
+        list.append(li);
+      }
+      parts.push(heading, list);
     }
   }
-  $("comparisonResult").replaceChildren(table);
+  $("comparisonResult").replaceChildren(...parts);
+}
+
+// 0.92: readable name and value of a saved parameter, taken from its control in the current language.
+function parameterLabel(id) {
+  if (id === "customCG") return t("Центр тяжести");
+  if (id === "calibratedProps") return $("calibratedProps")?.closest?.("label")?.textContent?.trim() || id;
+  const label = inputs[id]?.closest?.("label");
+  const text = label?.querySelector?.("span")?.firstChild?.nodeValue?.trim() || label?.textContent?.trim();
+  return text || id;
+}
+
+function parameterText(id, value) {
+  if (value === undefined || value === null) return "н/д";
+  if (typeof value === "boolean") return value ? "да" : "нет";
+  if (id === "customCG" && Array.isArray(value)) return `${value.map(v => format(toDisplay(v * 1000, "mm",
+    unitSystem), 1)).join(" / ")} ${unitSpec("mm", unitSystem).label}`;
+  if (inputs[id]?.tagName === "SELECT") return [...inputs[id].options].find(o => o.value === String(value))
+    ?.textContent || String(value);
+  if (typeof value !== "number") return String(value);
+  if (parameterUnits[id]) return quantity(value, parameterUnits[id], ["dragArea", "batteryResistance"].includes(id) ?
+    3 : 2);
+  return outputConfig[id] ? outputConfig[id](value) : format(value, 2);
 }
 $("captureA").addEventListener("click", () => {
   comparisonA = {
@@ -11766,6 +12971,7 @@ function applyWorkbenchParameters(values, options = {}) {
 }
 workbench = installWorkbench({
   activityLoop,
+  getUnitSystem: () => unitSystem,
   state,
   getParameters,
   applyParameters: applyWorkbenchParameters,

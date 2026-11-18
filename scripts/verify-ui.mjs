@@ -5,7 +5,7 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const offline = process.argv.includes("--offline");
-const html = fs.readFileSync(path.join(root, offline ? "Drone-Weather-Lab-0.91-Beta.html" : "dist/index.html"), "utf8");
+const html = fs.readFileSync(path.join(root, offline ? "Drone-Weather-Lab-0.92-Beta.html" : "dist/index.html"), "utf8");
 class Element {
   constructor(id = "", tag = "div") {
     this.id=id; this.tag=tag; this.value=""; this.checked=false; this.disabled=false; this.hidden=false; this.dataset={}; this.children=[]; this.listeners={}; this.style={}; this.width=800; this.height=520;
@@ -170,7 +170,10 @@ console.log("UI integration passed: initialization, flight, graph, CFD worker me
 
 elements.get("captureA").fire("click"); assert(!elements.get("captureB").disabled);
 elements.get("payload").value="1.2"; elements.get("payload").fire("input"); elements.get("captureB").fire("click");
-assert.equal(elements.get("comparisonResult").children[0].children[1].children.length, 7);
+// 0.92: eight compared quantities (thrust / weight added) and a list of changed settings.
+assert.equal(elements.get("comparisonResult").children[0].children[1].children.length, 8);
+assert.equal(elements.get("comparisonResult").children[0].children[1].children[0].children.length, 5);
+assert(elements.get("comparisonResult").children.length >= 3);
 tabs[3].fire("click"); tick(); assert(!elements.get("compareView").hidden);
 elements.get("clearComparison").fire("click"); assert(elements.get("captureB").disabled);
 const gpuCalls = [], gpu = new Proxy({ createShader:()=>({}), getShaderParameter:()=>true, getProgramParameter:()=>true, createProgram:()=>({}), createBuffer:()=>({}), getUniformLocation:(_,name)=>name, getAttribLocation:(_,name)=>({position:0,normal:1,color:2})[name], TRIANGLES:4, LINES:1, POINTS:0 }, { get:(o,k)=>k in o?o[k]:(...args)=>{gpuCalls.push({name:k,args});} });

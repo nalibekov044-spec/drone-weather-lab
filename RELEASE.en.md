@@ -1,7 +1,7 @@
-# Drone Weather Lab 0.91 Beta
+# Drone Weather Lab 0.92 Beta
 
-You can now choose when calculations run: only on a visible tab, only with focus, or in the background. When you come back, the flight does not jump ahead.
+Six updates. The flight log is now a real chart with axes, eight channels and a Wh summary. The mission plan shows charge by stage, distance and the time left after the plan. A new altitude ceiling finds how high the drone can still hover and what stops it.
 
-The battery forecast, small packs, blade tip speed and rotor torque were refined. CFD uses the same bounds on every grid, and the force table shows whether a result has settled. There are four tone buttons and 21 smaller fixes, all listed in docs/CHANGES-0.91.md.
+A/B comparison shows what is better or worse in B. The sign of thrust and weight moments was fixed, and the component table shows the thrust each motor needs. Propeller clearance and units in My drone display correctly.
 
-Download the ZIP, unzip it and open Drone-Weather-Lab-0.91-Beta.html. The model has not been checked against a real drone.
+Download the ZIP, unzip it and open Drone-Weather-Lab-0.92-Beta.html. Details are in docs/CHANGES-0.92.md. The model has not been checked against a real drone.

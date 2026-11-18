@@ -2374,8 +2374,191 @@ select {
 
 #telemetryCanvas {
   width: 100%;
-  height: 160px;
+  height: 240px;
   background: var(--bg)
+}
+
+/* 0.92 · charts, centre of gravity, mission margin and A/B verdicts */
+.lab-chart {
+  display: block;
+  width: 100%;
+  height: 230px;
+  margin: 14px 0 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  cursor: crosshair
+}
+
+.telemetry-form {
+  max-width: 340px;
+  margin: 4px 0 0
+}
+
+.telemetry-readout,
+.telemetry-summary {
+  display: block;
+  min-height: 1.6em;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums
+}
+
+.telemetry-summary {
+  color: var(--text)
+}
+
+.component-row,
+.component-head {
+  grid-template-columns: minmax(120px, 2fr) repeat(4, minmax(60px, 1fr)) 58px 42px
+}
+
+.component-head {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 2px;
+  color: var(--muted);
+  font-size: 10px
+}
+
+.component-share {
+  align-self: center;
+  text-align: right;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted)
+}
+
+#ceilingTable .table-scroll {
+  max-height: none
+}
+
+.cg-loads:empty {
+  display: none
+}
+
+.cg-line {
+  font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text) !important
+}
+
+.cg-line strong {
+  color: var(--accent);
+  font-weight: 600
+}
+
+.cg-bars {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  min-height: 92px;
+  padding: 8px 0 0;
+  margin: 6px 0 10px
+}
+
+.cg-bars span {
+  flex: 1 1 0;
+  max-width: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted)
+}
+
+.cg-bars i {
+  display: block;
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  opacity: .75
+}
+
+.cg-bars b {
+  font-weight: 500;
+  color: var(--text);
+  margin-top: 4px
+}
+
+.cg-status,
+.mission-verdict {
+  margin: 8px 0 14px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--text) !important;
+  font-size: 13px !important
+}
+
+.cg-status[data-tone="danger"],
+.mission-verdict[data-tone="danger"] {
+  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 13%, transparent)
+}
+
+.comparison-verdict {
+  font-weight: 550;
+  white-space: nowrap
+}
+
+.comparison-table td small {
+  color: var(--muted);
+  font-size: 12px
+}
+
+.verdict-better {
+  color: var(--accent)
+}
+
+.verdict-worse {
+  color: var(--danger)
+}
+
+.verdict-same,
+.verdict-na {
+  color: var(--muted)
+}
+
+.comparison-subhead {
+  font-size: 15px;
+  font-weight: 550;
+  margin: 26px 0 10px
+}
+
+.comparison-note {
+  color: var(--muted)
+}
+
+.comparison-changes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden
+}
+
+.comparison-changes li {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.4fr) auto auto auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums
+}
+
+.comparison-changes li span:first-child {
+  color: var(--muted)
+}
+
+.comparison-changes li strong {
+  color: var(--accent);
+  font-weight: 550
 }
 
 [hidden] {
@@ -2488,9 +2671,20 @@ select {
   }
 
   .component-row,
+  .component-head,
   .stage-row,
   .stage-head {
     min-width: 570px
+  }
+
+  .component-row,
+  .component-head {
+    min-width: 640px
+  }
+
+  .comparison-changes li {
+    grid-template-columns: 1fr;
+    gap: 2px
   }
 
   #componentRows,
