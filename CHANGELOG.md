@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.93 Beta
+
+The motor model was rebuilt.
+
+- Rated motor power is now a continuous rating, not a hard ceiling. The ESC current, the battery and the maximum RPM are the real limits. A motor can run above its rating, and then it heats up.
+- Hot magnets lower efficiency, so an overloaded motor heats faster. Smoke, fire and motor failure can now actually happen.
+- A test stand mode runs every motor at the RPM command while the drone stays fixed.
+- The RPM readout shows the real speed, the command and the limit. Motor cards show the real load.
+- The component table limits each motor to the thrust it has and shows what stays unbalanced. A failed motor counts as zero.
+- The flight log counts energy only since the last battery change.
+- In A/B, raw thrust gets no verdict, and power and current are not judged when the take-off mass differs.
+
 ## 0.92 Beta
 
 Six updates.

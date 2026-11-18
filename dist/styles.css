@@ -2515,7 +2515,9 @@ select {
 }
 
 .verdict-same,
-.verdict-na {
+.verdict-na,
+.verdict-info,
+.verdict-context {
   color: var(--muted)
 }
 

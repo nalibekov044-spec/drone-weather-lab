@@ -11,13 +11,13 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.92 Beta</span></p>
+        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.93 Beta</span></p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
         <label class="unit-control">Язык<select id="language"><option value="ru">Русский</option><option value="en">English</option><option value="es">Español</option></select></label>
         <label class="unit-control">Единицы<select id="unitSystem"><option value="metric">Метрические</option><option value="imperial">Имперские</option></select></label>
-        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.92-Beta.html" download>Скачать для запуска без установки</a>
+        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.93-Beta.html" download>Скачать для запуска без установки</a>
         <button id="showShortcuts" class="button" type="button" aria-expanded="false" aria-controls="shortcutHelp">Клавиши <kbd>?</kbd></button>
         <button id="toggleSimulation" class="button button-primary" type="button">Пауза</button>
         <button id="resetSimulation" class="button" type="button">Сбросить</button>
@@ -30,7 +30,7 @@
       <p>Клавиши работают в русской и английской раскладке вне полей ввода. G и C тоже переключают графики и обтекание. R сохраняет батарею и моторы; Shift + R сбрасывает все настройки и CAD.</p>
     </section>
 
-    <div class="release-notice">0.92 · Проверка конфигурации</div>
+    <div class="release-notice">0.93 · Проверка конфигурации</div>
     <nav class="mode-tabs" aria-label="Режим визуализации" role="tablist">
       <button class="mode-tab active" id="flightTab" type="button" role="tab" aria-selected="true" aria-controls="flightView" data-view="flight">Полёт</button>
       <button class="mode-tab" id="graphTab" type="button" role="tab" aria-selected="false" aria-controls="graphView" data-view="graph">Графики</button>
@@ -181,11 +181,12 @@
             <label class="control" for="maxRpm"><span>Предел двигателя <output id="maxRpmValue">7 200 об/мин</output></span><input id="maxRpm" type="range" min="1500" max="28000" value="7200" step="100"></label>
             <label class="control" for="motorMaxPower"><span>Мощность мотора <output id="motorMaxPowerValue">420 Вт</output></span><input id="motorMaxPower" type="range" min="80" max="2500" value="420" step="20"></label>
             <label class="control wide" for="motorEfficiency"><span>КПД мотора <output id="motorEfficiencyValue">88%</output></span><input id="motorEfficiency" type="range" min="50" max="96" value="88" step="1"></label>
+            <label class="check-control wide"><input id="standTest" type="checkbox"> Стендовый тест: дрон закреплён, моторы крутятся на команде RPM</label>
             <label class="check-control wide"><input id="individualMotors" type="checkbox"> Настраивать RPM каждого двигателя отдельно</label>
             <div id="motorGrid" class="motor-grid wide" hidden></div>
             <div id="motorCards" class="motor-cards wide" aria-label="Состояние двигателей"></div>
             <button id="repairMotors" class="button wide" type="button">Восстановить моторы <kbd>F</kbd></button>
-            <details class="control-help wide"><summary>Как моторы теряют мощность?</summary><p>Нагрев накапливается и уходит постепенно. После 95 °C доступная мощность снижается и возвращается при охлаждении. Долгая перегрузка и высокая температура расходуют ресурс, который сам не восстанавливается. Дым и огонь появляются только после накопленного тяжёлого перегрева. Это учебная модель без паспортных тепловых данных, а не прогноз пожара.</p></details>
+            <details class="control-help wide"><summary>Как греются и горят моторы?</summary><p>Нагрев зависит от мощности, которую мотор берёт на самом деле, относительно номинальной. Номинал означает длительную мощность без перегрева, а не потолок: выше неё мотор работает, пока хватает ESC и батареи, но потери растут как квадрат тока. После 95 °C магниты слабеют, КПД падает и мотор греется ещё быстрее. Выше 110 °C расходуется ресурс, выше 175 °C обмотка может загореться. В полёте моторы дают только тягу для висения, поэтому команда RPM на нагрев не влияет. Чтобы прогнать моторы на команде, включи стендовый тест. Это учебная модель без паспортных тепловых данных, а не прогноз пожара.</p></details>
           </div>
         </details>
 

@@ -12,6 +12,9 @@ import {
   designGeometry,
   geometryFor
 } from "./drone-builder.js";
+import {
+  thermalAvailability
+} from "./systems.js";
 export const G = 9.80665;
 export const INCH = 0.0254;
 
@@ -385,15 +388,21 @@ export function calculate(parameters, options = {}) {
   const motorHealths = Array.from({
     length: p.rotors
   }, (_, index) => clamp(options.motorHealths?.[index] ?? 1, 0, 1));
-  const motorEfficiencies = motorHealths.map(health => motorEfficiency * (0.72 + 0.28 * health));
+  // 0.93: a hot motor keeps drawing power but converts less of it into torque (magnets weaken),
+  // so overload heats it further instead of being throttled by a hidden protection.
+  const magnetFactors = motorHealths.map((_, index) => thermalAvailability(options.motorTemps?.[index] ?? p
+    .temperature));
+  const motorEfficiencies = motorHealths.map((health, index) => motorEfficiency * (0.72 + 0.28 * health) *
+    magnetFactors[index]);
   const healthSum = motorHealths.reduce((sum, h) => sum + h, 0);
+  // 0.93: rated motor power is the continuous rating, not a hard ceiling. Hard limits are the ESC current,
+  // the battery and the maximum RPM; running above the rating is possible and overheats the motor.
   let shaftPowerLimits = motorHealths.map((health, index) => {
     const escLimit = p.escCurrentLimit * supply.openVoltage * escEfficiency * escAvailability(options
       .escTemps?.[index] ?? p.temperature);
     const share = Math.max(0, supply.maximumPower - avionicsPower) * health / Math.max(1e-9, healthSum) *
       escEfficiency;
-    return supply.controllerPowered ? Math.min(p.motorMaxPower * health ** 1.25, escLimit, share) *
-      motorEfficiencies[index] : 0;
+    return supply.controllerPowered ? Math.min(escLimit, share) * health ** 1.25 * motorEfficiencies[index] : 0;
   });
   // Solve the shared bus voltage and each ESC input current together at full capacity.
   // The battery share caps total power even when the requested RPM is excessive.
@@ -408,8 +417,8 @@ export function calculate(parameters, options = {}) {
         .escTemps?.[i] ?? p.temperature);
       const share = Math.max(0, supply.maximumPower - avionicsPower) * health / Math.max(1e-9,
         healthSum) * escEfficiency;
-      const next = supply.controllerPowered ? Math.min(p.motorMaxPower * health ** 1.25, escLimit,
-        share) * motorEfficiencies[i] : 0;
+      const next = supply.controllerPowered ? Math.min(escLimit, share) * health ** 1.25 *
+        motorEfficiencies[i] : 0;
       error = Math.max(error, Math.abs(next - previous));
       return (previous + next) * 0.5;
     });
@@ -485,12 +494,11 @@ export function calculate(parameters, options = {}) {
   const propulsionPower = motorEfficiencies.reduce((sum, efficiency) => sum + perMotorHoverPower / Math.max(
     0.1, efficiency), 0);
   const electricalPower = propulsionPower / escEfficiency + avionicsPower;
-  const systemPowerLimit = motorHealths.reduce((sum, health) => sum + p.motorMaxPower * health ** 1.25, 0);
-  const motorLoadPercents = requestedShaftPowers.map((power, index) => {
-    const electricalLoad = power / Math.max(1e-6, shaftPowerLimits[index]) * 100;
-    const mechanicalLoad = (Math.max(0, commandedRpms[index]) / Math.max(1, p.maxRpm)) ** 3 * 100;
-    return Math.min(5000, Math.max(electricalLoad, mechanicalLoad));
-  });
+  // Loads are input power relative to the rated power: above 100% the motor is overloaded and heats up.
+  const ratedPower = Math.max(1, p.motorMaxPower);
+  const systemPowerLimit = motorHealths.length * ratedPower;
+  const motorLoadPercents = shaftPowers.map((power, index) => Math.min(5000, power / Math.max(0.1,
+    motorEfficiencies[index]) / ratedPower * 100));
   const batteryFactor =
   1; // Temperature affects resistance and voltage, not a second hidden capacity multiplier.
   const battery = batteryCircuit(p, batteryState, electricalPower);
@@ -508,8 +516,11 @@ export function calculate(parameters, options = {}) {
   const powerLoad = Math.max(requiredPowerLoad, commandPowerLoad);
   const tiltFeasible = tilt <= (p.maxTilt ?? 35) + 1e-6;
   const thrustFeasible = availableThrust >= requiredThrust;
-  const powerFeasible = rpmPowerLimits.every(limit => hoverRpm <= Math.min(p.maxRpm, limit) + 1e-6) &&
-    motorLoadPercents.every(load => load <= 100 + 1e-6);
+  // Feasible means the hardware can physically produce hover; an overloaded motor can still hover while heating.
+  const powerFeasible = rpmPowerLimits.every(limit => hoverRpm <= Math.min(p.maxRpm, limit) + 1e-6);
+  const motorOverload = requiredPowerLoad > 100 + 1e-6;
+  const commandLimited = commandedRpms.some((rpm, index) => rpm > Math.min(p.maxRpm, rpmPowerLimits[index]) +
+    1e-6);
   const feasible = verticalDemand >= 0 && thrustFeasible && tiltFeasible && powerFeasible &&
     batteryFeasible && battery.controllerPowered;
   const flightMinutes = feasible ? usableChargeAh * batteryFactor / Math.max(0.001, current) * 60 : 0;
@@ -631,6 +642,10 @@ export function calculate(parameters, options = {}) {
     feasible,
     thrustFeasible,
     powerFeasible,
+    motorOverload,
+    commandLimited,
+    magnetFactors,
+    ratedPower,
     tiltFeasible,
     icingRisk: p.temperature <= 3 && p.temperature >= -15 && p.rainRate > 0 && p.icing === "none"
   };
@@ -655,6 +670,7 @@ export function graphSeries(parameters, variableName, metricName, from, to, samp
     const result = calculate(trial, {
       motorRpms: trialRpms,
       motorHealths: options.motorHealths,
+      motorTemps: options.motorTemps,
       batteryState: options.batteryState,
       escTemps: options.escTemps
     });

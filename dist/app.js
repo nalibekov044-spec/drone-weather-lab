@@ -139,8 +139,8 @@ let exactControls;
 const quantity = (value, kind, digits = 1) =>
   `${format(toDisplay(value, kind, unitSystem), digits)} ${unitSpec(kind, unitSystem).label}`;
 const visibleLoad = value => value > 500 ? ">500%" : `${format(value, 0)}%`;
-const effectiveMotorHealths = () => state.motorHealths.map((h, i) => h * thermalAvailability(state.motorTemps[
-  i]));
+// 0.93: winding health only; the temperature effect (weaker magnets) is applied in calculate from motorTemps.
+const effectiveMotorHealths = () => state.motorHealths.map(h => h);
 flightScene.quantity = airflowScene.quantity = quantity;
 
 const outputConfig = {
@@ -222,6 +222,8 @@ const state = {
   motorTemps: [],
   motorHealths: [],
   motorFire: [],
+  motorLoads: [],
+  motorActualRpms: [],
   motorExposure: [],
   motorIgnition: [],
   battery: null,
@@ -245,6 +247,7 @@ const state = {
 const liveOptions = (extra = {}) => ({
   motorRpms: state.motorRpms,
   motorHealths: effectiveMotorHealths(),
+  motorTemps: state.motorTemps,
   batteryState: state.battery || initialBattery(getParameters()),
   escTemps: state.escTemps,
   ...extra
@@ -271,13 +274,15 @@ function cfdSettings() {
 
 function meanFlowResult(parameters) {
   // A mean-flow solve must not restart at every animated gust or thermal time step.
-  const healths = effectiveMotorHealths().map(h => Math.round(h * 10) / 10);
-  const key = JSON.stringify([parameters, state.motorRpms, healths]);
+  const healths = effectiveMotorHealths().map(h => Math.round(h * 10) / 10),
+    temps = state.motorTemps.map(v => Math.round(v / 10) * 10);
+  const key = JSON.stringify([parameters, state.motorRpms, healths, temps]);
   if (flowSnapshot.key !== key) flowSnapshot = {
     key,
     result: calculate(parameters, {
       motorRpms: state.motorRpms,
-      motorHealths: healths
+      motorHealths: healths,
+      motorTemps: temps
     })
   };
   return flowSnapshot.result;
@@ -500,30 +505,31 @@ function setStatus(parameters, result, peakWind) {
   const hottestMotor = Math.max(...state.motorTemps);
   const weakestMotor = Math.min(...state.motorHealths);
   const strongestFire = Math.max(...state.motorFire);
+  const actualLoad = Math.max(0, ...state.motorLoads);
+  const stand = $("standTest").checked;
+  // 0.93: the order goes from what has already happened (power loss, fire, failure) to what is about to happen.
   if (!result.battery.controllerPowered) {
     status.classList.add("danger");
-    text = "Контроллер без питания";
-  } else if (Math.max(...state.escTemps) > 95) {
-    status.classList.add("warning");
-    text = "ESC снижает мощность";
+    text = (state.battery?.temperature ?? 0) >= 75 ? "Батарея перегрелась: питание отключено" :
+      "Контроллер без питания";
   } else if (strongestFire > 0.06) {
     status.classList.add("danger");
-    text = "Возгорание мотора / ESC";
+    text = "Возгорание мотора";
   } else if (weakestMotor < 0.18) {
     status.classList.add("danger");
     text = "Отказ двигателя";
   } else if (hottestMotor > 125) {
     status.classList.add("danger");
     text = "Критический перегрев";
+  } else if (Math.max(...state.escTemps) > 95) {
+    status.classList.add("warning");
+    text = "ESC снижает мощность";
   } else if (hottestMotor > 88 || weakestMotor < 0.75) {
     status.classList.add("warning");
     text = "Деградация двигателя";
-  } else if (parameters.rpm > parameters.maxRpm || state.motorRpms.some(value => value > parameters.maxRpm)) {
-    status.classList.add("danger");
-    text = "RPM выше механического предела";
-  } else if (state.motorRpms.some((value, index) => value > result.rpmPowerLimits[index])) {
-    status.classList.add("danger");
-    text = "RPM недостижимы по мощности";
+  } else if (stand) {
+    if (actualLoad > 100) status.classList.add("warning");
+    text = `Стендовый тест · нагрузка ${visibleLoad(actualLoad)}`;
   } else if (!result.thrustFeasible) {
     status.classList.add("danger");
     text = "Тяги недостаточно";
@@ -536,6 +542,12 @@ function setStatus(parameters, result, peakWind) {
   } else if (!result.batteryFeasible) {
     status.classList.add("danger");
     text = "Батарея не держит нагрузку";
+  } else if (actualLoad > 100 || result.motorOverload) {
+    status.classList.add("warning");
+    text = "Моторы выше номинала: нагрев";
+  } else if (result.commandLimited) {
+    status.classList.add("warning");
+    text = "Команда RPM выше предела: обороты ограничены";
   } else if (result.icingRisk) {
     status.classList.add("warning");
     text = "Возможное обледенение";
@@ -583,11 +595,17 @@ function updateMetrics(parameters, result) {
   ui.motorBalance.textContent = `${format(result.balancePercent, 0)}%`;
   const averageEffectiveRpm = result.effectiveRpms.reduce((sum, value) => sum + value, 0) / Math.max(1, result
     .effectiveRpms.length);
+  // 0.93: actual spinning speed (hover share in flight, full command on the stand), the command after limits,
+  // and the hard limit from ESC, battery and maximum RPM.
+  const locale = getLanguage() === "es" ? "es-ES" : getLanguage() === "en" ? "en-US" : "ru-RU",
+    actualRpms = state.motorActualRpms.length ? state.motorActualRpms : result.effectiveRpms,
+    averageActualRpm = actualRpms.reduce((sum, value) => sum + value, 0) / Math.max(1, actualRpms.length);
   ui.effectiveRpm.textContent =
-    `${Math.round(averageEffectiveRpm).toLocaleString(getLanguage() === "es" ? "es-ES" : getLanguage() === "en" ? "en-US" : "ru-RU")} · предел ${Math.round(result.rpmPowerLimit).toLocaleString(getLanguage() === "es" ? "es-ES" : getLanguage() === "en" ? "en-US" : "ru-RU")}`;
+    `${Math.round(averageActualRpm).toLocaleString(locale)} · команда ${Math.round(averageEffectiveRpm).toLocaleString(locale)} · предел ${Math.round(Math.min(parameters.maxRpm, result.rpmPowerLimit)).toLocaleString(locale)}`;
   const hottestMotor = Math.max(...state.motorTemps);
   const weakestMotor = Math.min(...state.motorHealths);
-  const hottestLoad = Math.max(...result.motorLoadPercents);
+  const actualLoads = state.motorLoads.length ? state.motorLoads : result.motorLoadPercents;
+  const hottestLoad = Math.max(...actualLoads);
   ui.motorThermal.textContent =
     `${quantity(hottestMotor, "temperature", 0)} · ресурс ${format(weakestMotor * 100, 0)}% · нагрузка ${visibleLoad(hottestLoad)}`;
   ui.motorThermal.classList.toggle("danger-text", hottestMotor > 120 || weakestMotor < 0.5);
@@ -596,7 +614,7 @@ function updateMetrics(parameters, result) {
   document.querySelectorAll(".motor-condition").forEach((element, index) => {
     const temperature = state.motorTemps[index] ?? parameters.temperature;
     const health = state.motorHealths[index] ?? 1;
-    const load = result.motorLoadPercents[index] ?? 0;
+    const load = actualLoads[index] ?? 0;
     element.textContent =
       `${quantity(temperature, "temperature", 0)} · ${format(health * 100, 0)}% · ${visibleLoad(load)}`;
     element.classList.toggle("danger-text", temperature > 120 || health < 0.5 || load > 140);
@@ -680,7 +698,9 @@ function resetDynamics(repair = true) {
     windNow: 0,
     windVector: null,
     accumulator: 0,
-    trail: []
+    trail: [],
+    motorLoads: [],
+    motorActualRpms: []
   });
   ensureMotorState(getParameters(), repair);
   if (repair) {
@@ -705,11 +725,14 @@ function updateMotorCards(parameters, result) {
       availability = thermalAvailability(temp);
     const failed = health < 0.18,
       burning = state.motorFire[i] > 0.06;
+    // 0.93: the card shows the power the motor really draws and its real speed.
+    const load = state.motorLoads[i] ?? result.motorLoadPercents[i] ?? 0,
+      rpm = state.motorActualRpms[i] ?? result.effectiveRpms[i] ?? 0;
     const label = burning ? "Огонь" : failed ? "Отказ" : temp > 125 ? "Перегрев" : availability < 1 ?
-      "Снижение мощности" : result.motorLoadPercents[i] > 100 ? "Перегрузка" : "Норма";
+      "Магниты слабеют" : load > 100 ? "Перегрузка" : "Норма";
     card.className = `motor-card ${burning || failed ? "critical" : temp > 95 ? "warm" : ""}`;
     card.innerHTML =
-      `<header><strong>M${i + 1}</strong><span>${label}</span></header><div class="motor-temperature">${quantity(temp, "temperature", 0)}</div><div class="health-track"><i style="width:${health * 100}%"></i></div><small>Ресурс ${format(health * 100, 0)}% · нагрузка ${visibleLoad(result.motorLoadPercents[i])}</small><small>Тепловой лимит ${format(availability * 100, 0)}% · ${format(result.effectiveRpms[i], 0)} RPM</small>`;
+      `<header><strong>M${i + 1}</strong><span>${label}</span></header><div class="motor-temperature">${quantity(temp, "temperature", 0)}</div><div class="health-track"><i style="width:${health * 100}%"></i></div><small>Ресурс ${format(health * 100, 0)}% · нагрузка ${visibleLoad(load)}</small><small>Магниты ${format(availability * 100, 0)}% · ${format(rpm, 0)} RPM</small>`;
   });
 }
 
@@ -834,17 +857,29 @@ function simulate(dt, parameters) {
     desiredVerticalThrust) : 0;
   state.actualVerticalThrust = actualVerticalThrust;
   const az = (actualVerticalThrust - dynamicResult.verticalDemand) / dynamicResult.mass;
-  state.vx = (state.vx + ax * dt) * Math.pow(0.996, dt * 60);
-  state.vy = (state.vy + ay * dt) * Math.pow(0.996, dt * 60);
-  state.vz = (state.vz + az * dt) * Math.pow(0.998, dt * 60);
-  state.x += state.vx * dt;
-  state.y += state.vy * dt;
-  state.z = Math.max(-30, Math.min(12, state.z + state.vz * dt));
-  state.controlX = controlX;
-  state.controlY = controlY;
+  // 0.93: on the test stand the frame is fixed and every motor spins at the commanded RPM
+  // (after the ESC, battery and maximum-RPM limits). In flight the controller only uses the thrust it needs.
+  const stand = $("standTest")?.checked === true;
+  if (stand) {
+    state.vx = state.vy = state.vz = 0;
+    state.ix = state.iy = 0;
+  } else {
+    state.vx = (state.vx + ax * dt) * Math.pow(0.996, dt * 60);
+    state.vy = (state.vy + ay * dt) * Math.pow(0.996, dt * 60);
+    state.vz = (state.vz + az * dt) * Math.pow(0.998, dt * 60);
+    state.x += state.vx * dt;
+    state.y += state.vy * dt;
+    state.z = Math.max(-30, Math.min(12, state.z + state.vz * dt));
+  }
+  state.controlX = stand ? 0 : controlX;
+  state.controlY = stand ? 0 : controlY;
   state.windNow = windNow;
-  const actualThrust = Math.hypot(actualVerticalThrust, controlX, controlY);
-  const powerFraction = Math.min(1, actualThrust / Math.max(1e-9, dynamicResult.availableThrust)) ** 1.5;
+  const actualThrust = stand ? dynamicResult.availableThrust : Math.hypot(actualVerticalThrust, controlX,
+    controlY);
+  const thrustFraction = Math.min(1, actualThrust / Math.max(1e-9, dynamicResult.availableThrust));
+  const powerFraction = thrustFraction ** 1.5;
+  // Thrust ∝ RPM², so the spinning speed is the commanded speed times √(thrust share).
+  state.motorActualRpms = dynamicResult.effectiveRpms.map(rpm => rpm * Math.sqrt(thrustFraction));
   const motorPowers = dynamicResult.shaftPowers.map((power, i) => power * powerFraction / Math.max(0.1,
     dynamicResult.motorEfficiencies[i]));
   const actualPower = motorPowers.reduce((sum, power) => sum + power, 0) / dynamicResult.escEfficiency +
@@ -856,10 +891,11 @@ function simulate(dt, parameters) {
     windNow, dynamicResult.density, dt);
   state.escTemps = stepESC(state.escTemps, parameters, motorPowers, state.batteryActual.terminalVoltage,
     windNow, dynamicResult.density, dt);
+  // Heating follows the power each motor actually draws, relative to its continuous rating.
+  state.motorLoads = motorPowers.map(power => power / Math.max(1, parameters.motorMaxPower) * 100);
   updateMotorThermals(dt, parameters, {
     ...dynamicResult,
-    motorThermalLoadPercents: motorPowers.map(power => power / Math.max(1, parameters.motorMaxPower) *
-      100)
+    motorThermalLoadPercents: state.motorLoads
   });
   state.t += dt;
   if (state.t % 0.075 < dt) {
@@ -919,6 +955,7 @@ function renderGraph(parameters) {
   const points = graphSeries(parameters, variableName, metricName, from, to, 100, {
     motorRpms: state.motorRpms,
     motorHealths: effectiveMotorHealths(),
+    motorTemps: state.motorTemps,
     batteryState: state.battery,
     escTemps: state.escTemps
   });
@@ -1025,6 +1062,8 @@ $("flowColor").addEventListener("change", () => {
 });
 $("repairMotors").addEventListener("click", () => {
   ensureMotorState(getParameters(), true);
+  state.motorLoads = [];
+  state.motorActualRpms = [];
   state.escTemps = Array(getParameters().rotors).fill(getParameters().temperature);
   state.graphDirty = true;
 });
@@ -1042,6 +1081,7 @@ $("resetSimulation").addEventListener("click", () => {
       .value = String(value);
   });
   $("individualMotors").checked = false;
+  $("standTest").checked = false;
   $("streamlineCount").value = "360";
   $("airflowZoom").value = "1";
   $("airflowLayer").value = "volume";
@@ -1378,7 +1418,7 @@ $("exportReport").addEventListener("click", () => {
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd
     .status === "ready";
   const report = {
-    version: "0.92.0-beta",
+    version: "0.93.1-beta",
     enduranceForecast: state.forecast,
     powerBudget: state.powerBudget,
     battery: state.battery,
@@ -1391,6 +1431,9 @@ $("exportReport").addEventListener("click", () => {
     parameters,
     result,
     motors: {
+      standTest: $("standTest").checked,
+      loadsPercentOfRated: state.motorLoads,
+      actualRpms: state.motorActualRpms,
       temperatures: state.motorTemps,
       healths: state.motorHealths,
       fires: state.motorFire,
@@ -1429,7 +1472,7 @@ $("exportReport").addEventListener("click", () => {
   }));
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "drone-weather-lab-v0.92-beta-report.json";
+  anchor.download = "drone-weather-lab-v0.93-beta-report.json";
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
@@ -1549,8 +1592,9 @@ const parameterHelp = {
   propEfficiency: "Поправка состояния винтов: повреждение, дождь и лёд снижают тягу и увеличивают потребляемую мощность. Это эмпирическая модель.",
   ct: "Безразмерный коэффициент: T = Cₜρn²D⁴, n в оборотах/с, D в метрах. Бери из стендовых данных своего винта; для чистого винта выставь состояние 100%.",
   cp: "Безразмерный коэффициент мощности на валу: P = Cₚρn³D⁵. Не путай с электрической мощностью и коэффициентом момента Cq.",
-  rpm: "Команда задаёт доступную тягу. Удержание точки предполагает снижение оборотов до требуемых. Перегрузка команды используется как отдельный стресс-тест моторов. Дым и огонь условные, они не предсказывают реальный отказ.",
-  motorMaxPower: "Допустимая электрическая мощность на входе мотора после ESC. Мощность на валу ниже из-за КПД мотора. Лимит зависит от ресурса мотора.",
+  rpm: "В полёте контроллер сам снижает обороты до нужной тяги, а команда задаёт, сколько тяги ему доступно. Реальные обороты ограничены пределом двигателя, током ESC и мощностью батареи. На стендовом тесте моторы крутятся именно на команде. Дым и огонь условные, они не предсказывают реальный отказ.",
+  standTest: "Дрон закреплён на стенде и не двигается. Все моторы крутятся на команде RPM, но не выше предела двигателя, тока ESC и мощности батареи. Так проверяют, выдержит ли мотор долгую работу на этих оборотах. Первой может перегреться батарея: при 75 °C она отключает питание.",
+  motorMaxPower: "Номинальная длительная мощность на входе мотора. Это не потолок: если ESC и батарея дают больше, мотор её возьмёт и будет перегреваться. При номинале без ветра мотор нагревается примерно на 65 °C выше воздуха; мощность на валу меньше из-за КПД.",
   motorEfficiency: "КПД преобразования электрической мощности в механическую. Потери мотора нагревают мотор. КПД и нагрев ESC учитываются отдельно.",
   windTransition: "Постоянная времени плавного перехода: через это время пройдено примерно 63% изменения скорости. Влияет на полёт, не на стационарный CFD.",
   gustFrequency: "В герцах измеряется число колебаний в секунду. 0,5 Гц означает характерный период около 2 секунд.",
@@ -1589,7 +1633,11 @@ for (const [id, text] of Object.entries(parameterHelp)) {
   const p = document.createElement("p");
   p.textContent = text;
   help.append(summary, p);
-  parent.append(help);
+  // A summary inside a checkbox label would toggle the checkbox, so checkbox help goes after the label.
+  if (input.type === "checkbox" && typeof parent.after === "function") {
+    help.classList.add("wide");
+    parent.after(help);
+  } else parent.append(help);
 }
 
 function frame(now, activity = {
@@ -1766,7 +1814,9 @@ function renderComparison() {
     better: "лучше",
     worse: "хуже",
     same: "без изменений",
-    na: "н/д"
+    na: "н/д",
+    info: "справочно",
+    context: "другая масса"
   };
   const table = document.createElement("table");
   table.className = "comparison-table";
@@ -1792,7 +1842,7 @@ function renderComparison() {
     });
     const percentCell = cells[3];
     if (item.b != null && item.percent !== null && !["reserve", "tilt"].includes(item.key) && item.verdict !==
-      "same") {
+      "same" && Math.abs(item.percent) >= .5) {
       const small = document.createElement("small");
       small.textContent = ` (${signed(format(item.percent, 0), item.percent)}%)`;
       percentCell.append(small);

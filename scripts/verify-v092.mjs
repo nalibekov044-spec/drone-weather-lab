@@ -119,7 +119,8 @@ const cases = [
 const missionChecks = [];
 for (const [name, p, stages] of cases) {
   const now = engineering.missionForecast(p, stages), old = oldMission(p, stages);
-  assert.equal(JSON.stringify(now.rows), JSON.stringify(old.rows), `${name}: rows differ from 0.91`);
+  // 0.93 adds motorLoad to each row; every 0.91 field must stay identical.
+  assert.equal(JSON.stringify(now.rows.map(({ motorLoad, ...r }) => r)), JSON.stringify(old.rows), `${name}: rows differ from 0.91`);
   assert.equal(now.seconds, old.seconds);
   for (let i = 1; i < now.trace.length; i++) assert(now.trace[i].seconds > now.trace[i - 1].seconds && now.trace[i].soc <= now.trace[i - 1].soc + 1e-12);
   near(now.trace.at(-1).seconds, now.seconds, 1e-9); near(now.trace.at(-1).soc, now.soc, 1e-12);

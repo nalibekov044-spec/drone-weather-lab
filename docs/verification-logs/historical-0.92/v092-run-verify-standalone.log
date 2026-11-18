@@ -1,0 +1,4 @@
+$ node --experimental-vm-modules scripts/verify-standalone.mjs
+Standalone workers passed: embedded OBJ import, LES field and streamlines. No runtime script or stylesheet requests.
+Standalone CAD projection worker passed.
+exit: 0

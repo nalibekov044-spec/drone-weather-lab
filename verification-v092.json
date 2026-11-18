@@ -38,25 +38,25 @@
     "balance": [
       {
         "preset": "survey",
-        "mixerImbalanceNm": 2.2887833992611187e-16,
+        "mixerImbalanceNm": 1.2670655869532562e-15,
         "equalThrustImbalanceNm": 0.3530394000000003,
         "equalThrustBalancePercent": 94.64285714285714
       },
       {
         "preset": "industrialHex",
-        "mixerImbalanceNm": 1.7100678429692722e-15,
+        "mixerImbalanceNm": 3.5200373421612615e-15,
         "equalThrustImbalanceNm": 0.7649187000000003,
         "equalThrustBalancePercent": 96.73913043478261
       },
       {
         "preset": "cargoOcto",
-        "mixerImbalanceNm": 6.141450319825084e-15,
-        "equalThrustImbalanceNm": 1.6180972500000028,
+        "mixerImbalanceNm": 8.082545620880531e-15,
+        "equalThrustImbalanceNm": 1.6180972500000024,
         "equalThrustBalancePercent": 97.93103448275862
       },
       {
         "preset": "custom",
-        "mixerImbalanceNm": 5.23691153334427e-16,
+        "mixerImbalanceNm": 9.694605782913356e-16,
         "equalThrustImbalanceNm": 0.3530393999999999,
         "equalThrustBalancePercent": 94.64285714285714
       }
@@ -70,9 +70,9 @@
       "distanceM": 960,
       "tracePoints": 361,
       "margin": {
-        "marginMinutes": 2.1,
-        "reason": "flight-limit",
-        "socAtEnd": 15.642538634745778
+        "marginMinutes": 2.1936411896232384,
+        "reason": "reserve",
+        "socAtEnd": 15.000000000041506
       }
     },
     {
@@ -102,9 +102,9 @@
     {
       "name": "reaches reserve",
       "complete": false,
-      "minutes": 3.7,
+      "minutes": 4.011731545262554,
       "distanceM": 360,
-      "tracePoints": 112,
+      "tracePoints": 122,
       "margin": null
     },
     {
@@ -143,12 +143,12 @@
       },
       {
         "key": "electricalPower",
-        "verdict": "worse",
+        "verdict": "context",
         "percent": 24.36767970494058
       },
       {
         "key": "current",
-        "verdict": "worse",
+        "verdict": "context",
         "percent": 25.88497351672332
       },
       {
@@ -158,7 +158,7 @@
       },
       {
         "key": "availableThrust",
-        "verdict": "better",
+        "verdict": "info",
         "percent": 8.506944444444436
       },
       {
@@ -173,7 +173,7 @@
     ]
   },
   "translations": {
-    "workbenchCallsChecked": 147,
+    "workbenchCallsChecked": 165,
     "dashCases": 3
   },
   "notes": [

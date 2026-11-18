@@ -1,22 +1,20 @@
-# Drone Weather Lab 0.92 Beta
+# Drone Weather Lab 0.93 Beta
 
 [Русский](README.md) · [English](README.en.md)
 
-El simulador muestra cómo el viento, la altitud, las hélices y la batería afectan a un multicóptero. La versión 0.92 trae seis mejoras.
+El simulador muestra cómo el viento, la altitud, las hélices y la batería afectan a un multicóptero. En la 0.93 el modelo de los motores es nuevo. Ahora pueden sobrecalentarse y quemarse.
 
 ## Cómo abrirlo
 
-Descomprime el archivo y abre **Drone-Weather-Lab-0.92-Beta.html** o `Start.cmd`. No hace falta instalar nada.
+Descomprime el archivo y abre **Drone-Weather-Lab-0.93-Beta.html** o `Start.cmd`.
 
-## Novedades
+## Motores
 
-- Registro de vuelo con gráfico, ejes, ocho magnitudes y un resumen con Wh y mAh.
-- Plan de misión con gráfico de carga, distancia por etapa y margen tras la misión.
-- Techo de altitud: la mayor altitud de vuelo estacionario y su límite.
-- Comparación A/B con mejor o peor, porcentajes y lista de ajustes cambiados.
-- Centro de gravedad: se corrigió el signo de los momentos. La tabla de componentes muestra el empuje de cada motor.
-- Correcciones de unidades y de la separación entre hélices.
+- La potencia nominal ya no es un techo. Los límites reales son el ESC, la batería y las RPM máximas.
+- Con imanes calientes la eficiencia baja y el motor se calienta más rápido.
+- Por encima de 175 °C el motor puede arder y luego falla.
+- Nuevo banco de pruebas: el dron queda fijo y los motores giran a las RPM ordenadas.
 
 ## Límites
 
-El modelo no se ha comparado con un dron real. Las pruebas están en `docs/VERIFICATION-0.92.md`.
+Los valores térmicos son didácticos. El modelo no se ha comparado con un dron real. Las pruebas están en `docs/VERIFICATION-0.93.md`.

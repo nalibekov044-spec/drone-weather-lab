@@ -1,7 +1,7 @@
-# Drone Weather Lab 0.92 Beta
+# Drone Weather Lab 0.93 Beta
 
-Six updates. The flight log is now a real chart with axes, eight channels and a Wh summary. The mission plan shows charge by stage, distance and the time left after the plan. A new altitude ceiling finds how high the drone can still hover and what stops it.
+A new motor model. Rated power is no longer a ceiling, so an overloaded motor heats up, smokes, can catch fire and fail. Hot magnets lower efficiency and speed up overheating.
 
-A/B comparison shows what is better or worse in B. The sign of thrust and weight moments was fixed, and the component table shows the thrust each motor needs. Propeller clearance and units in My drone display correctly.
+A new test stand spins every motor at the RPM command while the drone stays fixed. The RPM line shows real speed, command and limit. The component table respects motor limits, and the flight log counts energy since the last battery change.
 
-Download the ZIP, unzip it and open Drone-Weather-Lab-0.92-Beta.html. Details are in docs/CHANGES-0.92.md. The model has not been checked against a real drone.
+Download the ZIP, unzip it and open Drone-Weather-Lab-0.93-Beta.html. The thermal model is illustrative, and time to fire is not a prediction.

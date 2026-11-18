@@ -163,7 +163,8 @@ function flyConditions(p, q, start, budgetSeconds, onStep) {
   let state = start,
     elapsed = 0,
     reason = 'complete',
-    watts = 0;
+    watts = 0,
+    motorLoad = 0;
   while (elapsed < budgetSeconds) {
     if (state.soc <= (p.reserveCharge ?? 15) + 1e-8) {
       reason = 'reserve';
@@ -177,6 +178,8 @@ function flyConditions(p, q, start, budgetSeconds, onStep) {
       reason = 'flight-limit';
       break;
     }
+    // 0.93: hover input power per motor relative to its rating; above 100% the motors overheat over time.
+    motorLoad = Math.max(motorLoad, result.requiredPowerLoad);
     const c = batteryCircuit(q, state, watts);
     if (!c.feasible || !c.controllerPowered) {
       reason = 'power-limit';
@@ -202,7 +205,8 @@ function flyConditions(p, q, start, budgetSeconds, onStep) {
     state,
     elapsed,
     reason,
-    watts
+    watts,
+    motorLoad
   };
 }
 
@@ -239,7 +243,8 @@ export function missionForecast(p, stages, options = {}) {
       temperature: state.temperature,
       watts: run.watts,
       reason: run.reason,
-      distanceM: stage.speed * run.elapsed
+      distanceM: stage.speed * run.elapsed,
+      motorLoad: run.motorLoad
     });
     if (run.reason !== 'complete') break;
   }
@@ -269,6 +274,7 @@ export function missionForecast(p, stages, options = {}) {
     temperature: state.temperature,
     complete,
     distanceM: rows.reduce((sum, r) => sum + r.distanceM, 0),
+    motorLoad: Math.max(0, ...rows.map(r => r.motorLoad)),
     trace,
     margin
   };
@@ -303,6 +309,8 @@ export function altitudeEnvelope(p, options = {}) {
       minutes: r.flightMinutes,
       hoverRpm: r.hoverRpm,
       feasible: r.feasible,
+      motorLoad: r.requiredPowerLoad,
+      overload: r.motorOverload,
       limit: ceilingLimits(r)
     };
   };
@@ -408,4 +416,70 @@ export function csvText(rows) {
     if (/^[=+@\-]/.test(s) && typeof v !== 'number') s = "'" + s;
     return '"' + s.replaceAll('"', '""') + '"';
   }).join(',')).join('\r\n');
+}
+
+// 0.93.1: the same mixer with motor limits. caps[i] is the largest share motor i can give
+// (available thrust / average need); a failed motor has cap 0. Active-set loop: solve on the free motors,
+// clamp the worst violator to 0 or its cap, repeat. With too few free motors the solve becomes weighted
+// least squares that keeps roll and pitch first (weight 10), then lift (1), and gives up yaw first (0.1),
+// as flight controllers do under saturation: the drone keeps its attitude and loses height or spins. Residuals are what the motors cannot deliver.
+export function cgAllocation(cg, positions, caps, weight) {
+  if (!Array.isArray(cg) || cg.length !== 2 || !cg.every(Number.isFinite)) throw Error('centre of gravity');
+  const n = positions.length;
+  if (n < 3 || !Array.isArray(caps) || caps.length !== n || !caps.every(c => Number.isFinite(c) && c >= 0)) throw Error('motor limits');
+  const R = Math.max(...positions.map(r => Math.hypot(r.x, r.y)), 1e-6);
+  const rows = [positions.map(() => 1), positions.map(r => r.x / R), positions.map(r => r.y / R)],
+    target = [n, n * cg[0] / R, n * cg[1] / R],
+    weights = [1, 10, 10];
+  if (n >= 4) {
+    rows.push(positions.map((_, i) => i % 2 ? -1 : 1));
+    target.push(0);
+    weights.push(.1);
+  }
+  const solve = (matrix, rhs) => {
+    const m = rhs.length, aug = matrix.map((row, i) => [...row, rhs[i]]);
+    for (let c = 0; c < m; c++) {
+      let pivot = c;
+      for (let r = c + 1; r < m; r++) if (Math.abs(aug[r][c]) > Math.abs(aug[pivot][c])) pivot = r;
+      [aug[c], aug[pivot]] = [aug[pivot], aug[c]];
+      for (let r = 0; r < m; r++) {
+        if (r === c) continue;
+        const f = aug[r][c] / aug[c][c];
+        for (let k = c; k <= m; k++) aug[r][k] -= f * aug[c][k];
+      }
+    }
+    return aug.map((row, i) => row[m] / row[i]);
+  };
+  const fixed = new Map();
+  let shares = Array(n).fill(0);
+  for (let iteration = 0; iteration <= n; iteration++) {
+    const free = [...Array(n).keys()].filter(i => !fixed.has(i));
+    const rhs = target.map((t, k) => t - [...fixed].reduce((s, [i, v]) => s + rows[k][i] * v, 0));
+    // (AᵀWA + εI) x = AᵀW b on the free motors; ε is tiny, so an underdetermined case gives the minimum-norm mixer.
+    const normal = free.map(a => free.map(b => rows.reduce((s, row, k) => s + weights[k] * row[a] * row[b], 0) + (a === b ? 1e-12 : 0))),
+      right = free.map(a => rows.reduce((s, row, k) => s + weights[k] * row[a] * rhs[k], 0));
+    const x = free.length ? solve(normal, right) : [];
+    shares = [...Array(n).keys()].map(i => fixed.has(i) ? fixed.get(i) : x[free.indexOf(i)]);
+    let worst = -1, excess = 1e-9;
+    for (const i of free) {
+      const over = shares[i] < 0 ? -shares[i] : shares[i] - caps[i];
+      if (over > excess) {
+        excess = over;
+        worst = i;
+      }
+    }
+    if (worst < 0) break;
+    fixed.set(worst, shares[worst] < 0 ? 0 : caps[worst]);
+  }
+  shares = shares.map((s, i) => Math.min(caps[i], Math.max(0, s)));
+  const average = weight / n,
+    momentX = shares.reduce((s, v, i) => s + v * positions[i].x, 0) - n * cg[0],
+    momentY = shares.reduce((s, v, i) => s + v * positions[i].y, 0) - n * cg[1];
+  return {
+    shares,
+    saturated: [...fixed.keys()].sort((a, b) => a - b),
+    thrustError: shares.reduce((s, v) => s + v, 0) / n - 1,
+    momentResidual: Math.hypot(momentX, momentY) * average,
+    yawError: n >= 4 ? shares.reduce((s, v, i) => s + (i % 2 ? -v : v), 0) / n : 0
+  };
 }

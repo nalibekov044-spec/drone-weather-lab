@@ -1,0 +1,57 @@
+$ node --experimental-vm-modules scripts/verify-v093.mjs
+{
+  "version": "0.93.1-beta",
+  "hardLimits": {
+    "rpmLimitWithRating80W": 6202.61851647956,
+    "rpmLimitWithRating2500W": 6202.61851647956,
+    "rpmLimitEsc10A": 4107.9500393953
+  },
+  "overloadHover": {
+    "requiredLoadPercent": 121.79107669347135,
+    "feasible": true
+  },
+  "ratedSteadyStateC": 79.9999593831282,
+  "standBurn": {
+    "smoke": 12.599999999999971,
+    "fire": 21.500000000000036,
+    "failure": 27.200000000000117,
+    "flightHottestC": 28.16470301178188
+  },
+  "flightCommandIndependence": {
+    "rpm4800C": 26.70019694281105,
+    "rpm6000C": 26.700196942811047
+  },
+  "flightOverloadBurn": {
+    "smoke": 69.00000000000036,
+    "fire": 86.09999999999938,
+    "failure": 91.39999999999908
+  },
+  "fireOut": {
+    "failedAtS": 38.833333333333336,
+    "maxFire": 1,
+    "finalC": 23.210817335240385
+  },
+  "limitedMixer": {
+    "cappedSaturated": [
+      0,
+      3
+    ],
+    "cappedMomentNm": 0.05050252531672756,
+    "cappedLiftError": -0.04251271204605356,
+    "hexFailedMomentNm": 4.975409704222179e-13,
+    "quadFailedYawError": -0.8771929824556729
+  },
+  "abVerdicts": {
+    "heavierB": {
+      "reserve": "worse",
+      "tilt": "better",
+      "flightMinutes": "worse",
+      "electricalPower": "context",
+      "current": "context",
+      "maxWind": "better",
+      "availableThrust": "info",
+      "thrustToWeight": "worse"
+    }
+  }
+}
+exit: 0

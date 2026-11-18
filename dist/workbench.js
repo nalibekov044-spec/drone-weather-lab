@@ -18,6 +18,7 @@ import {
   scenarioSweep,
   altitudeEnvelope,
   cgMotorLoads,
+  cgAllocation,
   csvText
 } from './engineering.js';
 import {
@@ -140,7 +141,7 @@ export function installWorkbench(api) {
     `<div class="activity-strip"><output id="activityState" role="status"></output><span>${k('Background work can be throttled or frozen by your browser. Returning does not fast-forward the flight.')}</span></div>`
     );
   document.querySelector('.release-notice').innerHTML =
-    `<div><span class="version-orbit">.92</span><div>${k('Active configuration')}<small>${k('Geometry, power and airflow')}</small></div></div><div class="release-tags">CAD · ENERGY · CFD</div>`;
+    `<div><span class="version-orbit">.93</span><div>${k('Active configuration')}<small>${k('Geometry, power and airflow')}</small></div></div><div class="release-tags">CAD · ENERGY · CFD</div>`;
   document.querySelector('.controls-panel').insertAdjacentHTML('afterbegin',
     `<div class="controls-tools"><input id="controlSearch" type="search" placeholder="${L('Find a parameter')}" aria-label="${L('Find a parameter')}">${button('collapseControls','Collapse panels')}</div>`
   );
@@ -400,8 +401,13 @@ export function installWorkbench(api) {
           payload: 0,
           customCG: b.cg
         },
-        r = calculate(q),
         positions = rotorPlanPositions(q),
+        // 0.93.1: the motors as they are now (damage and temperature), so a failed motor counts as failed.
+        live = positions.length === state.motorHealths.length ? {
+          motorHealths: state.motorHealths,
+          motorTemps: state.motorTemps
+        } : {},
+        r = calculate(q, live),
         loads = cgMotorLoads([b.cg[0], b.cg[2]], positions),
         average = r.requiredThrust / positions.length,
         needs = loads.shares.map(s => average * s),
@@ -421,10 +427,20 @@ export function installWorkbench(api) {
           `${L('Not enough thrust')}: M${worstIndex + 1} ${L('needs')} ${qty(needs[worstIndex], 'force')} ${L('of')} ${qty(r.thrusts[worstIndex], 'force')} ${L('available at the selected RPM')}.`;
       }
       const even = loads.max - loads.min < 5e-4;
+      // 0.93.1: when a motor would need more than it has (or negative thrust), clamp it and show what is left over.
+      const caps = r.thrusts.map((t, i) => (live.motorHealths?.[i] ?? 1) < .18 ? 0 : t / Math.max(1e-9, average)),
+        limited = caps.some((cap, i) => loads.shares[i] > cap + 1e-9) || loads.min < 0;
+      let limitedHtml = '';
+      if (limited) {
+        const a = cgAllocation([b.cg[0], b.cg[2]], positions, caps, r.requiredThrust),
+          balanced = a.momentResidual < 5e-3 && a.thrustError > -.01;
+        limitedHtml =
+          `<p class="cg-status" data-tone="${balanced ? 'ok' : 'danger'}">${escape(L('With motor limits'))}: ${a.saturated.map(i => `M${i + 1} ${a.shares[i] <= 1e-9 ? '= 0' : escape(L('at its limit'))}`).join(', ') || escape(L('no motor at a limit'))} · ${escape(L('lift'))} ${fmt(100 + a.thrustError * 100, 1)}% ${escape(L('of weight'))} · ${escape(L('unbalanced moment'))} ${fmt(a.momentResidual, 3)} ${escape(L('N·m'))}${Math.abs(a.yawError) > .01 ? ` · ${escape(L('yaw not held'))}` : ''}. ${escape(L(balanced ? 'Balance is still reached.' : 'The drone cannot hold this attitude: it will tilt, sink or spin.'))}</p>`;
+      }
       box.innerHTML =
         `<p class="cg-line">${escape(L('CG offset in the rotor plane'))}: <strong>${escape(qty(loads.offset * 1000, 'mm', 1))}</strong> · ${even ? escape(L('all motors carry the same thrust')) : `${escape(L('most loaded'))} M${maxIndex + 1}: <strong>${escape(percent((loads.max - 1) * 100))}</strong> · ${escape(L('least loaded'))} M${minIndex + 1}: <strong>${escape(percent((loads.min - 1) * 100))}</strong> ${escape(L('of average thrust'))}`}</p>` +
         `<div class="cg-bars">${loads.shares.map((s, i) => `<span title="M${i + 1}"><i style="height:${Math.round(Math.max(2, Math.min(64, s / Math.max(1.5, loads.max) * 64)))}px"></i><b>M${i + 1}</b><small>${escape(fmt(s * 100, 0))}%</small></span>`).join('')}</div>` +
-        `<p class="cg-status" data-tone="${tone}">${escape(message)}</p>`;
+        `<p class="cg-status" data-tone="${tone}">${escape(message)}</p>` + limitedHtml;
     } catch {
       box.replaceChildren();
     }
@@ -619,9 +635,13 @@ export function installWorkbench(api) {
     $('missionResult').innerHTML =
       `<p class="result-ribbon">${escape(L(m.complete?'Within model limits':'Stopped at a model limit'))} · ${fmt(m.seconds/60)} ${escape(L('min'))} · ${escape(qty(m.distanceM, 'm', 0))} · ${fmt(m.wh)} ${escape(L('Wh'))} · ${fmt(m.soc)}%</p>` +
       `<p class="mission-verdict" data-tone="${m.complete ? 'ok' : 'danger'}">${escape(verdict)}</p>` +
-      table(['Stage', 'Minutes', 'Distance', 'Energy · Wh', 'Charge · %', 'Temperature', 'Result'], m
-        .rows.map(r => [r.name, fmt(r.seconds / 60), qty(r.distanceM, 'm', 0), fmt(r.wh), fmt(r.soc), qty(r
-          .temperature, 'temperature', 1), reasonLabel(r.reason)]));
+      (m.motorLoad > 100 ?
+        `<p class="mission-verdict" data-tone="danger">${escape(L('Motors run above their rating'))} (${escape(L('up to'))} ${fmt(m.motorLoad, 0)}%): ${escape(L('a long flight will overheat them. Check the test stand or use stronger motors.'))}</p>` :
+        '') +
+      table(['Stage', 'Minutes', 'Distance', 'Energy · Wh', 'Charge · %', 'Temperature', 'Motors · % of rating',
+        'Result'
+      ], m.rows.map(r => [r.name, fmt(r.seconds / 60), qty(r.distanceM, 'm', 0), fmt(r.wh), fmt(r.soc), qty(r
+        .temperature, 'temperature', 1), fmt(r.motorLoad, 0), reasonLabel(r.reason)]));
     drawMission();
   }
 
@@ -687,10 +707,12 @@ export function installWorkbench(api) {
   $('exportMission').addEventListener('click', () => {
     if (!lastMission) return toast('Calculate first');
     download('dwl-mission.csv', csvText([
-      ['stage', 'seconds', 'distance_m', 'Wh', 'SOC_percent', 'temperature_C', 'result'], ...lastMission.rows.map(
-        r => [r.name, r.seconds, r.distanceM, r.wh, r.soc, r.temperature, r.reason]),
+      ['stage', 'seconds', 'distance_m', 'Wh', 'SOC_percent', 'temperature_C', 'motor_load_percent_of_rating',
+        'result'
+      ], ...lastMission.rows.map(
+        r => [r.name, r.seconds, r.distanceM, r.wh, r.soc, r.temperature, r.motorLoad, r.reason]),
       ...(lastMission.margin ? [
-        ['after plan, last stage conditions', lastMission.margin.seconds, '', '', lastMission.margin.soc, '',
+        ['after plan, last stage conditions', lastMission.margin.seconds, '', '', lastMission.margin.soc, '', '',
           lastMission.margin.reason
         ]
       ] : [])
@@ -718,14 +740,17 @@ export function installWorkbench(api) {
       `${qty(c.altitude, 'm', 0)} (${L('limit')}: ${L(limitText[c.limit] || c.limit)})`;
     $('ceilingResult').hidden = false;
     $('ceilingResult').innerHTML =
-      `<strong>${escape(L('Hover ceiling'))}:</strong> ${escape(describe(e.hover))}<br><strong>${escape(L('With thrust reserve'))} ≥ ${fmt(e.reserveMargin, 0)}%:</strong> ${escape(describe(e.margin))}`;
+      `<strong>${escape(L('Hover ceiling'))}:</strong> ${escape(describe(e.hover))}<br><strong>${escape(L('With thrust reserve'))} ≥ ${fmt(e.reserveMargin, 0)}%:</strong> ${escape(describe(e.margin))}` +
+      // 0.93.1: the settings the result belongs to, so it can be reproduced.
+      `<br><small>${escape(L('Altitude above sea level. Settings used'))}: ${escape(qty(e.settings.mass, 'kg'))} + ${escape(qty(e.settings.payload, 'kg'))} · ${fmt(e.settings.voltage, 1)} ${escape(L('V'))} ${fmt(e.settings.capacity, 0)} ${escape(L('mAh'))} · ${escape(L('propeller'))} ${fmt(e.settings.diameter, 1)}″ · ${fmt(e.settings.rpm, 0)} RPM · ${escape(L('wind'))} ${escape(qty(e.settings.windSpeed, 'speed', 1))} · ${escape(L(e.temperature === 'standard' ? 'Standard atmosphere · −6.5 °C per km' : 'As in the settings'))}</small>`;
     const tableStep = e.maxAltitude <= 3000 ? 250 : 500;
     $('ceilingTable').innerHTML = table(['Altitude', 'Air temperature', 'Density', 'Power · W',
       'Thrust reserve · %', 'Quick endurance', 'Result'
     ], e.rows.filter(r => Math.abs(r.altitude / tableStep - Math.round(r.altitude / tableStep)) < 1e-9 || r
       .altitude === e.maxAltitude).map(r => [qty(r.altitude, 'm', 0), qty(r.temperature, 'temperature', 1),
       qty(r.density, 'density', 3), fmt(r.watts, 0), fmt(r.reserve, 1),
-      r.feasible ? `${fmt(r.minutes, 1)} ${L('min')}` : '—', L(limitText[r.limit] || r.limit)
+      r.feasible ? `${fmt(r.minutes, 1)} ${L('min')}` : '—',
+      L(limitText[r.limit] || r.limit) + (r.feasible && r.overload ? ` · ${L('motors above rating')} (${fmt(r.motorLoad, 0)}%)` : '')
     ]));
     drawCeiling();
   }
@@ -778,12 +803,22 @@ export function installWorkbench(api) {
   $('runCeiling').addEventListener('click', () => {
     try {
       ceilingKey = JSON.stringify(getParameters());
-      lastCeiling = altitudeEnvelope(getParameters(), {
+      const used = getParameters();
+      lastCeiling = altitudeEnvelope(used, {
         temperature: $('ceilingTemperature').value,
         reserveMargin: inputNumber($('ceilingMargin').value),
         maxAltitude: inputNumber($('ceilingMax').value),
         step: 100
       });
+      lastCeiling.settings = {
+        mass: used.mass,
+        payload: used.payload,
+        voltage: used.voltage,
+        capacity: used.capacity,
+        diameter: used.diameter,
+        rpm: used.rpm,
+        windSpeed: used.windSpeed
+      };
       renderCeiling();
     } catch {
       toast('Check ceiling values');
@@ -993,9 +1028,16 @@ export function installWorkbench(api) {
   });
   let telemetryLayout = null;
 
-  // Integrates a channel over time with the trapezoid rule; samples are about one simulated second apart.
-  const integrate = column => telemetry.slice(1).reduce((sum, r, i) => sum + (r[column] + telemetry[i][
-    column]) / 2 * (r[0] - telemetry[i][0]), 0);
+  // 0.93.1: a battery change shows as a rise in charge (the model only discharges). Energy and charge used are
+  // integrated from the last change only, so two packs are never added together.
+  const batterySwaps = () => telemetry.reduce((list, r, i) => i && r[1] > telemetry[i - 1][1] + .5 ? [...list, i] :
+    list, []);
+  // Trapezoid rule over the samples (about one simulated second apart). Pauses add no samples, because model
+  // time stops; power gives Wh, current gives mAh.
+  const integrate = (column, from = 0) => telemetry.slice(from + 1).reduce((sum, r, k) => {
+    const previous = telemetry[from + k];
+    return sum + (r[column] + previous[column]) / 2 * (r[0] - previous[0]);
+  }, 0);
 
   function drawTelemetry() {
     if (state.activeView !== 'history') return;
@@ -1017,10 +1059,15 @@ export function installWorkbench(api) {
       x: telemetry[telemetryHover][0] - start,
       y: show(channel.value(telemetry[telemetryHover]))
     };
+    const swaps = batterySwaps();
     telemetryLayout = drawLineChart($('telemetryCanvas'), {
       series: [{
         points
       }],
+      vLines: swaps.map(i => ({
+        x: telemetry[i][0] - start,
+        label: L('battery changed')
+      })),
       xTicks,
       xFormat: clock,
       yFormat: (v, step) => fmt(v, stepDigits(step)),
@@ -1039,7 +1086,7 @@ export function installWorkbench(api) {
         mean = values.reduce((s, v) => s + v, 0) / values.length;
       $('telemetryCount').textContent =
         `${telemetry.length} / 1800 · ${clock(span)} · ${L('min.')} ${fmt(Math.min(...values), channel.digits)} · ${L('mean')} ${fmt(mean, channel.digits)} · ${L('max.')} ${fmt(Math.max(...values), channel.digits)} ${unit}` +
-        (telemetry.length > 1 ? ` · ${L('used')} ${fmt(integrate(5) / 3600, 2)} ${L('Wh')} / ${fmt(integrate(3) / 3.6, 0)} ${L('mAh')}` : '');
+        (telemetry.length > 1 ? ` · ${L('used')}${swaps.length ? ' ' + L('since the last battery change') : ''} ${fmt(integrate(5, swaps.at(-1) || 0) / 3600, 2)} ${L('Wh')} / ${fmt(integrate(3, swaps.at(-1) || 0) / 3.6, 0)} ${L('mAh')}` : '');
     } else $('telemetryCount').textContent = `0 / 1800`;
   }
 

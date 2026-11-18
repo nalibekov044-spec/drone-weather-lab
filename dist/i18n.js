@@ -4,6 +4,7 @@ import { v088Translations } from "./i18n-v088.js";
 import { releaseTranslations } from "./i18n-v087.js";
 import { additionalTranslations } from "./i18n-extra.js";
 import { v092Translations, v092Spanish } from "./i18n-v092.js";
+import { v093Translations, v093Spanish } from "./i18n-v093.js";
 const pairs = `
 Единицы|Units
 Метрические|Metric
@@ -312,8 +313,8 @@ CFD потерял устойчивость на последнем шаге. В
 с|s
 `;
 export const dictionary = {"0.91 · Проверка конфигурации":"0.91 · Configuration checks",
-"Численная вязкость":"Numerical viscosity","Сравнивай сетки при одной вязкости.":"Compare grids at the same viscosity.","Быстрое · 15 тыс.":"Fast · 15k cells","Среднее · 34 тыс.":"Balanced · 34k cells","Детальнее · 65 тыс.":"Fine · 65k cells", "Мой дрон · Батареи · План · Журнал":"My drone · Batteries · Mission · Log", "Расчёт отменён":"Calculation cancelled", "Поле устарело":"Field is outdated", "Нажми «Рассчитать поток» для текущих настроек.":"Select Calculate flow for the current settings.", "0.9 · Конструктор полёта":"0.9 · Design your flight", "Заряд батареи":"Battery charge", ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations, ...v089Translations, ...v092Translations };
-Object.assign(spanish, v092Spanish);
+"Численная вязкость":"Numerical viscosity","Сравнивай сетки при одной вязкости.":"Compare grids at the same viscosity.","Быстрое · 15 тыс.":"Fast · 15k cells","Среднее · 34 тыс.":"Balanced · 34k cells","Детальнее · 65 тыс.":"Fine · 65k cells", "Мой дрон · Батареи · План · Журнал":"My drone · Batteries · Mission · Log", "Расчёт отменён":"Calculation cancelled", "Поле устарело":"Field is outdated", "Нажми «Рассчитать поток» для текущих настроек.":"Select Calculate flow for the current settings.", "0.9 · Конструктор полёта":"0.9 · Design your flight", "Заряд батареи":"Battery charge", ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations, ...v089Translations, ...v092Translations, ...v093Translations };
+Object.assign(spanish, v092Spanish, v093Spanish);
 let language = 'ru';
 try { const stored=localStorage.getItem('drone-lab-language'),browser=typeof navigator!=='undefined'?navigator.language:'ru';language=['ru','en','es'].includes(stored)?stored:browser.startsWith('es')?'es':browser.startsWith('ru')?'ru':'en'; } catch {}
 const cache = new Map();

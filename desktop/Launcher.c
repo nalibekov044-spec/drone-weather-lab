@@ -20,10 +20,10 @@ extern void WINAPI ExitProcess(unsigned) __attribute__((noreturn));
 #endif
 #include "simulator-data.h"
 static WCHAR destination[1024];
-static const WCHAR folderName[] = u"DroneWeatherLab-0.92-Beta";
-static const WCHAR fileName[] = u"\\Drone-Weather-Lab-0.92-Beta.html";
+static const WCHAR folderName[] = u"DroneWeatherLab-0.93-Beta";
+static const WCHAR fileName[] = u"\\Drone-Weather-Lab-0.93-Beta.html";
 static const WCHAR extractFlag[] = u"--extract-only";
-static const WCHAR title[] = u"Drone Weather Lab 0.92 Beta";
+static const WCHAR title[] = u"Drone Weather Lab 0.93 Beta";
 static const WCHAR errorText[] = u"Could not open the simulator. Download the HTML version and open it directly.";
 static const WCHAR openVerb[] = u"open";
 static size_t append(size_t at, const WCHAR *text) {

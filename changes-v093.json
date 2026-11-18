@@ -1,0 +1,41 @@
+{
+  "version": "0.93.0-beta",
+  "update": "Motor model",
+  "items": [
+    {
+      "name": "Номинал не потолок",
+      "code": "physics.js / calculate",
+      "verification": "Предел RPM не зависит от номинала, зависит от ESC"
+    },
+    {
+      "name": "Перегрузка разрешена и помечена",
+      "code": "physics.js / motorOverload",
+      "verification": "Мотор 150 Вт: висение при 122%"
+    },
+    {
+      "name": "Горячие магниты",
+      "code": "systems.js / thermalAvailability; physics.js / magnetFactors",
+      "verification": "КПД ×0,75 при 220 °C"
+    },
+    {
+      "name": "Калибровка нагрева",
+      "code": "systems.js / stepMotorThermals",
+      "verification": "100% номинала без ветра → +65 °C"
+    },
+    {
+      "name": "Огонь до остывания",
+      "code": "systems.js / stepMotorThermals",
+      "verification": "Горит после отказа, гаснет ниже 175 °C"
+    },
+    {
+      "name": "Стендовый тест",
+      "code": "app.js / simulate",
+      "verification": "Дым → огонь → отказ; в полёте при той же команде не выше 28 °C"
+    },
+    {
+      "name": "Интерфейс моторов",
+      "code": "app.js / setStatus, updateMotorCards, updateMetrics; workbench.js",
+      "verification": "Браузер на трёх языках"
+    }
+  ]
+}
