@@ -3,7 +3,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const root=path.resolve(import.meta.dirname,'..');
-const html=fs.readFileSync(path.join(root,'Drone-Weather-Lab-0.89-Beta.html'),'utf8');
+const html=fs.readFileSync(path.join(root,'Drone-Weather-Lab-0.9-Beta.html'),'utf8');
 assert(!/<script[^>]+src=|<link[^>]+stylesheet|import\.meta/.test(html));
 const sources=JSON.parse(html.match(/const offlineWorkerSources = (.+);/)[1]);
 function worker(name) {

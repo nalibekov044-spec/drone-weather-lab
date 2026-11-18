@@ -5,7 +5,7 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const offline = process.argv.includes("--offline");
-const html = fs.readFileSync(path.join(root, offline ? "Drone-Weather-Lab-0.89-Beta.html" : "dist/index.html"), "utf8");
+const html = fs.readFileSync(path.join(root, offline ? "Drone-Weather-Lab-0.9-Beta.html" : "dist/index.html"), "utf8");
 class Element {
   constructor(id = "", tag = "div") {
     this.id=id; this.tag=tag; this.value=""; this.checked=false; this.disabled=false; this.hidden=false; this.dataset={}; this.children=[]; this.listeners={}; this.style={}; this.width=800; this.height=520;
@@ -36,14 +36,15 @@ class Element {
 }
 const context2d = new Proxy({}, {get:(target,key)=>key==="createRadialGradient"||key==="createLinearGradient" ? ()=>({addColorStop(){}}) : key==="measureText" ? ()=>({width:40}) : target[key] || (()=>{}), set:(target,key,value)=>(target[key]=value,true)});
 const elements=new Map();
-for(const m of html.matchAll(/<(\w+)[^>]*\bid="([^"]+)"[^>]*>/g)){
+const markup=html.split('<script')[0];
+for(const m of markup.matchAll(/<(\w+)[^>]*\bid="([^"]+)"[^>]*>/g)){
   const e=new Element(m[2],m[1]);
   e.value=m[0].match(/\bvalue="([^"]*)"/)?.[1]||"";
   e.checked=/\bchecked\b/.test(m[0]); e.disabled=/\bdisabled\b/.test(m[0]);
   e.hidden=/\bhidden\b/.test(m[0]); e.attributes=Object.fromEntries([...m[0].matchAll(/(min|max)="([^"]*)"/g)].map(a=>[a[1],a[2]]));
   e.type=m[0].match(/\btype="([^"]*)"/)?.[1]||"";
   if(m[1]==="select"){
-    const content=html.slice(m.index).split("</select>")[0];
+    const content=markup.slice(m.index).split("</select>")[0];
     const options=[...content.matchAll(/<option[^>]*value="([^"]+)"[^>]*>/g)];
     e.value=(options.find(o=>o[0].includes("selected"))||options[0])[1];
     e.options=options.map(o=>({value:o[1]}));

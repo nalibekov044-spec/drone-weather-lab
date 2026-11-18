@@ -72,19 +72,19 @@ export const graphVariables = {
 };
 
 export const graphMetrics = {
-  reserve: { label: "Запас тяги", unit: "%", formula: "R = (Tдоступ / Tтреб − 1) · 100%" },
-  tilt: { label: "Наклон", unit: "°", formula: "θ = atan(Fветра / Fверт)" },
-  flightMinutes: { label: "Время полёта", unit: "мин", formula: "t ≈ 60 · Qдо резерва / Iначальный" },
-  electricalPower: { label: "Мощность", unit: "Вт", formula: "Pэл = ΣCₚρn³D⁵ / η + Pавионики" },
-  powerLoad: { label: "Загрузка моторов", unit: "%", formula: "L = max(Pполёт, Pкоманда) / Pдоступ · 100%" },
-  rpmPowerLimit: { label: "Доступный RPM", unit: "об/мин", formula: "nmax = 60 · ∛(Pвал / CₚρD⁵)" },
+  reserve: { label: "Запас тяги", unit: "%", formula: "R = (Tavailable / Trequired − 1) · 100%" },
+  tilt: { label: "Наклон", unit: "°", formula: "θ = atan2(Fwind, Fvertical)" },
+  flightMinutes: { label: "Время полёта", unit: "мин", formula: "t[min] ≈ 60 · Qusable[Ah] / Iinitial[A]" },
+  electricalPower: { label: "Мощность", unit: "Вт", formula: "Pbus = Σ(Pshaft / ηmotor) / ηESC + Pavionics" },
+  powerLoad: { label: "Загрузка моторов", unit: "%", formula: "L = max(Lflight, Lcommand)" },
+  rpmPowerLimit: { label: "Доступный RPM", unit: "об/мин", formula: "RPMmax = 60 · ∛(Pshaft,max / (CₚρD⁵))" },
   availableThrust: { label: "Доступная тяга", unit: "Н", formula: "T = Σ Cₜρn²D⁴" },
   windForce: { label: "Сила ветра", unit: "Н", formula: "F = ½ρC𝒹Av²" },
-  maxWind: { label: "Предел ветра", unit: "м/с", formula: "vmax = √(2Fгор / ρC𝒹A)" },
-  thrustToWeight: { label: "Тяга / вес", unit: "×", formula: "Tдоступ / mg" },
-  diskLoading: { label: "Нагрузка на диск", unit: "Н/м²", formula: "DL = mg / ΣAвинтов" },
+  maxWind: { label: "Предел ветра", unit: "м/с", formula: "vmax = √(2Fhorizontal / (ρCdA))" },
+  thrustToWeight: { label: "Тяга / вес", unit: "×", formula: "Tavailable / (mg)" },
+  diskLoading: { label: "Нагрузка на диск", unit: "Н/м²", formula: "DL = mg / ΣAdisk" },
   tipMach: { label: "Число Маха конца лопасти", unit: "×", formula: "Mtip = √((πDn)² + V²) / √(γRT)" },
-  terminalVoltage: { label: "Напряжение под нагрузкой", unit: "В", formula: "U = U₀ − IR; P = UI" }
+  terminalVoltage: { label: "Напряжение под нагрузкой", unit: "В", formula: "U = Voc − Up − I·R0; Pbus = U·I" }
 };
 
 function clamp(value, min, max) {
@@ -279,6 +279,7 @@ export function calculate(parameters, options = {}) {
     pitchMoment -= positions[index].x * thrust;
     yawMoment += (index % 2 ? -1 : 1) * thrust * diameterM * 0.025;
   });
+  if (Array.isArray(p.customCG) && p.customCG.length===3 && p.customCG.every(Number.isFinite)) { rollMoment += p.mass*G*p.customCG[2]; pitchMoment -= p.mass*G*p.customCG[0]; }
   rollMoment += p.payload * G * (p.payloadY / 100);
   pitchMoment -= p.payload * G * (p.payloadX / 100);
   const imbalanceMoment = Math.hypot(rollMoment, pitchMoment);

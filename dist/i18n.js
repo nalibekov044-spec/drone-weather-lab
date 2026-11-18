@@ -1,3 +1,4 @@
+import { spanish } from "./i18n-es.js";
 import { v089Translations } from "./i18n-v089.js";
 import { v088Translations } from "./i18n-v088.js";
 import { releaseTranslations } from "./i18n-v087.js";
@@ -309,7 +310,7 @@ CFD потерял устойчивость на последнем шаге. В
 с⁻¹|s⁻¹
 с|s
 `;
-export const dictionary = { ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations, ...v089Translations };
+export const dictionary = { "Мой дрон · Батареи · План · Журнал":"My drone · Batteries · Mission · Log", "Расчёт отменён":"Calculation cancelled", "Поле устарело":"Field is outdated", "Нажми «Рассчитать поток» для текущих настроек.":"Select Calculate flow for the current settings.", "0.9 · Конструктор полёта":"0.9 · Design your flight", "Заряд батареи":"Battery charge", ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations, ...v089Translations };
 let language = 'ru';
 try { language = localStorage.getItem('drone-lab-language') || (typeof navigator !== 'undefined' && !navigator.language.startsWith('ru') ? 'en' : 'ru'); } catch {}
 const cache = new Map();
@@ -323,10 +324,11 @@ rebuildDictionary();
 export function getLanguage() { return language; }
 export function t(value) {
   const text = String(value);
-  if (language !== 'en') return text.replaceAll('\u2014', ':');
+  if (language === 'ru') return text.replaceAll('\u2014', ':');
   if (!/[А-Яа-яЁё]/.test(text)) return text.replaceAll('\u2014', ':');
   if (cache.has(text)) return cache.get(text);
-  const out = (dictionary[text] || text.replace(matcher, match => dictionary[match])).replaceAll('\u2014', ':');
+  const dict=language==='es'?spanish:dictionary;
+  const out = (dict[text] || text.replace(matcher, match => dict[match] || dictionary[match])).replaceAll('\u2014', ':');
   if (cache.size > 1500) cache.clear();
   cache.set(text, out); return out;
 }
@@ -353,7 +355,7 @@ function translateNode(node) {
 }
 function connect() { observer?.observe(document.body, { childList: true, characterData: true, subtree: true }); }
 export function setLanguage(value) {
-  language = value === 'en' ? 'en' : 'ru'; cache.clear();
+  language = ['ru','en','es'].includes(value) ? value : 'ru'; cache.clear();
   try { localStorage.setItem('drone-lab-language', language); } catch {}
   if (typeof document === 'undefined' || !document.body) return;
   observer?.disconnect(); document.documentElement.lang = language;

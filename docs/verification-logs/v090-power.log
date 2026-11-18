@@ -1,0 +1,3 @@
+{"version":"0.87.0-beta","batteryCases":1080,"maximumElectricalPowerBalanceErrorW":1.1368683772161603e-13,"constantCurrentCheck":{"currentA":4,"seconds":3600,"usedAh":4.000000000000249,"finalSocPercent":60.00000000001677,"outputWh":80.00000000000739,"temperatureErrorC":1.2612133559741778e-12},"mountain":{"altitudeM":5000,"pressurePa":54019.88000847797,"temperatureC":-17.5,"densityKgM3":0.7357620682627373,"hoverRpm":4747.81558962144},"limits":["Battery curves and thermal constants are illustrative, not cell-specific validation.","CFD solver and grid limits are unchanged from 0.85 Beta."]}
+(node:13) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

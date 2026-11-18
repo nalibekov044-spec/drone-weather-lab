@@ -1,0 +1,164 @@
+{
+  "version": "0.9.0-beta",
+  "major": [
+    {
+      "name": "Новый интерфейс",
+      "description": "Восемь разделов, новая типографика, адаптивные панели и отдельная рабочая область расчётов.",
+      "location": ".mode-tabs / .workspace"
+    },
+    {
+      "name": "Четыре темы",
+      "description": "Графит, полярная, песочная и розовая; выбор сохраняется на устройстве.",
+      "location": "#labTheme"
+    },
+    {
+      "name": "Испанский язык",
+      "description": "Перевод основного интерфейса, справок и новых разделов; остаются русский и английский.",
+      "location": "#language"
+    },
+    {
+      "name": "Расчёт своего дрона",
+      "description": "Отдельный расчёт исходной конфигурации, CAD-проекция, тяга, питание и ограничения.",
+      "location": "#engineeringView"
+    },
+    {
+      "name": "Таблица компонентов",
+      "description": "Масса, координаты и центр тяжести с передачей моментов в модель полёта.",
+      "location": "#componentRows"
+    },
+    {
+      "name": "Конструктор батареи",
+      "description": "Последовательные и параллельные ячейки, ёмкость, сопротивление, масса и ток; четыре химии.",
+      "location": "#batteriesView"
+    },
+    {
+      "name": "Каталог своих батарей",
+      "description": "Сохранение, замена, удаление, импорт и экспорт профилей.",
+      "location": "#packLibrary"
+    },
+    {
+      "name": "Переработанные графики",
+      "description": "Эталонная кривая, область недопустимого зависания, точная таблица и выбор параметра на графике.",
+      "location": "#graphView"
+    },
+    {
+      "name": "Работа с полем потока",
+      "description": "Ручной расчёт, отмена, плоский срез и выгрузка измерений.",
+      "location": "#airflowView"
+    },
+    {
+      "name": "Перерисованная 3D-модель",
+      "description": "Кожух, верхние панели, оптика, ступицы, блоки ESC; режим разнесённых деталей.",
+      "location": "displayParts / #explodedModel"
+    }
+  ],
+  "medium": [
+    {
+      "name": "План полёта",
+      "description": "До восьми последовательных участков с переносом заряда, RC-просадки и температуры.",
+      "location": "#missionView"
+    },
+    {
+      "name": "Свои проекты",
+      "description": "До 12 именованных проектов с компонентами и участками; JSON импорт/экспорт. CAD-файл хранится отдельно.",
+      "location": "#historyView"
+    },
+    {
+      "name": "Журнал полёта",
+      "description": "До 1800 отсчётов с графиком заряда и выгрузкой CSV.",
+      "location": "#telemetryCanvas"
+    },
+    {
+      "name": "Расчёт по ветру",
+      "description": "Пять скоростей ветра с мощностью, запасом тяги и быстрой оценкой времени.",
+      "location": "#runEnvelope"
+    },
+    {
+      "name": "Коэффициенты винта",
+      "description": "Расчёт Ct/Cp по стендовой тяге, мощности на валу и оборотам; проверка диапазона.",
+      "location": "#calibrateProp"
+    }
+  ],
+  "small": [
+    {
+      "name": "Камеры сверху, спереди и сбоку",
+      "location": "#flightCamera / #airflowCamera"
+    },
+    {
+      "name": "Полноэкранные сцены",
+      "location": "#flightFull / #airflowFull"
+    },
+    {
+      "name": "Снимок сцены PNG",
+      "location": "#flightImage / #airflowImage"
+    },
+    {
+      "name": "Поиск параметров",
+      "location": "#controlSearch"
+    },
+    {
+      "name": "Сворачивание панелей",
+      "location": "#collapseControls"
+    },
+    {
+      "name": "Сброс диапазона графика",
+      "location": "#graphReset"
+    },
+    {
+      "name": "CSV графика с единицами и флагом допустимости",
+      "location": "#graphCSV"
+    },
+    {
+      "name": "Применение X нажатием на график",
+      "location": "#graphCanvas click"
+    },
+    {
+      "name": "Масштабирование диапазона колесом",
+      "location": "#graphCanvas wheel"
+    },
+    {
+      "name": "Таблица точных отсчётов графика",
+      "location": "#graphTable"
+    },
+    {
+      "name": "Отмена CFD без перезагрузки страницы",
+      "location": "#flowCancel"
+    },
+    {
+      "name": "CSV для 1152 точек среза",
+      "location": "#flowProbeCSV"
+    },
+    {
+      "name": "Выбор XZ/XY/YZ и смещения среза",
+      "location": "#slicePlane / #sliceOffset"
+    },
+    {
+      "name": "Защита от устаревшего поля в ручном режиме",
+      "location": "ensureCFD / fieldKey"
+    },
+    {
+      "name": "Установка массы батареи в таблицу компонентов",
+      "location": "#ledgerBattery"
+    },
+    {
+      "name": "Проверка количества и параметров ячеек",
+      "location": "buildPack"
+    },
+    {
+      "name": "Защита текстовых CSV-полей от формул таблиц",
+      "location": "csvText"
+    },
+    {
+      "name": "Вкладки 5–8 с клавиатуры",
+      "location": "shortcutBindings"
+    },
+    {
+      "name": "Формулы с явными Ah, A, минутами и потерями ESC",
+      "location": "graphMetrics"
+    },
+    {
+      "name": "Подтверждения действий в интерфейсе",
+      "location": "#labToast"
+    }
+  ]
+}

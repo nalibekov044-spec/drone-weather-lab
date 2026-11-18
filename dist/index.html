@@ -11,13 +11,13 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.89 Beta</span></p>
+        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.9 Beta</span></p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
-        <label class="unit-control">Язык<select id="language"><option value="ru">Русский</option><option value="en">English</option></select></label>
+        <label class="unit-control">Язык<select id="language"><option value="ru">Русский</option><option value="en">English</option><option value="es">Español</option></select></label>
         <label class="unit-control">Единицы<select id="unitSystem"><option value="metric">Метрические</option><option value="imperial">Имперские</option></select></label>
-        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.89-Beta.html" download>Скачать для запуска без установки</a>
+        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.9-Beta.html" download>Скачать для запуска без установки</a>
         <button id="showShortcuts" class="button" type="button" aria-expanded="false" aria-controls="shortcutHelp">Клавиши <kbd>?</kbd></button>
         <button id="toggleSimulation" class="button button-primary" type="button">Пауза</button>
         <button id="resetSimulation" class="button" type="button">Сбросить</button>
@@ -26,11 +26,11 @@
     </header>
     <section id="shortcutHelp" class="shortcut-help" hidden aria-label="Горячие клавиши">
       <span><kbd>Пробел</kbd> Пауза</span><span><kbd>1</kbd> Полёт</span><span><kbd>2</kbd> Графики</span><span><kbd>3</kbd> Обтекание</span><span><kbd>4</kbd> Сравнение</span>
-      <span><kbd>R</kbd> Начать полёт заново</span><span><kbd>Shift + R</kbd> Сбросить всё</span><span><kbd>F</kbd> Восстановить моторы</span><span><kbd>B</kbd> Заменить аккумулятор</span><span><kbd>E</kbd> Отчёт</span><span><kbd>S</kbd> Сохранить настройки</span><span><kbd>V</kbd> Векторы сил</span><span><kbd>O</kbd> Сбросить камеру</span><span><kbd>H / ?</kbd> Справка</span><span><kbd>Esc</kbd> Закрыть справку</span>
+      <span><kbd>5–8</kbd> Мой дрон · Батареи · План · Журнал</span><span><kbd>R</kbd> Начать полёт заново</span><span><kbd>Shift + R</kbd> Сбросить всё</span><span><kbd>F</kbd> Восстановить моторы</span><span><kbd>B</kbd> Заменить аккумулятор</span><span><kbd>E</kbd> Отчёт</span><span><kbd>S</kbd> Сохранить настройки</span><span><kbd>V</kbd> Векторы сил</span><span><kbd>O</kbd> Сбросить камеру</span><span><kbd>H / ?</kbd> Справка</span><span><kbd>Esc</kbd> Закрыть справку</span>
       <p>Клавиши работают в русской и английской раскладке вне полей ввода. G и C тоже переключают графики и обтекание. R сохраняет батарею и моторы; Shift + R сбрасывает все настройки и CAD.</p>
     </section>
 
-    <div class="release-notice">0.89 · Расширенные горячие клавиши · Исправления питания, CAD и расчётов</div>
+    <div class="release-notice">0.9 · Конструктор полёта</div>
     <nav class="mode-tabs" aria-label="Режим визуализации" role="tablist">
       <button class="mode-tab active" id="flightTab" type="button" role="tab" aria-selected="true" aria-controls="flightView" data-view="flight">Полёт</button>
       <button class="mode-tab" id="graphTab" type="button" role="tab" aria-selected="false" aria-controls="graphView" data-view="graph">Графики</button>
@@ -217,18 +217,18 @@
             <p class="control-hint wide">Заряд и температура задают начальное состояние. Для нового полёта нажми «Заменить аккумулятор».</p>
             <label class="check-control wide"><input id="batteryDrain" type="checkbox" checked> Расходовать заряд в полёте</label>
             <button class="button wide" id="replaceBattery" type="button">Заменить аккумулятор</button>
-            <label class="control wide"><span>Химия аккумулятора</span><select id="batteryChemistry"><option value="lipo">LiPo</option><option value="lion">Li-ion</option></select></label>
+            <label class="control wide"><span>Химия аккумулятора</span><select id="batteryChemistry"><option value="lipo">LiPo</option><option value="lion">Li-ion</option><option value="lihv">LiHV</option><option value="lifepo4">LiFePO₄</option></select></label>
             <label class="control" for="batteryCells"><span>Ячеек последовательно (S)</span><select id="batteryCells"><option value="0">Авто по напряжению</option><option value="1">1S</option><option value="2">2S</option><option value="3">3S</option><option value="4">4S</option><option value="5">5S</option><option value="6">6S</option><option value="7">7S</option><option value="8">8S</option><option value="9">9S</option><option value="10">10S</option><option value="11">11S</option><option value="12">12S</option><option value="13">13S</option><option value="14">14S</option><option value="15">15S</option><option value="16">16S</option></select></label>
             <p id="batterySeriesHint" class="control-hint wide"></p>
-            <label class="control" for="voltage"><span>Напряжение <output id="voltageValue">22,2 В</output></span><input id="voltage" type="range" min="7.4" max="60" value="22.2" step="0.1"></label>
-            <label class="control" for="capacity"><span>Ёмкость <output id="capacityValue">10 000 мА·ч</output></span><input id="capacity" type="range" min="500" max="30000" value="10000" step="250"></label>
+            <label class="control" for="voltage"><span>Напряжение <output id="voltageValue">22,2 В</output></span><input id="voltage" type="range" min="2.5" max="70" value="22.2" step="0.1"></label>
+            <label class="control" for="capacity"><span>Ёмкость <output id="capacityValue">10 000 мА·ч</output></span><input id="capacity" type="range" min="100" max="30000" value="10000" step="any"></label>
             <label class="control" for="stateOfCharge"><span>Заряд <output id="stateOfChargeValue">100%</output></span><input id="stateOfCharge" type="range" min="0" max="100" value="100" step="5"></label>
             <label class="control" for="batteryTemp"><span>Температура батареи <output id="batteryTempValue">20 °C</output></span><input id="batteryTemp" type="range" min="-30" max="60" value="20" step="1"></label>
-            <label class="control" for="batteryResistance"><span>Сопротивление пакета <output id="batteryResistanceValue">35 мОм</output></span><input id="batteryResistance" type="range" min="0" max="0.2" value="0.035" step="0.005"></label>
+            <label class="control" for="batteryResistance"><span>Сопротивление пакета <output id="batteryResistanceValue">35 мОм</output></span><input id="batteryResistance" type="range" min="0" max="0.5" value="0.035" step="0.005"></label>
             <label class="control" for="batteryCRating"><span>Токоотдача <output id="batteryCRatingValue">25 C</output></span><input id="batteryCRating" type="range" min="1" max="100" value="25" step="1"></label>
             <label class="control "><span>Ресурс батареи <output id="batteryHealthValue"></output></span><input id="batteryHealth" type="range" min="10" max="100" value="100" step="1"></label>
-            <label class="control "><span>Масса батареи для нагрева <output id="batteryMassValue"></output></span><input id="batteryMass" type="range" min="0.05" max="4" value="0.8" step="0.05"></label>
-            <label class="control "><span>Порог напряжения ячейки <output id="cellCutoffValue"></output></span><input id="cellCutoff" type="range" min="2.8" max="3.6" value="3.2" step="0.05"></label>
+            <label class="control "><span>Масса батареи для нагрева <output id="batteryMassValue"></output></span><input id="batteryMass" type="range" min="0.005" max="8" value="0.8" step="any"></label>
+            <label class="control "><span>Порог напряжения ячейки <output id="cellCutoffValue"></output></span><input id="cellCutoff" type="range" min="2.5" max="3.6" value="3.2" step="0.05"></label>
             <label class="control "><span>Плановый резерв заряда <output id="reserveChargeValue"></output></span><input id="reserveCharge" type="range" min="0" max="40" value="15" step="1"></label>
           </div>
         </details>

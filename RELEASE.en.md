@@ -1,7 +1,7 @@
-# Drone Weather Lab 0.89 Beta
+# Drone Weather Lab 0.9 Beta
 
-A small update. Keyboard shortcuts now cover all views, the battery, report and settings downloads, the camera and help. A Russian keyboard layout works, and shortcuts stay quiet while you type.
+A big update. There is a new workspace, four themes and a Spanish interface.
 
-A new card shows where battery power goes. Fixed: the RC branch calculation, a double cold-capacity correction in the quick estimate, strong updrafts, graph ranges and needless CAD recalculation.
+New tabs: My drone, Batteries, Mission plan and Flight log. In My drone, a component table finds total mass and the centre of gravity. A battery can be built from S and P cells of four chemistries. Graphs compare curves and export CSV. The airflow view has slices and a manual CFD start. The 3D body was redrawn and has an exploded view.
 
-Download the ZIP, unzip it and open Drone-Weather-Lab-0.89-Beta.html. The CFD core did not change. The model has not been checked against a real drone.
+Download the ZIP, unzip it and open Drone-Weather-Lab-0.9-Beta.html. The full list is in docs/FEATURES-0.9.md. CFD is still approximate. The model has not been checked against a real drone.

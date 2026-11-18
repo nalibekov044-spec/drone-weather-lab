@@ -13,7 +13,7 @@ async function ns(name){const m=await load('dist/'+name+'.js');if(m.status!=='ev
 const power=await ns('power-system'), physics=await ns('physics'), mesh=await ns('mesh-import'),cfd=await ns('cfd-core');
 const {baseDefaults:p,calculate,relativeAirflow,graphSeries}=physics;
 const i18n=await ns('i18n'); i18n.setLanguage('en');
-assert.equal(i18n.t(physics.graphMetrics.flightMinutes.formula),'t ≈ 60 · Qto reserve / Iinitial'); i18n.setLanguage('ru');
+assert.equal(i18n.t(physics.graphMetrics.flightMinutes.formula),'t[min] ≈ 60 · Qusable[Ah] / Iinitial[A]'); i18n.setLanguage('ru');
 const u=await ns('units'),builder=await ns('drone-builder'),flow=await ns('flow-lines');
 const near=(a,b,t=1e-8)=>assert(Math.abs(a-b)<t,`${a} vs ${b}`);
 let keyCases=0;

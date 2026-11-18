@@ -1,4 +1,4 @@
-import { geometryFor, triangulateParts, visualDetails } from './drone-builder.js';
+import { geometryFor, triangulateParts, visualDetails, displayParts } from './drone-builder.js';
 const vertex = `
 precision mediump float;
 attribute vec3 position;
@@ -52,7 +52,7 @@ function rotate(point, pose) {
 function color(value, alpha = 1) {
   return [parseInt(value.slice(1, 3), 16) / 255, parseInt(value.slice(3, 5), 16) / 255, parseInt(value.slice(5, 7), 16) / 255, alpha];
 }
-const materials = { body: '#d8e1e8', arm: '#253b4b', motor: '#283b50', battery: '#222a35', camera: '#4c7698', landing: '#b3c0cb', payload: '#ca9455', blade: '#cddce5', detail: '#52ccf5', motorRing: '#9aacbc', hub: '#c2d6e4', vent: '#102333', trim: '#3cbfae', frontLight: '#d7f5ff', rearLight: '#f47166', strap: '#121e2b', lens: '#294f75', cameraMount: '#2c4355', gps: '#dae4eb', antenna: '#3e5264', carbon: '#1a2938' };
+const materials = { body: '#d8e1e8', arm: '#253b4b', motor: '#283b50', battery: '#222a35', camera: '#4c7698', landing: '#b3c0cb', payload: '#ca9455', blade: '#cddce5', detail: '#52ccf5', motorRing: '#9aacbc', hub: '#c2d6e4', vent: '#102333', trim: '#3cbfae', frontLight: '#d7f5ff', rearLight: '#f47166', strap: '#121e2b', lens: '#294f75', cameraMount: '#2c4355', gps: '#dae4eb', antenna: '#3e5264', carbon: '#1a2938', canopy:'#ecf0ef',panel:'#47576d',bolt:'#e6bb71',escCover:'#263a4b' };
 export class GPUScene {
   constructor(hud) {
     this.canvas = document.createElement('canvas');
@@ -97,7 +97,7 @@ export class GPUScene {
     const gl = this.gl; this.dpr = dpr;
     const w = Math.max(1, Math.round(width * dpr)), h = Math.max(1, Math.round(height * dpr));
     if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
-    gl.viewport(0, 0, w, h); gl.clearColor(0.025, 0.045, 0.064, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.useProgram(this.program);
+    gl.viewport(0, 0, w, h); gl.clearColor(...color(getComputedStyle(document.documentElement).getPropertyValue("--scene-bg").trim() || "#08111b")); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.useProgram(this.program);
     for (const key of ['eye', 'right', 'up', 'forward']) gl.uniform3fv(this.locations[key], basis[key === 'eye' ? 'position' : key]);
     gl.uniform2f(this.locations.scale, 2 * basis.focal / width, 2 * basis.focal / height);
     if (!this.buffers.has('grid')) {
@@ -109,11 +109,10 @@ export class GPUScene {
   }
   model(parameters, scene, pose, result, time) {
     const design = geometryFor(parameters);
-    const key = JSON.stringify([design.parts, scene.modelRevision, parameters.flowObstacle, parameters.obstacleSize, scene.mode]);
+    const key = JSON.stringify([design.parts, scene.modelRevision, parameters.flowObstacle, parameters.obstacleSize, scene.mode, scene.exploded]);
     if (this.modelKey !== key) {
       this.modelKey = key;
-      const parts = [...(design.parts || [])];
-      if (!scene.model) parts.push(...visualDetails(parameters, design));
+      const parts = scene.model ? [...design.parts] : displayParts(parameters, design, scene.exploded);
       if (scene.mode === 'airflow') {
         const s = parameters.obstacleSize || 1;
         if (parameters.flowObstacle === 'wall') parts.push({ kind: 'box', center: [1.28, 0, 0], size: [0.18 * s, 1.44 * s, 1.24 * s], role: 'payload' });

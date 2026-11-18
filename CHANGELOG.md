@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9 Beta
+
+A new workspace with four themes. The interface now has Spanish next to Russian and English.
+
+- My drone: a separate calculation for your own design. A component table gives the total mass and the centre of gravity.
+- Batteries: build a pack from cells in series and in parallel. LiPo, Li-ion, LiHV and LiFePO4 are available, and you can save your own profiles.
+- Graphs: fix one curve as a reference and compare it with a new one. The data is shown as a table and exports to CSV.
+- Airflow: flow slices and a manual start for CFD. An outdated field is marked as outdated.
+- 3D: a redrawn body and an exploded view.
+- New tabs: mission plan, flight log, projects, wind scenarios and Ct/Cp fitting from bench data.
+
+Formula labels now separate bus power from shaft power. Imported projects are checked before they are applied. The CFD solver core did not change. The full list is in docs/FEATURES-0.9.md.
+
 ## 0.89 Beta
 
 - More keyboard shortcuts. They follow physical key positions, so a Russian layout works too. They do nothing while you type in a field.
