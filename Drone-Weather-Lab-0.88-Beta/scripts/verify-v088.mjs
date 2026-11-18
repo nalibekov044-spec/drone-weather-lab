@@ -1,0 +1,65 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const root=path.resolve(import.meta.dirname,'..'),modules=new Map();
+async function load(file){
+ const filename=path.resolve(root,file);
+ if(modules.has(filename))return modules.get(filename);
+ const promise=(async()=>{const m=new vm.SourceTextModule(fs.readFileSync(filename,'utf8'),{identifier:filename});await m.link((name,parent)=>load(path.resolve(path.dirname(parent.identifier),name)));return m;})();
+ modules.set(filename,promise);return promise;
+}
+async function ns(name){const m=await load('dist/'+name+'.js');if(m.status!=='evaluated')await m.evaluate();return m.namespace;}
+const power=await ns('power-system'), physics=await ns('physics'), mesh=await ns('mesh-import'),cfd=await ns('cfd-core');
+const {baseDefaults:p,calculate,relativeAirflow,dragAreas,atmosphere}=physics;
+const near=(a,b,t=1e-6)=>assert(Math.abs(a-b)<t,`${a} vs ${b}`);
+assert.equal(power.batterySeries({...p,batteryChemistry:'lion',voltage:22.2}),6);
+assert.equal(power.batterySeries({...p,batteryCells:8}),8);
+near(power.batteryCircuit({...p,batteryCells:8},power.initialBattery(p)).openVoltage,33.6);
+let cases=0,maxBalanceError=0,maxEscRatio=0;
+for(const preset of Object.values(physics.dronePresets))for(const chemistry of ['lipo','lion'])for(const temp of [-20,20,60])for(const soc of [0,10,50,100])for(const esc of [2,20,60]){
+ const q={...p,...preset,batteryChemistry:chemistry,escCurrentLimit:esc,batteryTemp:temp,stateOfCharge:soc};
+ const state=power.initialBattery(q),r=calculate(q),bus=power.batteryCircuit(q,state,r.commandedElectricalPower);
+ const err=Math.abs(bus.current*bus.terminalVoltage-bus.deliveredPower);maxBalanceError=Math.max(maxBalanceError,err);assert(err<1e-7);
+ assert(r.commandedElectricalPower<=bus.maximumPower+1e-6 || r.availableThrust===0);
+ r.shaftPowers.forEach((w,i)=>{const amps=w/Math.max(.1,r.motorEfficiencies[i])/r.escEfficiency/Math.max(1e-9,bus.terminalVoltage);maxEscRatio=Math.max(maxEscRatio,amps/esc);assert(amps<=esc+1e-6);});
+ for(const k of ['density','availableThrust','windForce','terminalVoltage','electricalPower'])assert(Number.isFinite(r[k])&&r[k]>=0,k);
+ cases++;
+}
+const q={...p,stateOfCharge:100,reserveCharge:20,batteryTemp:20};
+const start=power.initialBattery(q),forecast=power.forecastBattery(q,start,500,5,1.225),fine=power.forecastBattery(q,start,500,5,1.225,{dt:.5});
+assert(forecast.reason==='reserve'||forecast.reason==='power-limit'||forecast.reason==='cutoff');
+near(forecast.minutes,fine.minutes,.03);assert(forecast.finalSoc>=19.99999);assert(forecast.deliveredWh>0);
+assert(power.forecastBattery({...q,reserveCharge:100},start,500).seconds===0);
+assert(power.forecastBattery(q,start,1e8).seconds===0);
+const depleted={...start,soc:1};assert(power.forecastBattery(q,depleted,500).reason==='reserve');
+const polarized={...start,polarization:2};assert(power.stepBattery(polarized,p,power.batteryCircuit(p,polarized,0),0,1.225,20).polarization<2);
+const high=atmosphere({...p,altitude:6000,temperature:55,humidity:100});assert(high.vaporPressure>high.pressure*.08);assert(high.density>0);
+const rel=relativeAirflow({...p,windSpeed:10,windDirection:0,verticalWind:2},[4,0,1]);near(rel.windSpeed,6);near(rel.verticalWind,1);
+near(relativeAirflow({...p,windSpeed:10,windDirection:0},[10,0,0]).windSpeed,0);
+const opposite=relativeAirflow({...p,windSpeed:0},[2,0,0]);near(Math.abs(opposite.windDirection),180);
+const a=calculate({...p,windSpeed:4}),b=calculate({...p,windSpeed:8});near(b.dynamicPressure/a.dynamicPressure,4);near((b.windForce/b.projectedArea)/(a.windForce/a.projectedArea),4);
+const cube='v -1 -1 -1\nv 1 -1 -1\nv 1 1 -1\nv -1 1 -1\nv -1 -1 1\nv 1 -1 1\nv 1 1 1\nv -1 1 1\nf 1 4 3 2\nf 5 6 7 8\nf 1 2 6 5\nf 4 8 7 3\nf 1 5 8 4\nf 2 3 7 6\n';
+const model=mesh.parseMesh(new TextEncoder().encode(cube).buffer,'cube.obj');assert(model.closed);near(model.sourceSpan,2);
+const fitted=mesh.fitMesh(model,[.1,.2,.3],'z',0),bounds=mesh.meshBounds(fitted);bounds.dimensions.forEach((v,i)=>near(v,[.1,.2,.3][i]));
+const turned=mesh.meshBounds(mesh.fitMesh(model,[.1,.2,.3],'z',90));near(turned.dimensions[0],.3);near(turned.dimensions[2],.1);
+const aero=mesh.meshAerodynamics(fitted);near(aero.horizontal[0],.06);near(aero.horizontal[9],.02);near(aero.top,.03);
+near(dragAreas({...p,cadAerodynamics:aero,windDirection:180}).frontal,.06);
+near(dragAreas({...p,cadAerodynamics:aero,windDirection:-90}).frontal,.02);
+const profile=calculate({...p,cadAerodynamics:aero,windSpeed:5,windDirection:0}),side=calculate({...p,cadAerodynamics:aero,windSpeed:5,windDirection:90});assert(profile.windForce>side.windForce);
+const concave='v 2 0 0\nv 2 1 0\nv 1 1 0\nv 1 2 0\nv 0 2 0\nv 0 0 0\nf 1 2 3 4 5 6';
+const l=mesh.parseMesh(new TextEncoder().encode(concave).buffer,'L.obj');assert.equal(l.triangleCount,4);
+near(mesh.projectedMeshArea(l.triangles,[1,0,0],[0,1,0]),.75);
+assert.throws(()=>mesh.parseMesh(new TextEncoder().encode('v x 0 0\nf 1 1 1').buffer,'bad.obj'));
+assert.throws(()=>mesh.parseMesh(new TextEncoder().encode('v 0 0 0\nv 1 0 0\nv 1 1 1\nv 0 1 0\nf 1 2 3 4').buffer,'bad.obj'));
+const stable={residual:.0001,forceResidual:.001,massImbalance:.001,densityDrift:.001};assert(cfd.convergenceStatus(stable));
+assert(!cfd.convergenceStatus({...stable,massImbalance:.1}));assert(!cfd.convergenceStatus({...stable,densityDrift:.02}));assert(!cfd.convergenceStatus({...stable,residual:NaN}));
+const uniform=cfd.solveCFD({emptyDomain:true,geometryParts:[],rotors:0,windSpeed:3,windDirection:23,verticalWind:.4,quality:'fast',maxSteps:300});
+assert(uniform.stats.converged);assert(uniform.stats.massFlow.relativeImbalance<1e-5);
+assert.throws(()=>cfd.solveCFD({meshTriangles:mesh.fitMesh(model,[6,1,1]),rotors:0,quality:'fast',maxSteps:1}),/CAD/);
+assert.throws(()=>cfd.solveCFD({geometryParts:[],rotorCenters:[{x:100,z:100,diskY:0}],rotorThrusts:[1],rotors:1,quality:'fast',maxSteps:1}),/Диск/);
+const rotorConfig={density:1.225,worldScale:.36,propRadius:.48,rotorThrusts:[4],rotorTorques:[.06]};
+const forces=cfd.actuatorForces(rotorConfig,31,17,25,[{x:.21,z:-.17,diskY:.17}],6,new Uint8Array(31*17*25),{xMin:-3,yMin:-1.6,zMin:-2.4},.2);
+const forceScale=1.225*(.2*.36)**2*(6/.065)**2;near(forces.fy.reduce((sum,v)=>sum+v,0)*forceScale,-4);assert(forces.diskNodes[0]>8);
+const report={version:'0.88.0-beta',baseRelease:'0.87 Beta',checks:{batteryAndEscCases:cases,maxElectricalBalanceErrorW:maxBalanceError,maxEscCurrentToLimitRatio:maxEscRatio,forecast:{minutes:forecast.minutes,fineStepMinutes:fine.minutes,reason:forecast.reason,finalSoc:forecast.finalSoc},cadBoxProjectionM2:{front:aero.horizontal[0],side:aero.horizontal[9],top:aero.top},uniformCFD:{converged:uniform.stats.converged,massImbalance:uniform.stats.massFlow.relativeImbalance,velocityResidual:uniform.stats.residual}},limits:['Numerical verification only; no experimental drone validation.','CAD silhouette is rasterized and interpolated, Cd and mass remain manual.','CFD numerical viscosity is much larger than air viscosity; grid convergence has not been established.','Battery curves and thermal constants are illustrative.']};
+fs.writeFileSync(path.join(root,'verification-v088.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));

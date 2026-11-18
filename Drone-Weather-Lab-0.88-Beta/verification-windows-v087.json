@@ -1,0 +1,24 @@
+{
+  "version": "0.87.0-beta",
+  "format": "PE32+ Windows x64",
+  "payloadSha256": "7c83111bcc0040432d45146482f79b42f6c5be02b0ea00706b7e48db3f70be95",
+  "imports": [
+    "KERNEL32.dll:CloseHandle",
+    "KERNEL32.dll:CreateDirectoryW",
+    "KERNEL32.dll:CreateFileW",
+    "KERNEL32.dll:ExitProcess",
+    "KERNEL32.dll:GetCommandLineW",
+    "KERNEL32.dll:GetTempPathW",
+    "KERNEL32.dll:WriteFile",
+    "SHELL32.dll:ShellExecuteW",
+    "USER32.dll:MessageBoxW"
+  ],
+  "checks": [
+    "actual PE entry executed with Linux WinAPI test shim",
+    "embedded HTML extraction matched byte for byte",
+    "partial writes completed",
+    "default-browser target checked with a ShellExecuteW test stub",
+    "write failure returned a nonzero exit code"
+  ],
+  "windowsRuntimeTested": false
+}

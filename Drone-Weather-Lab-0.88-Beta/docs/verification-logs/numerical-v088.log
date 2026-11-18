@@ -1,0 +1,33 @@
+{
+  "version": "0.88.0-beta",
+  "baseRelease": "0.87 Beta",
+  "checks": {
+    "batteryAndEscCases": 288,
+    "maxElectricalBalanceErrorW": 9.094947017729282e-13,
+    "maxEscCurrentToLimitRatio": 1.0000000013820436,
+    "forecast": {
+      "minutes": 21.506496254164126,
+      "fineStepMinutes": 21.504614727074657,
+      "reason": "reserve",
+      "finalSoc": 20
+    },
+    "cadBoxProjectionM2": {
+      "front": 0.06000000327825549,
+      "side": 0.020000000596046456,
+      "top": 0.03000000163912775
+    },
+    "uniformCFD": {
+      "converged": true,
+      "massImbalance": 0,
+      "velocityResidual": 1.490116117621425e-8
+    }
+  },
+  "limits": [
+    "Numerical verification only; no experimental drone validation.",
+    "CAD silhouette is rasterized and interpolated, Cd and mass remain manual.",
+    "CFD numerical viscosity is much larger than air viscosity; grid convergence has not been established.",
+    "Battery curves and thermal constants are illustrative."
+  ]
+}
+(node:23) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

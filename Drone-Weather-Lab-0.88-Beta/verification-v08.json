@@ -1,0 +1,53 @@
+{
+  "version": "0.8.0",
+  "purpose": "Numerical regression and limited grid sensitivity check, not experimental drone validation",
+  "sphere": {
+    "windSpeed": 3,
+    "diameterM": 0.36,
+    "kinematicViscosity": 0.035,
+    "upstreamPressurePa": 5.521461248397827,
+    "downstreamPressurePa": -1.1025706678628922
+  },
+  "grids": [
+    {
+      "cells": 13175,
+      "cellSizeM": 0.072,
+      "viscosity": 0.03500000000000006,
+      "effectiveReynolds": 30.857142857142808,
+      "iterations": 541,
+      "residual": 0.00043078127927245887,
+      "converged": true,
+      "forceN": [
+        1.3130015627590157,
+        0,
+        0
+      ],
+      "meanDensityDeviation": 0.000005665646755970144,
+      "maxLatticeMach": 0.14419062578719144,
+      "elapsedMs": 4416
+    },
+    {
+      "cells": 31119,
+      "cellSizeM": 0.054,
+      "viscosity": 0.034999999999999996,
+      "effectiveReynolds": 30.85714285714286,
+      "iterations": 1041,
+      "residual": 0.0007353266084417439,
+      "converged": true,
+      "forceN": [
+        1.2631969291655973,
+        0,
+        0
+      ],
+      "meanDensityDeviation": 0.000013453869903257143,
+      "maxLatticeMach": 0.15238403920088348,
+      "elapsedMs": 24689
+    }
+  ],
+  "dragRelativeDifference": 0.03942744986430321,
+  "conclusions": [
+    "Uniform-flow, conservation, continuation and hover checks are in verify-v06.mjs.",
+    "Two grids indicate sensitivity only. No Richardson extrapolation or grid independence is established.",
+    "Physical viscosity is held constant for the sphere case. Default drone calculations use regularised viscosity."
+  ]
+}
