@@ -2551,14 +2551,213 @@ select {
 .app-shell[data-view="graph"] .power-strip {
   display: none
 }
-.visual-panel,.view-panel,.lab-view,.visual-header,.control-group,.control-body{background:var(--surface);color:var(--text)}
-.control-group[open]>summary{background:var(--surface-2)}
-.control-group>summary:hover{background:var(--surface-3)}
-.graph-tooltip,.builder-panel{background:var(--surface-2);color:var(--text);border-color:var(--line)}
-.solver-toolbar label,.probe-controls label{color:var(--muted)}
-.solver-toolbar,.probe-controls,.residual-chart{border-color:var(--line)}
-.charge-tile progress::-webkit-progress-bar{background:var(--line)}
-.charge-tile progress::-webkit-progress-value{background:var(--accent)}
-.charge-tile progress::-moz-progress-bar{background:var(--accent)}
-.view-panel.focus-scene{position:fixed;inset:0;z-index:900;background:var(--bg);padding:16px;overflow:auto;border-radius:0}
-.view-panel.focus-scene canvas:is(#flightCanvas,#airflowCanvas){height:calc(100vh - 230px);min-height:260px}
+
+.visual-panel,
+.view-panel,
+.lab-view,
+.visual-header,
+.control-group,
+.control-body {
+  background: var(--surface);
+  color: var(--text)
+}
+
+.control-group[open]>summary {
+  background: var(--surface-2)
+}
+
+.control-group>summary:hover {
+  background: var(--surface-3)
+}
+
+.graph-tooltip,
+.builder-panel {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--line)
+}
+
+.solver-toolbar label,
+.probe-controls label {
+  color: var(--muted)
+}
+
+.solver-toolbar,
+.probe-controls,
+.residual-chart {
+  border-color: var(--line)
+}
+
+.charge-tile progress::-webkit-progress-bar {
+  background: var(--line)
+}
+
+.charge-tile progress::-webkit-progress-value {
+  background: var(--accent)
+}
+
+.charge-tile progress::-moz-progress-bar {
+  background: var(--accent)
+}
+
+.view-panel.focus-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: var(--bg);
+  padding: 16px;
+  overflow: auto;
+  border-radius: 0
+}
+
+.view-panel.focus-scene canvas:is(#flightCanvas, #airflowCanvas) {
+  height: calc(100vh - 230px);
+  min-height: 260px
+}
+
+/* 0.91: compact settings and visible work state. */
+.activity-strip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: -2px 0 16px;
+  font-size: 11px;
+  color: var(--muted)
+}
+
+.activity-strip output {
+  flex: none;
+  border: 1px solid var(--line-bright);
+  border-radius: 4px;
+  padding: 6px 9px;
+  color: var(--accent);
+  min-width: 120px
+}
+
+.tone-chips {
+  display: flex;
+  gap: 6px;
+  padding-top: 7px
+}
+
+.tone-chips button {
+  width: 22px;
+  height: 22px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface)
+}
+
+.tone-chips button[aria-pressed=true] {
+  border: 2px solid var(--accent)
+}
+
+.tone-chips i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%
+}
+
+[data-tone=graphite] i {
+  background: #222a37
+}
+
+[data-tone=polar] i {
+  background: #dceae4
+}
+
+[data-tone=sand] i {
+  background: #dbc8a8
+}
+
+[data-tone=rose] i {
+  background: #b574a1
+}
+
+.release-notice {
+  padding-bottom: 16px
+}
+
+.release-notice>div:first-child {
+  font-size: 19px
+}
+
+.version-orbit {
+  border-radius: 7px;
+  width: 44px;
+  height: 44px;
+  font-size: 17px
+}
+
+.motor-card,
+.diagnostic-grid>span,
+.comparison-table td,
+.calculation-details {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--line)
+}
+
+.diagnostic-grid small,
+.motor-card small {
+  color: var(--muted)
+}
+
+.lab-actions .button {
+  white-space: normal
+}
+
+.grid-study {
+  margin: 16px;
+  padding: 16px
+}
+
+.grid-study summary {
+  font-size: 14px;
+  cursor: pointer
+}
+
+.grid-study p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6
+}
+
+@media(max-width:800px) {
+  .activity-strip {
+    display: block;
+    line-height: 1.6
+  }
+
+  .activity-strip output {
+    display: inline-block;
+    margin: 5px 0
+  }
+
+  .tone-chips {
+    justify-content: center
+  }
+
+  .simulation-actions>.unit-control {
+    min-width: 110px
+  }
+
+  .lab-heading {
+    padding: 18px
+  }
+
+  .lab-heading h2 {
+    font-size: 24px
+  }
+
+  .release-notice small {
+    font-size: 11px
+  }
+
+  .mode-tab {
+    min-width: 72px
+  }
+}
+#activityState[data-phase=waiting],#activityState[data-phase=frozen]{color:var(--muted);border-style:dashed}

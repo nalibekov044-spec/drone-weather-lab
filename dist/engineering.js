@@ -1,11 +1,14 @@
 import {
+  validateMissionStages
+} from "./calculation-tools.js";
+import {
   calculate,
   pressureFromAltitude
 } from './physics.js';
 import {
   batteryCircuit,
   initialBattery,
-  stepBattery
+  dischargeStep
 } from './power-system.js';
 
 export const cellTypes = {
@@ -144,7 +147,7 @@ export function calibrateProp(thrustN, shaftWatts, rpm, diameterM, density) {
   };
 }
 export function missionForecast(p, stages) {
-  if (!Array.isArray(stages) || stages.length < 1 || stages.length > 8) throw Error('stages');
+  validateMissionStages(stages);
   let state = initialBattery(p),
     seconds = 0;
   const rows = [];
@@ -156,8 +159,7 @@ export function missionForecast(p, stages) {
     const q = {
       ...p,
       altitude: stage.altitude,
-      windSpeed: stage.wind + stage.speed,
-      pressureHpa: pressureFromAltitude(stage.altitude) / 100
+      windSpeed: stage.wind + stage.speed
     };
     if (p.temperatureMode === 'standard') q.temperature = 15 - .0065 * stage.altitude;
     const start = state.outputWh;
@@ -189,9 +191,14 @@ export function missionForecast(p, stages) {
         reason = 'reserve';
         break;
       }
-      state = stepBattery(state, q, c, q.windSpeed, result.density, dt);
-      elapsed += dt;
-      seconds += dt;
+      const advanced = dischargeStep(state, q, watts, q.windSpeed, result.density, dt, p.reserveCharge ?? 15);
+      state = advanced.state;
+      elapsed += advanced.seconds;
+      seconds += advanced.seconds;
+      if (advanced.seconds < 1e-8) {
+        reason = "reserve";
+        break;
+      }
     }
     rows.push({
       name: String(stage.name || '').slice(0, 60),

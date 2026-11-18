@@ -12,7 +12,7 @@
     "heatWh": 0.09428824597156539,
     "storedWh": 0.002166994815692978
   },
-  "forecastMinutes": 22.764826043400287,
+  "forecastMinutes": 22.76192229296856,
   "limits": [
     "All checks are numerical; real drone hardware is not calibrated.",
     "CFD is coarse-grid and regularized, with no real-drone experimental validation.",

@@ -1,4 +1,5 @@
-export const spanish = { "Мой дрон · Батареи · План · Журнал":"Mi dron · Baterías · Misión · Registro",
+export const spanish = {"0.91 · Проверка конфигурации":"0.91 · Revisión de configuración",
+"Численная вязкость":"Viscosidad numérica","Сравнивай сетки при одной вязкости.":"Compara mallas con igual viscosidad.","Быстрое · 15 тыс.":"Rápida · 15 mil celdas","Среднее · 34 тыс.":"Media · 34 mil celdas","Детальнее · 65 тыс.":"Fina · 65 mil celdas", "Мой дрон · Батареи · План · Журнал":"Mi dron · Baterías · Misión · Registro",
   "Расчёт отменён":"Cálculo cancelado", "Поле устарело":"Campo desactualizado", "Нажми «Рассчитать поток» для текущих настроек.":"Pulsa Calcular flujo para los ajustes actuales.",
   "Заряд батареи":"Carga de batería",
   "Единицы": "Unidades",

@@ -5,7 +5,7 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const offline = process.argv.includes("--offline");
-const html = fs.readFileSync(path.join(root, offline ? "Drone-Weather-Lab-0.9-Beta.html" : "dist/index.html"), "utf8");
+const html = fs.readFileSync(path.join(root, offline ? "Drone-Weather-Lab-0.91-Beta.html" : "dist/index.html"), "utf8");
 class Element {
   constructor(id = "", tag = "div") {
     this.id=id; this.tag=tag; this.value=""; this.checked=false; this.disabled=false; this.hidden=false; this.dataset={}; this.children=[]; this.listeners={}; this.style={}; this.width=800; this.height=520;

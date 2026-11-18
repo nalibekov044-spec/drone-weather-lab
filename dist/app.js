@@ -1,4 +1,7 @@
 import {
+  createActivityLoop
+} from "./activity.js";
+import {
   installWorkbench
 } from "./workbench.js";
 import {
@@ -247,7 +250,8 @@ const liveOptions = (extra = {}) => ({
 });
 let parameterCache = null;
 let customCG = null,
-  workbench = null;
+  workbench = null,
+  activityLoop = null;
 let flowSnapshot = {
   key: "",
   result: null
@@ -259,7 +263,8 @@ function cfdSettings() {
     solverMode: $("solverMode").value,
     iterationBudget: $("iterationBudget").value,
     smagorinsky: $("turbulenceModel").value === "smagorinsky" ? 0.12 : 0,
-    rotorSwirl: $("rotorSwirl").checked
+    rotorSwirl: $("rotorSwirl").checked,
+    matchViscosity: $("matchViscosity")?.checked ?? true
   };
 }
 
@@ -347,6 +352,7 @@ airflowScene.onCFDStatus = info => {
   $("continueCFD").disabled = info.status !== "ready";
   ui.cfdStatus.className = "";
   if (info.status === "ready" && info.stats) {
+    workbench?.acceptCFD(info.stats, airflowScene.pendingCFD?.config);
     ui.cfdStatus.textContent =
       `${info.stats.converged ? "установился" : "приближение"} · ${info.stats.elapsedMs} мс`;
     ui.cfdCells.textContent =
@@ -366,6 +372,7 @@ airflowScene.onCFDStatus = info => {
       <span>Невязка силы<strong>${Number.isFinite(s.forceResidual) ? format(s.forceResidual * 100, 2) + "%" : "…"}</strong><small>Изменение силы за 20 итераций. Для остановки нужно меньше 0,5%.</small></span>
       <span>Баланс воздуха<strong>${format(s.massFlow.relativeImbalance * 100, 2)}%</strong><small>Разница входящего и выходящего массового расхода. Во время установления часть воздуха накапливается внутри.</small></span>
       <span>Пиковая добавочная вязкость<strong>${format(s.maxEddyViscosity, 6)} м²/с</strong><small>Модель LES оценивает перенос импульса неразрешёнными вихрями. Базовая вязкость решателя остаётся повышенной.</small></span>
+      <span>Численная вязкость<strong>${format(s.numericalViscosity,6)} м²/с</strong><small>Сравнивай сетки при одной вязкости.</small></span>
       <span>Средняя плотность<strong>${format(s.densityDrift * 100, 3)}%</strong><small>Отклонение средней плотности от входной.</small></span>
     </div><p>${s.method}. Число Маха сетки: ${format(s.maxLatticeMach, 3)}; отклонение плотности до ${format(s.maxDensityDeviation * 100, 2)}%. ${s.maxLatticeMach > 0.2 ? "Высокая сжимаемость: результат требует осторожности." : ""} ${s.solidCells < 8 ? "Корпус плохо разрешён: увеличь сетку или размер модели." : ""} ${getParameters().dronePreset === "custom" && getParameters().armThickness < s.spacingM * 2000 ? "Лучи тоньше двух ячеек: их обтекание не разрешено." : ""} ${s.underresolvedDisks?.length ? `Недостаточно ячеек в дисках M${s.underresolvedDisks.join(", M")}: увеличь сетку.` : ""} Сеточная сходимость и сравнение с экспериментом не выполнены. CFD использует заданный начальный заряд батареи. Текущий разряд виден в режиме полёта. CFD использует средний ветер; доступность моторов с учётом температуры округлена до 10%. Давление относительно входа.</p>`;
     drawResidual(s);
@@ -761,6 +768,7 @@ function applyPreset(key) {
   }
   const preset = dronePresets[key];
   if (!preset) return;
+  $("calibratedProps").checked=false;inputs.ct.value=String(baseDefaults.ct);inputs.cp.value=String(baseDefaults.cp);
   Object.entries(preset).forEach(([id, value]) => {
     if (inputs[id] && typeof value !== "string") inputs[id].value = String(value);
   });
@@ -938,6 +946,7 @@ function setActiveView(view) {
     const active = tab.dataset.view === view;
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll(".view-panel").forEach(panel => {
     const active = panel.id === `${view}View`;
@@ -1368,7 +1377,7 @@ $("exportReport").addEventListener("click", () => {
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd
     .status === "ready";
   const report = {
-    version: "0.9.0-beta",
+    version: "0.91.0-beta",
     enduranceForecast: state.forecast,
     powerBudget: state.powerBudget,
     battery: state.battery,
@@ -1419,7 +1428,7 @@ $("exportReport").addEventListener("click", () => {
   }));
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "drone-weather-lab-v0.9-beta-report.json";
+  anchor.download = "drone-weather-lab-v0.91-beta-report.json";
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
@@ -1582,13 +1591,13 @@ for (const [id, text] of Object.entries(parameterHelp)) {
   parent.append(help);
 }
 
-function frame(now) {
-  const dt = Math.min(0.1, Math.max(0, (now - state.lastTime) / 1000));
+function frame(now, activity = {
+  run: true,
+  draw: !document.hidden
+}) {
+  const dt = Math.min(0.25, Math.max(0, (now - state.lastTime) / 1000));
   state.lastTime = now;
-  if (document.hidden) {
-    requestAnimationFrame(frame);
-    return;
-  }
+  if (!activity.run) return;
   const renderMode = $("renderQuality").value;
   if (now - state.lastPerformanceCheck > 2000) {
     if (state.renderMs > 22) state.autoFps = 30;
@@ -1597,10 +1606,7 @@ function frame(now) {
   }
   const targetFps = renderMode === "eco" ? 30 : renderMode === "auto" ? state.autoFps : 60;
   if (state.running) state.accumulator += dt;
-  if (now - state.lastRender < 1000 / targetFps - 1) {
-    requestAnimationFrame(frame);
-    return;
-  }
+  if (activity.draw && now - state.lastRender < 1000 / targetFps - 1) return;
   state.lastRender = now;
   const started = performance.now();
   const parameters = getParameters();
@@ -1608,14 +1614,18 @@ function frame(now) {
   state.motorRpms = motorRpms(parameters);
   let result;
   let substeps = 0;
-  while (state.running && state.accumulator >= 1 / 60 && substeps < 6) {
+  while (state.running && state.accumulator >= 1 / 60 && substeps < 15) {
     result = simulate(1 / 60, parameters);
     state.accumulator -= 1 / 60;
     substeps++;
   }
-  if (substeps === 6) state.accumulator = 0;
+  if (substeps === 15) state.accumulator = 0;
+  if (!activity.draw) {
+    workbench?.tick(now, false);
+    return;
+  }
   result ||= calculate(parameters, liveOptions());
-  if (now - state.lastMetrics > 200) {
+  if (["flight", "graph", "compare"].includes(state.activeView) && now - state.lastMetrics > 200) {
     updateMetrics(parameters, result);
     state.lastMetrics = now;
   }
@@ -1650,17 +1660,19 @@ function frame(now) {
   }
   for (const scene of [flightScene, airflowScene]) {
     if (scene.captureNextFrame && scene.mode === state.activeView) {
-      const capture = scene.captureNextFrame; scene.captureNextFrame = null; capture();
+      const capture = scene.captureNextFrame;
+      scene.captureNextFrame = null;
+      capture();
     }
   }
   workbench?.tick(now);
   state.renderMs = state.renderMs * 0.85 + (performance.now() - started) * 0.15;
-  requestAnimationFrame(frame);
 }
 
 exactControls = installExactControls([...document.querySelectorAll('input[type="range"]'), $("modelSpan")],
   () => unitSystem);
 $("unitSystem").addEventListener("change", () => {
+  graphRenderer.baseline = null;
   const oldSystem = unitSystem,
     kind = parameterUnits[$("graphVariable").value];
   const range = ["graphFrom", "graphTo"].map(id => fromDisplay(Number($(id).value), kind, oldSystem));
@@ -1711,12 +1723,17 @@ syncOutputs(getParameters());
 window.addEventListener("resize", () => {
   state.graphDirty = true;
 });
-document.addEventListener("visibilitychange", () => {
-  state.lastTime = performance.now();
-  state.accumulator = 0;
-  airflowScene.setCFDPaused(document.hidden);
+activityLoop = createActivityLoop({
+  onFrame: frame,
+  onStateChange(activity, now) {
+    state.lastTime = now;
+    state.accumulator = 0;
+    state.lastMetrics = 0;
+    airflowScene.setCFDPaused(!activity.run);
+    workbench?.activityChanged();
+  }
 });
-requestAnimationFrame(frame);
+activityLoop.start();
 
 let comparisonA = null,
   comparisonB = null;
@@ -1820,7 +1837,8 @@ function applyWorkbenchParameters(values, options = {}) {
   state.batteryActual = null;
   state.powerBudget = null;
   state.forecast = null;
-  if (options.battery) replaceBattery();
+  if (options.resetFlight) resetDynamics();
+  else if (options.battery) replaceBattery();
   if (values.rotors) buildMotorGrid();
   if (values.dronePreset) $('builderPanel').hidden = values.dronePreset !== "custom";
   syncOutputs(getParameters());
@@ -1829,6 +1847,7 @@ function applyWorkbenchParameters(values, options = {}) {
   if (state.model && (values.frameSize || values.dronePreset || values.armLength)) refreshModel();
 }
 workbench = installWorkbench({
+  activityLoop,
   state,
   getParameters,
   applyParameters: applyWorkbenchParameters,
@@ -1836,6 +1855,10 @@ workbench = installWorkbench({
   scenes: [flightScene, airflowScene],
   download,
   graphRenderer,
+  ensureGraph() {
+    renderGraph(getParameters());
+    state.graphDirty = false;
+  },
   graphRangeFor,
   invalidate: invalidateParameters,
   setCG(value) {
@@ -1853,4 +1876,17 @@ workbench = installWorkbench({
   fromGraph(value, id) {
     return fromDisplay(value, parameterUnits[id], unitSystem);
   }
+});
+
+document.addEventListener('keydown', event => {
+  const tab = event.target?.closest?.('[role="tab"]');
+  if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  const tabs = [...document.querySelectorAll('.mode-tab')],
+    i = tabs.indexOf(tab);
+  if (i < 0) return;
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (i + (event.key ===
+    'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  event.preventDefault();
+  setActiveView(tabs[next].dataset.view);
+  tabs[next].focus();
 });

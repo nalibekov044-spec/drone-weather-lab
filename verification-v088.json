@@ -6,10 +6,10 @@
     "maxElectricalBalanceErrorW": 9.094947017729282e-13,
     "maxEscCurrentToLimitRatio": 1.0000000013820436,
     "forecast": {
-      "minutes": 21.506534535858233,
-      "fineStepMinutes": 21.504624316480506,
+      "minutes": 21.50398608130365,
+      "fineStepMinutes": 21.503988128955037,
       "reason": "reserve",
-      "finalSoc": 20
+      "finalSoc": 20.00000000000218
     },
     "cadBoxProjectionM2": {
       "front": 0.06000000327825549,
@@ -19,7 +19,7 @@
     "uniformCFD": {
       "converged": true,
       "massImbalance": 0,
-      "velocityResidual": 1.490116117621425e-8
+      "velocityResidual": 1.4901161176214629e-8
     }
   },
   "limits": [

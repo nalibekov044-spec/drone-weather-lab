@@ -24,10 +24,10 @@ for (const [name,symbols] of Object.entries(imports)) {
 run('gcc',[...flags,'-I',out,path.join(root,'desktop/Launcher.c'),'-o',path.join(out,'launcher.elf')]);
 run('objcopy',['-O','pe-x86-64','--remove-section=.comment',path.join(out,'launcher.elf'),path.join(out,'launcher.obj')]);
 fixCoffRelocations(path.join(out,'launcher.elf'),path.join(out,'launcher.obj'));
-const exe = path.join(out,'Drone-Weather-Lab-0.9-Beta.exe');
+const exe = path.join(out,'Drone-Weather-Lab-0.91-Beta.exe');
 run('ld',['-mi386pep','--entry','LauncherStart','--subsystem','windows','--major-os-version','6','--major-subsystem-version','6','--no-insert-timestamp','-o',exe,path.join(out,'launcher.obj'),...libraries]);
 const bytes = fs.readFileSync(exe), pe = bytes.readUInt32LE(60);
 if (bytes.toString('ascii',0,2) !== 'MZ' || bytes.readUInt32LE(pe) !== 0x4550 || bytes.readUInt16LE(pe+4) !== 0x8664 || bytes.readUInt16LE(pe+24) !== 0x20b) throw new Error('Invalid Windows x64 image');
-const html = fs.readFileSync(path.join(root,'Drone-Weather-Lab-0.9-Beta.html'));
+const html = fs.readFileSync(path.join(root,'Drone-Weather-Lab-0.91-Beta.html'));
 if (bytes.indexOf(html) < 0) throw new Error('Embedded HTML differs from the standalone build');
 console.log(`Windows x64 executable built: ${bytes.length} bytes. PE headers and embedded HTML checked. Windows launch requires a Windows test.`);

@@ -1,4 +1,12 @@
 import {
+  gridIdentity,
+  compareGridResults
+} from "./cfd-diagnostics.js";
+import {
+  inputNumber,
+  validateMissionStages
+} from "./calculation-tools.js";
+import {
   getLanguage
 } from './i18n.js';
 import {
@@ -57,6 +65,7 @@ export function installWorkbench(api) {
   if (!document.body?.insertAdjacentHTML) return null;
   const {
     state,
+    activityLoop,
     getParameters,
     applyParameters,
     setView,
@@ -80,6 +89,7 @@ export function installWorkbench(api) {
     tab.className = 'mode-tab';
     tab.dataset.view = id;
     tab.setAttribute('role', 'tab');
+    tab.tabIndex = -1;
     tab.setAttribute('aria-controls', id + 'View');
     tab.setAttribute('aria-selected', 'false');
     tab.innerHTML = k(name);
@@ -96,8 +106,21 @@ export function installWorkbench(api) {
   document.querySelector('.simulation-actions').insertAdjacentHTML('afterbegin',
     `<label class="unit-control">${k('Theme')}<select id="labTheme"><option value="graphite">Graphite</option><option value="polar">Polar</option><option value="sand">Sand</option><option value="rose">Rose</option></select></label>`
   );
+  document.querySelector('.simulation-actions').insertAdjacentHTML('afterbegin',
+    `<label class="unit-control">${k('Calculation activity')}<select id="activityMode"><option value="visible">${L('Visible tab')}</option><option value="focused">${L('Site has focus')}</option><option value="background">${L('Allow background')}</option></select></label>`
+    );
+  function renderActivity(){
+    const phase=activityLoop.getState();
+    $('activityState').textContent=L(phase.reason==='waiting'||phase.reason==='frozen'?'Waiting for activity':phase.reason==='background'?'Calculating in background':'Calculations active');
+    $('activityState').dataset.phase=phase.reason;
+  }
+  $('activityMode').value = activityLoop.getState().mode;
+  $('activityMode').addEventListener('change', () => activityLoop.setMode($('activityMode').value));
+  document.querySelector('.mode-tabs').insertAdjacentHTML('afterend',
+    `<div class="activity-strip"><output id="activityState" role="status"></output><span>${k('Background work can be throttled or frozen by your browser. Returning does not fast-forward the flight.')}</span></div>`
+    );
   document.querySelector('.release-notice').innerHTML =
-    `<div><span class="version-orbit">09</span><div>${k('A flight starts with a design.')}<small>${k('Shape. Power. Air. One workspace.')}</small></div></div><div class="release-tags">CAD · ENERGY · CFD</div>`;
+    `<div><span class="version-orbit">.91</span><div>${k('Active configuration')}<small>${k('Geometry, power and airflow')}</small></div></div><div class="release-tags">CAD · ENERGY · CFD</div>`;
   document.querySelector('.controls-panel').insertAdjacentHTML('afterbegin',
     `<div class="controls-tools"><input id="controlSearch" type="search" placeholder="${L('Find a parameter')}" aria-label="${L('Find a parameter')}">${button('collapseControls','Collapse panels')}</div>`
   );
@@ -117,6 +140,8 @@ export function installWorkbench(api) {
     try {
       localStorage.setItem('dwl-theme', value);
     } catch {}
+    document.querySelectorAll('[data-tone]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset
+      .tone === value)));
     state.graphDirty = true;
     scenes.forEach(s => {
       s.refreshPalette();
@@ -126,16 +151,30 @@ export function installWorkbench(api) {
   try {
     theme(localStorage.getItem('dwl-theme') || 'graphite');
   } catch {}
+  $('labTheme').insertAdjacentHTML('afterend',
+    `<div class="tone-chips" role="group" aria-label="${L('Theme')}">${['graphite','polar','sand','rose'].map(v=>`<button type="button" data-tone="${v}" aria-pressed="${String(v===document.documentElement.dataset.theme)}" title="${v}" aria-label="${v}"><i></i></button>`).join('')}</div>`
+    );
+  document.querySelectorAll('[data-tone]').forEach(b => b.addEventListener('click', () => theme(b.dataset
+    .tone)));
   $('labTheme').addEventListener('change', e => theme(e.target.value));
+  let searchStates = null;
   $('controlSearch').addEventListener('input', () => {
-    const q = $('controlSearch').value.toLocaleLowerCase();
-    document.querySelectorAll('.control-group').forEach(g => {
-      g.hidden = q && !g.textContent.toLocaleLowerCase().includes(q);
+    const q = $('controlSearch').value.toLocaleLowerCase().trim(),
+      groups = [...document.querySelectorAll('.control-group')];
+    if (q && !searchStates) searchStates = groups.map(g => g.open);
+    groups.forEach((g, i) => {
+      g.hidden = !!q && !g.textContent.toLocaleLowerCase().includes(q);
       if (q && !g.hidden) g.open = true;
+      else if (!q && searchStates) g.open = searchStates[i];
     });
+    if (!q) searchStates = null;
   });
-  $('collapseControls').addEventListener('click', () => document.querySelectorAll('.control-group').forEach(
-    g => g.open = false));
+  $('collapseControls').addEventListener('click', () => {
+    const groups = [...document.querySelectorAll('.control-group')].filter(g => !g.hidden),
+      expand = groups.every(g => !g.open);
+    groups.forEach(g => g.open = expand);
+    $('collapseControls').innerHTML = k(expand ? 'Collapse panels' : 'Expand panels');
+  });
 
   // Battery editing is cell-based; application always installs a fresh pack.
   let packs = read('dwl-packs', []);
@@ -153,12 +192,12 @@ export function installWorkbench(api) {
   const packData = () => ({
     name: $('packName').value,
     chemistry: $('packChem').value,
-    series: +$('packSeries').value,
-    parallel: +$('packParallel').value,
-    cellMah: +$('packMah').value,
-    cellOhm: +$('packR').value / 1000,
-    cellMass: +$('packMass').value / 1000,
-    cRating: +$('packC').value
+    series: inputNumber($('packSeries').value),
+    parallel: inputNumber($('packParallel').value),
+    cellMah: inputNumber($('packMah').value),
+    cellOhm: inputNumber($('packR').value) / 1000,
+    cellMass: inputNumber($('packMass').value) / 1000,
+    cRating: inputNumber($('packC').value)
   });
   const previewPack = () => {
     try {
@@ -187,23 +226,32 @@ export function installWorkbench(api) {
     for (const [id, v] of Object.entries(fields)) $(id).value = v;
     previewPack();
   };
-  const listPacks = () => {
+  const listPacks = (name = ([...packExamples, ...packs][+$('packLibrary').value])?.name) => {
     $('packLibrary').replaceChildren();
+    const draft = document.createElement('option');
+    draft.value = '';
+    draft.textContent = L('Custom draft');
+    $('packLibrary').append(draft);
     [...packExamples, ...packs].forEach((p, i) => {
       const o = document.createElement('option');
       o.value = i;
       o.textContent = p.name;
       $('packLibrary').append(o);
     });
+    const index = [...packExamples, ...packs].findIndex(p => p.name === name);
+    $('packLibrary').value = index >= 0 ? String(index) : '';
   };
   listPacks();
   populatePack(packExamples[0]);
-  $('packLibrary').addEventListener('change', () => populatePack([...packExamples, ...packs][+$('packLibrary')
-    .value
-  ]));
+  $('packLibrary').addEventListener('change', () => {
+    if ($('packLibrary').value !== '') populatePack([...packExamples, ...packs][+$('packLibrary').value]);
+  });
   for (const id of ['packName', 'packChem', 'packSeries', 'packParallel', 'packMah', 'packR', 'packMass',
       'packC'
-    ]) $(id).addEventListener('input', previewPack);
+    ]) $(id).addEventListener('input', () => {
+    $('packLibrary').value = '';
+    previewPack();
+  });
   $('applyPack').addEventListener('click', () => {
     const p = previewPack();
     if (!p) return;
@@ -225,13 +273,13 @@ export function installWorkbench(api) {
     else if (packs.length < 20) packs.push(p);
     else return toast('Library is full');
     if (save('dwl-packs', packs)) {
-      listPacks();
+      listPacks(p.name);
       toast('Saved on this device');
     } else toast('Storage unavailable');
   });
   $('deletePack').addEventListener('click', () => {
-    const i = +$('packLibrary').value - packExamples.length;
-    if (i < 0) return toast('Select a saved profile');
+    const i = inputNumber($('packLibrary').value) - packExamples.length;
+    if (!Number.isInteger(i) || i < 0 || i >= packs.length) return toast('Select a saved profile');
     packs.splice(i, 1);
     save('dwl-packs', packs);
     listPacks();
@@ -253,6 +301,7 @@ export function installWorkbench(api) {
       if (d.format !== 'dwl-battery' || d.version !== 1) throw Error();
       buildPack(d.cell);
       populatePack(d.cell);
+      $('packLibrary').value = '';
       toast('Imported');
     } catch {
       toast('Invalid file');
@@ -285,8 +334,8 @@ export function installWorkbench(api) {
       const c = components[+el.dataset.component],
         f = el.dataset.field;
       if (f === 'name') c.name = el.value;
-      else if (f === 'mass') c.mass = +el.value;
-      else c.position[+f] = +el.value;
+      else if (f === 'mass') c.mass = inputNumber(el.value);
+      else c.position[+f] = inputNumber(el.value);
       ledgerPreview();
     }));
     $('componentRows').querySelectorAll('[data-remove]').forEach(el => el.addEventListener('click', () => {
@@ -385,12 +434,16 @@ export function installWorkbench(api) {
     try {
       const p = getParameters(),
         r = calculate(p),
-        c = calibrateProp(+$('benchThrust').value, +$('benchPower').value, +$('benchRpm').value, p
+        c = calibrateProp(inputNumber($('benchThrust').value), inputNumber($('benchPower').value),
+          inputNumber($('benchRpm').value), p
           .diameter * .0254, r.density);
       $('benchResult').textContent = `Ct ${fmt(c.ct,5)} · Cp ${fmt(c.cp,5)}`;
       if (c.ct < .02 || c.ct > .2 || c.cp < .01 || c.cp > .15) return toast(
         'Coefficients outside supported range');
-      applyParameters(c);
+      applyParameters({
+        ...c,
+        propEfficiency: 100
+      });
       $('calibratedProps').checked = true;
       invalidate();
       toast('Design updated');
@@ -430,7 +483,8 @@ export function installWorkbench(api) {
       ).join('');
     if (!lastMission) $('missionResult').textContent = L('Recalculate after changes');
     $('missionRows').querySelectorAll('input').forEach(e => e.addEventListener('input', () => {
-      stages[+e.dataset.stage][e.dataset.field] = e.dataset.field === 'name' ? e.value : +e.value;
+      stages[+e.dataset.stage][e.dataset.field] = e.dataset.field === 'name' ? e.value : inputNumber(e
+        .value);
       lastMission = null;
       $('missionResult').textContent = L('Recalculate after changes');
     }));
@@ -503,7 +557,7 @@ export function installWorkbench(api) {
     version: 1,
     name: $('projectName').value.trim().slice(0, 60),
     parameters: {
-      ...getParameters()
+      ...Object.fromEntries(Object.entries(getParameters()).filter(([key]) => key !== 'cadAerodynamics'))
     },
     components: components.map(c => ({
       ...c,
@@ -514,7 +568,7 @@ export function installWorkbench(api) {
     }))
   });
 
-  function projectList() {
+  function projectList(selectedName = projects[+$('projectSlots').value]?.name) {
     $('projectSlots').replaceChildren();
     projects.forEach((p, i) => {
       const o = document.createElement('option');
@@ -522,6 +576,8 @@ export function installWorkbench(api) {
       o.textContent = p.name || 'Project';
       $('projectSlots').append(o);
     });
+    const index = projects.findIndex(p => p.name === selectedName);
+    if (index >= 0) $('projectSlots').value = String(index);
   }
   projectList();
 
@@ -533,9 +589,10 @@ export function installWorkbench(api) {
       validateOnly: true
     });
     componentBalance(p.components);
-    missionForecast(p.parameters, p.stages);
+    validateMissionStages(p.stages);
     applyParameters(p.parameters, {
       battery: true,
+      resetFlight: true,
       complete: true
     });
     setCG(Array.isArray(p.parameters.customCG) ? p.parameters.customCG : null);
@@ -554,25 +611,28 @@ export function installWorkbench(api) {
     toast('Project loaded');
   }
   $('saveProject').addEventListener('click', () => {
-    const p = projectData(),
-      i = projects.findIndex(x => x.name === p.name);
+    const p = projectData();
+    if (!p.name) return toast('Enter a name');
+    const i = projects.findIndex(x => x.name === p.name);
     if (i >= 0) projects[i] = p;
     else if (projects.length < 12) projects.push(p);
     else return toast('Library is full');
     if (save('dwl-projects', projects)) {
-      projectList();
+      projectList(p.name);
       toast('Saved on this device');
     } else toast('Storage unavailable');
   });
   $('loadProject').addEventListener('click', () => {
     try {
-      restoreProject(projects[+$('projectSlots').value]);
+      restoreProject(projects[inputNumber($('projectSlots').value)]);
     } catch {
       toast('Invalid file');
     }
   });
   $('deleteProject').addEventListener('click', () => {
-    projects.splice(+$('projectSlots').value, 1);
+    const index = inputNumber($('projectSlots').value);
+    if (!Number.isInteger(index) || index < 0 || index >= projects.length) return;
+    projects.splice(index, 1);
     save('dwl-projects', projects);
     projectList();
   });
@@ -609,7 +669,8 @@ export function installWorkbench(api) {
     ctx.lineWidth = 2;
     ctx.beginPath();
     telemetry.forEach((r, i) => {
-      const x = i / Math.max(1, telemetry.length - 1) * 780 + 10,
+      const x = (r[0] - (telemetry[0]?.[0] || 0)) / Math.max(1, (telemetry.at(-1)?.[0] || 0) - (telemetry[
+          0]?.[0] || 0)) * 780 + 10,
         y = 145 - r[1] * 1.3;
       i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
     });
@@ -643,30 +704,39 @@ export function installWorkbench(api) {
       scene.staticKey = '';
     });
     $(name + 'Full').addEventListener('click', async () => {
-      const panel=$(name+'View');
-      if(panel.classList.contains('focus-scene')) {panel.classList.remove('focus-scene');return;}
+      const panel = $(name + 'View');
+      if (panel.classList.contains('focus-scene')) {
+        panel.classList.remove('focus-scene');
+        return;
+      }
       try {
         if (document.fullscreenElement) await document.exitFullscreen();
-        else {await panel.requestFullscreen();if(!document.fullscreenElement)panel.classList.add('focus-scene');}
+        else {
+          await panel.requestFullscreen();
+          if (!document.fullscreenElement) panel.classList.add('focus-scene');
+        }
       } catch {
         panel.classList.add('focus-scene');
       }
     });
     $(name + 'Image').addEventListener('click', () => {
       scene.captureNextFrame = () => {
-        const source = $(name + 'Canvas'), output = document.createElement('canvas');
-        output.width = source.width; output.height = source.height;
+        const source = $(name + 'Canvas'),
+          output = document.createElement('canvas');
+        output.width = source.width;
+        output.height = source.height;
         const ctx = output.getContext('2d');
-        if (scene.gpu && !scene.gpu.lost) ctx.drawImage(scene.gpu.canvas, 0, 0, output.width, output.height);
+        if (scene.gpu && !scene.gpu.lost) ctx.drawImage(scene.gpu.canvas, 0, 0, output.width, output
+          .height);
         ctx.drawImage(source, 0, 0);
         output.toBlob(blob => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob),
-          a = document.createElement('a');
-        a.href = url;
-        a.download = 'dwl-' + name + '.png';
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+          if (!blob) return;
+          const url = URL.createObjectURL(blob),
+            a = document.createElement('a');
+          a.href = url;
+          a.download = 'dwl-' + name + '.png';
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
         });
       };
     });
@@ -674,7 +744,10 @@ export function installWorkbench(api) {
   $('explodedModel').addEventListener('change', () => {
     scenes[0].exploded = $('explodedModel').checked;
   });
-  document.addEventListener('keydown',event=>{if(event.key==='Escape')document.querySelectorAll('.focus-scene').forEach(panel=>panel.classList.remove('focus-scene'));});
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') document.querySelectorAll('.focus-scene').forEach(panel => panel.classList
+      .remove('focus-scene'));
+  });
 
   // Export the sampled graph in its displayed units, with feasibility preserved.
   $('graphFormula').insertAdjacentHTML('beforebegin',
@@ -691,6 +764,7 @@ export function installWorkbench(api) {
     state.graphDirty = true;
   });
   $('graphBaseline').addEventListener('click', () => {
+    api.ensureGraph();
     graphRenderer.baseline = graphRenderer.layout?.points.map(p => ({
       ...p
     })) || [];
@@ -710,6 +784,7 @@ export function installWorkbench(api) {
     updateGraphTable();
   });
   $('graphCSV').addEventListener('click', () => {
+    api.ensureGraph();
     const rows = graphRenderer.layout?.points || [];
     download('dwl-graph.csv', csvText([
       [$('graphVariable').value + ' (' + api.graphUnit($('graphVariable').value, false) + ')', $(
@@ -719,6 +794,7 @@ export function installWorkbench(api) {
     ]), 'text/csv');
   });
   $('graphCanvas').addEventListener('click', e => {
+    api.ensureGraph();
     const n = graphRenderer.nearest(e.clientX);
     if (!n) return;
     const id = $('graphVariable').value;
@@ -733,8 +809,8 @@ export function installWorkbench(api) {
   });
   $('graphCanvas').addEventListener('wheel', e => {
     e.preventDefault();
-    const a = +$('graphFrom').value,
-      b = +$('graphTo').value,
+    const a = inputNumber($('graphFrom').value),
+      b = inputNumber($('graphTo').value),
       m = (a + b) / 2,
       f = e.deltaY > 0 ? 1.2 : .8;
     $('graphFrom').value = m + (a - m) * f;
@@ -746,7 +822,7 @@ export function installWorkbench(api) {
 
   // Flow controls: auto update can be disabled without discarding a completed field.
   $('airflowCanvas').insertAdjacentHTML('beforebegin',
-    `<div class="lab-actions flow-run"><label><input id="flowAuto" type="checkbox" checked>${k('Auto calculate')}</label>${button('flowRun','Calculate flow')}${button('flowCancel','Cancel calculation')}${button('flowProbeCSV','Export probe grid')}<label>${k('Slice')}<select id="slicePlane"><option value="xz">XZ</option><option value="xy">XY</option><option value="yz">YZ</option></select></label>${number('sliceOffset','Slice offset · m',0,-2,2,.02)}${button('drawSlice','Update slice')}</div><canvas id="sliceCanvas" width="480" height="240" class="slice-canvas" hidden aria-label="Flow speed slice"></canvas><output id="sliceStatus" class="lab-note"></output>`
+    `<div class="lab-actions flow-run"><label><input id="flowAuto" type="checkbox" checked>${k('Auto calculate')}</label>${button('flowRun','Calculate flow')}<label><input id="matchViscosity" type="checkbox" checked>${k('Match numerical viscosity across grids')}</label>${button('flowCancel','Cancel calculation')}${button('flowProbeCSV','Export probe grid')}<label>${k('Slice')}<select id="slicePlane"><option value="xz">XZ</option><option value="xy">XY</option><option value="yz">YZ</option></select></label>${number('sliceOffset','Slice offset · m',0,-2,2,.02)}${button('drawSlice','Update slice')}</div><canvas id="sliceCanvas" width="480" height="240" class="slice-canvas" hidden aria-label="Flow speed slice"></canvas><output id="sliceStatus" class="lab-note"></output>`
   );
   $('flowAuto').addEventListener('change', () => {
     scenes[1].manualCFD = !$('flowAuto').checked;
@@ -768,12 +844,52 @@ export function installWorkbench(api) {
     toast('Calculation cancelled');
   });
 
+  $('matchViscosity').addEventListener('change', () => {
+    scenes[1].cfd.desiredKey = '';
+  });
+  $('sliceStatus').insertAdjacentHTML('afterend',
+    `<details class="grid-study lab-card"><summary>${k('Grid comparison')}</summary><p>${k('Compare forces with the same viscosity and settings. A small residual or a small difference between two grids does not prove accuracy.')}</p><div id="gridResults"></div></details>`
+    );
+  let gridRows = [],
+    gridKey = '';
+
+  function renderGridRows() {
+    const rows = compareGridResults(gridRows);
+    $('gridResults').innerHTML = (rows.some(r=>!r.converged)?`<p class="warning-text">${L('Not converged: force differences also include iteration error.')}</p>`:'')+table(['Grid', 'Cell · mm', 'Viscosity · m²/s', 'Force XYZ · N',
+      'Change · N', 'Convergence'
+    ], rows.map(r => [r.quality, fmt(r.spacingM * 1000, 2), fmt(r.viscosity, 6), r.force.map(v => fmt(v,
+      4)).join(' / '), r.changeN === null ? '—' : fmt(r.changeN, 4), L(r.converged ? 'Converged' :
+      'Not converged')]));
+  }
+
+  function acceptCFD(stats, config) {
+    if (!config) return;
+    const key = gridIdentity(config)+':nu='+Number(stats.numericalViscosity).toPrecision(12);
+    if (gridKey !== key) {
+      gridKey = key;
+      gridRows = [];
+    }
+    const row = {
+      quality: config.quality,
+      spacingM: stats.spacingM,
+      viscosity: stats.numericalViscosity,
+      force: stats.meanSurfaceForce,
+      converged: stats.converged
+    };
+    gridRows = gridRows.filter(r => r.quality !== row.quality);
+    gridRows.push(row);
+    renderGridRows();
+  }
+  let sliceKey = '';
+  const currentSliceKey = () => JSON.stringify([scenes[1].cfd.desiredKey, scenes[1].cfd.fieldKey, $(
+    'slicePlane').value, $('sliceOffset').value]);
+
   function sliceSamples() {
     const f = scenes[1].cfd.field;
     if (!f || scenes[1].cfd.fieldKey !== scenes[1].cfd.desiredKey) throw Error();
     const scale = f.stats.worldScale,
       plane = $('slicePlane').value,
-      offset = +$('sliceOffset').value;
+      offset = inputNumber($('sliceOffset').value);
     if (!Number.isFinite(offset) || Math.abs(offset) > 2) throw Error();
     const points = [];
     for (let y = 0; y < 24; y++)
@@ -798,6 +914,7 @@ export function installWorkbench(api) {
         ctx = c.getContext('2d'),
         max = Math.max(1, ...samples.map(p => p.s?.speed || 0));
       c.hidden = false;
+      sliceKey = currentSliceKey();
       samples.forEach(p => {
         ctx.fillStyle = p.s ? `hsl(${225-225*p.s.speed/max} 78% 53%)` : '#15202a';
         ctx.fillRect(p.x * 10, p.y * 10, 10, 10);
@@ -822,6 +939,23 @@ export function installWorkbench(api) {
   });
 
   function refreshLanguage() {
+    document.querySelector('.tone-chips').setAttribute('aria-label', L('Theme'));
+    $('packLibrary').options[0].textContent = L('Custom draft');
+    for (const o of $('activityMode').options) o.textContent = L({
+      visible: 'Visible tab',
+      focused: 'Site has focus',
+      background: 'Allow background'
+    } [o.value]);
+    document.querySelectorAll('[data-tone]').forEach(b => {
+      const name = L({
+        graphite: 'Graphite',
+        polar: 'Polar',
+        sand: 'Sand',
+        rose: 'Rose'
+      } [b.dataset.tone]);
+      b.title = name;
+      b.setAttribute('aria-label', name);
+    });
     $('controlSearch').setAttribute('aria-label', L('Find a parameter'));
     $('telemetryCanvas').setAttribute('aria-label', L('Battery charge history'));
     $('sliceCanvas').setAttribute('aria-label', L('Flow speed slice'));
@@ -846,10 +980,12 @@ export function installWorkbench(api) {
       }
     document.querySelectorAll('[data-lab-text]').forEach(el => el.textContent = L(el.dataset.labText));
     $('controlSearch').placeholder = L('Find a parameter');
+    renderActivity();
     renderCustom();
     renderMission();
     if ($('envelopeResult').textContent) $('runEnvelope').click();
     $('sliceStatus').textContent = '';
+    renderGridRows();
     $('labToast').hidden = true;
     previewPack();
     projectList();
@@ -859,7 +995,7 @@ export function installWorkbench(api) {
   refreshLanguage();
   let lastUI = -Infinity;
   return {
-    tick(now) {
+    tick(now, render = true) {
       if (state.t < lastSample) {
         telemetry = [];
         lastSample = -Infinity;
@@ -871,19 +1007,28 @@ export function installWorkbench(api) {
         ]);
         if (telemetry.length > 1800) telemetry.shift();
         lastSample = state.t;
-        if (state.activeView === 'history') drawTelemetry();
+        if (render && state.activeView === 'history') drawTelemetry();
+      }
+      if (!render) return;
+      if (!$('sliceCanvas').hidden && sliceKey !== currentSliceKey()) {
+        $('sliceCanvas').hidden = true;
+        $('sliceStatus').textContent = L('Slice is outdated');
       }
       if (now - lastUI > 1000) {
+        $('activityState').textContent = L(activityLoop.getState().reason === 'waiting' ?
+          'Waiting for activity' : activityLoop.getState().reason === 'background' ?
+          'Calculating in background' : 'Calculations active');
         lastUI = now;
         if (lastMission && missionKey !== JSON.stringify(getParameters())) {
           lastMission = null;
           $('missionResult').textContent = L('Recalculate after changes');
         }
-        if (state.activeView === 'history') drawTelemetry();
+        if (render && state.activeView === 'history') drawTelemetry();
         if (state.activeView === 'engineering') renderCustom();
         if (state.activeView === 'graph' && !$('graphTable').hidden) updateGraphTable();
       }
     },
-    refreshLanguage
+    refreshLanguage, activityChanged:renderActivity,
+    acceptCFD
   };
 }

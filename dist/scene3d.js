@@ -1,4 +1,7 @@
 import {
+  matchedViscosity
+} from "./cfd-diagnostics.js";
+import {
   GPUScene
 } from "./gpu-scene.js";
 import {
@@ -673,8 +676,7 @@ export class DroneScene3D {
     this.drawGrid(ctx, basis, colors);
     const driftScale = 0.17;
     const dronePosition = [clamp(state.x * driftScale, -2.3, 2.3), clamp(0.35 + state.z * 0.12, -0.72,
-      1.75), clamp(state.y * driftScale, -2.3, 2.3)
-    ];
+      1.75), clamp(state.y * driftScale, -2.3, 2.3)];
     const tiltMagnitude = Math.atan2(Math.hypot(state.controlX, state.controlY), result.weight);
     const tiltDirection = Math.atan2(state.controlY, state.controlX);
     const pose = {
@@ -719,7 +721,7 @@ export class DroneScene3D {
     ctx.fillStyle = colors.text;
     ctx.fillText(t(
       `Высота ${this.quantity?.(state.z, "m") || `${format(state.z, 1)} м`} · Наклон ${format(result.tilt, 1)}°`
-      ), 18, 24);
+    ), 18, 24);
   }
 
   drawForces(ctx, basis, origin, parameters, result, state, format) {
@@ -737,7 +739,7 @@ export class DroneScene3D {
         .verticalAirForce * scale, result.windForce * Math.sin(angle) * scale
       ], "#69d7ff",
       `${t("Сила ветра")} ${this.quantity(Math.hypot(result.windForce, result.verticalAirForce), "force")}`
-      );
+    );
   }
 
   drawFlightWind(ctx, basis, state, parameters, colors) {
@@ -748,8 +750,7 @@ export class DroneScene3D {
       length: 240
     }, (_, i) => ({
       position: [((i * 0.6180339) % 1) * 6 - 3, ((i * 0.4142136) % 1) * 3 - 0.8, ((i * 0.7320508) %
-        1) * 6 - 3
-      ]
+        1) * 6 - 3]
     }));
     const dt = Math.max(0, Math.min(0.1, state.t - (this.windTime ?? state.t)));
     this.windTime = state.t;
@@ -828,7 +829,7 @@ export class DroneScene3D {
   }
 
   startCFD(request) {
-    if (!this.worker || this.workerBusy || !request) return;
+    if (!this.worker || this.workerBusy || !request || this.runtimePaused) return;
     this.workerBusy = true;
     this.cfd.status = "solving";
     this.cfd.progress = 0.04;
@@ -871,6 +872,7 @@ export class DroneScene3D {
       modelRevision: this.modelRevision,
       meshEnabled: Boolean(this.meshCFD && this.model)
     };
+    if (settings.matchViscosity !== false) config.kinematicViscosity = matchedViscosity(config);
     const key = JSON.stringify(config);
     if (key === this.cfd.desiredKey) return;
     if (this.workerBusy) {
@@ -935,9 +937,11 @@ export class DroneScene3D {
     this.emitCFDStatus();
   }
   setCFDPaused(paused) {
+    this.runtimePaused = paused;
     this.worker?.postMessage({
       type: paused ? "pause" : "resume"
     });
+    if (!paused && this.cfd.status === "queued" && !this.workerBusy) this.startCFD(this.pendingCFD);
   }
 
   renderAirflow(parameters, result, settings, time, format) {

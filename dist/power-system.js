@@ -138,7 +138,7 @@ export function stepBattery(state, p, circuit, wind, density, dt) {
   const activeDt = current > 0 ? Math.min(dt, Math.max(0, state.soc) / 100 * capacity * 3600 / current) : dt;
   const inactiveDt = dt - activeDt;
   const conductance = (0.8 + Math.max(0, wind) * 0.12) * Math.sqrt(Math.max(0.1, density / 1.225));
-  const heatCapacity = Math.max(0.05, p.batteryMass ?? 0.8) * 900;
+  const heatCapacity = Math.max(0.005, p.batteryMass ?? 0.8) * 900;
   const k = conductance / heatCapacity,
     tau = 20,
     rp = circuit.polarizationResistance;
@@ -196,6 +196,40 @@ export function stepESC(temperatures, p, motorPowers, voltage, wind, density, dt
   });
 }
 
+// Midpoint coefficients reduce constant-power integration error as current and resistance change.
+export function dischargeStep(state, p, watts, wind, density, dt, reserve = 0) {
+  if (!Number.isFinite(dt) || dt < 0) throw Error("Invalid battery time step");
+  const propagate = seconds => {
+    const initial = batteryCircuit(p, state, watts);
+    const half = stepBattery(state, p, initial, wind, density, seconds / 2);
+    const midpoint = batteryCircuit(p, half, watts);
+    return stepBattery(state, p, midpoint, wind, density, seconds);
+  };
+  if (state.soc <= reserve) return {
+    state: {
+      ...state
+    },
+    seconds: 0
+  };
+  let next = propagate(dt);
+  if (next.soc < reserve) {
+    let low = 0,
+      high = dt;
+    for (let i = 0; i < 32; i++) {
+      const mid = (low + high) / 2;
+      const trial = propagate(mid);
+      if (trial.soc < reserve) high = mid;
+      else low = mid;
+    }
+    dt = low;
+    next = propagate(dt);
+  }
+  return {
+    state: next,
+    seconds: dt
+  };
+}
+
 // Constant electrical demand; integrates SOC, polarization and cooling until the first limit.
 // This is a forecast of this battery model, not a manufacturer endurance rating.
 export function forecastBattery(p, start, watts, wind = 0, density = 1.225, options = {}) {
@@ -224,8 +258,13 @@ export function forecastBattery(p, start, watts, wind = 0, density = 1.225, opti
     const toReserve = finalCircuit.current > 0 ? (state.soc - reserve) / 100 * finalCircuit.capacityAh *
       3600 / finalCircuit.current : Infinity;
     const step = Math.min(dt, maximumSeconds - seconds, toReserve);
-    state = stepBattery(state, p, finalCircuit, wind, density, step);
-    seconds += step;
+    const advanced = dischargeStep(state, p, watts, wind, density, step, reserve);
+    state = advanced.state;
+    seconds += advanced.seconds;
+    if (advanced.seconds < 1e-8) {
+      reason = "reserve";
+      break;
+    }
   }
   if (state.soc <= reserve + 1e-9) reason = "reserve";
   finalCircuit = batteryCircuit(p, state, watts);
@@ -249,7 +288,7 @@ export function powerBudget(circuit, motorInputs, efficiencies, escEfficiency, a
   const avionics = Math.min(Math.max(0, avionicsDemand), delivered);
   const requestedMotorBus = motorInputs.reduce((sum, v) => sum + Math.max(0, v), 0) / eta;
   const scale = requestedMotorBus > 0 ? Math.min(1, Math.max(0, delivered - avionics) / requestedMotorBus) :
-  0;
+    0;
   const motors = motorInputs.reduce((sum, v) => sum + Math.max(0, v) * scale, 0);
   const shaft = motorInputs.reduce((sum, v, i) => sum + Math.max(0, v) * scale * clamp(efficiencies[i] ?? 1,
     0, 1), 0);

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.91 Beta
+
+- Three calculation modes: visible tab, focus only and background allowed. Coming back does not fast forward the flight.
+- The battery forecast uses midpoint coefficients. Small packs, blade tip speed, rotor torque and manual pressure in missions were fixed.
+- CFD uses the same physical bounds on every grid, with an optional shared base viscosity. The force table marks results that have not settled.
+- Four tone buttons and 21 smaller fixes, listed in docs/CHANGES-0.91.md.
+
 ## 0.9 Beta
 
 A new workspace with four themes. The interface now has Spanish next to Russian and English.

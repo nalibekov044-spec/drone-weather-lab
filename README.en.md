@@ -1,45 +1,37 @@
-# Drone Weather Lab 0.9 Beta
+# Drone Weather Lab 0.91 Beta
 
 [Русский](README.md) · [Español](README.es.md)
 
-The simulator shows how wind, altitude, propellers and the battery affect a multicopter. Most of the workspace was rebuilt in 0.9.
+The simulator shows how wind, altitude, propellers and the battery affect a multicopter. Version 0.91 adds control over background calculations. It also refines the battery, propellers and CFD, and brings 21 smaller fixes.
 
 ## Run it
 
-Unzip the archive and open **Drone-Weather-Lab-0.9-Beta.html**. On Windows you can also open `Start.cmd`. Nothing needs to be installed, and it works offline.
+Unzip the archive and open **Drone-Weather-Lab-0.91-Beta.html**, or `Start.cmd` on Windows. Nothing needs to be installed. If your browser blocks workers in a local file, run `python scripts/start.py`. The `dist/` folder is ready for static hosting. No EXE is included.
 
-If your browser blocks workers in a local file, run `python scripts/start.py`. The `dist/` folder is ready for static hosting. With GitHub Pages turned on, the site rebuilds by itself. No EXE is included.
+## Calculation modes
 
-## What is new
+The top bar has three modes. Visible tab runs calculations only while the tab is on screen. Focus only also pauses when you switch to another window. Background allowed keeps the flight and a running CFD going without drawing. The browser may still slow down or freeze a hidden tab, and a closed tab calculates nothing.
 
-- **Workspace.** A new layout and four themes. Spanish joins Russian and English.
-- **My drone.** A separate calculation for your own design. A component table gives total mass and centre of gravity.
-- **Batteries.** Build a pack from cells in series (S) and parallel (P). LiPo, Li-ion, LiHV and LiFePO4 are available. Your own packs can be saved.
-- **Graphs.** Fix a reference curve and compare. See the data as a table or export it to CSV.
-- **Airflow.** Flow slices and a manual CFD start. An outdated field is marked.
-- **3D.** A redrawn body and an exploded view.
-- **New tabs.** Mission plan, flight log, projects, wind scenarios and Ct/Cp fitting from bench data.
+When you come back, the flight does not jump ahead. A manual pause stays paused.
 
-The full list of 10 large, 5 medium and 20 small changes is in `docs/FEATURES-0.9.md`.
+## Calculations
 
-## Controls
+- The battery forecast recalculates its coefficients in the middle of each step.
+- The thermal model was checked with packs as small as 5 g.
+- Tip speed and rotor reaction torque were corrected.
+- The mission plan keeps manual pressure and checks every stage first.
+- CFD on different grids now uses the same physical bounds. An optional shared base viscosity is available. The force table shows whether each result has settled.
 
-Space pauses. Keys 1 to 8 open the eight tabs. R restarts the flight and keeps the battery and motors. Shift + R resets the main settings and CAD. F repairs the motors and B replaces the battery. E saves a report, S saves settings. V shows forces, O resets the camera and H opens help. Shortcuts do nothing while you type.
+## Interface
 
-## Batteries
+Four tone buttons sit next to the theme picker. Contrast, panels, search and tabs were improved. All 21 fixes are listed in `docs/CHANGES-0.91.md`, each with the problem, the code and how it was checked.
 
-```
-Qpack = Np · Qcell
-Rpack = Ns · Rcell / Np
-mpack = Ns · Np · mcell
-```
-
-Installing a pack does not change the drone mass, so update it in the component table. Count the battery only once. Example cells are illustrative, not real products.
+Everything from 0.9 is still there.
 
 ## Limits
 
-This is a teaching model. CFD uses a coarse grid and raised viscosity, and its core did not change in 0.9. The model has not been checked against a real drone. The mission plan ignores climb energy and acceleration. CAD gives size and an optional silhouette area, not mass or Cd.
+The model has not been checked against a real drone. CFD uses a coarse grid and raised viscosity. The mission plan ignores climb energy and acceleration. Battery curves and thermal values are illustrative.
 
 ## Checks
 
-Commands and results are in `docs/VERIFICATION-0.9.md`. All checks pass. That does not prove there are no bugs. Rebuild with `node scripts/build-standalone.mjs` (Node 24).
+Commands and results are in `docs/VERIFICATION-0.91.md`. All checks pass. That does not prove there are no bugs. Rebuild with `node scripts/build-standalone.mjs` (Node 24).

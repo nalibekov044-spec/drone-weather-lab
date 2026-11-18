@@ -3,7 +3,7 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const output = path.join(root, 'artifacts');
 fs.mkdirSync(output, {recursive:true});
-const payload = fs.readFileSync(path.join(root, 'Drone-Weather-Lab-0.9-Beta.html'));
+const payload = fs.readFileSync(path.join(root, 'Drone-Weather-Lab-0.91-Beta.html'));
 const lines = [];
 for (let i = 0; i < payload.length; i += 24) lines.push(Array.from(payload.subarray(i,i+24)).join(','));
 fs.writeFileSync(path.join(output, 'simulator-data.h'), 'static const unsigned char simulatorData[] = {\n'+lines.join(',\n')+'\n};\n');

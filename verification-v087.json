@@ -19,6 +19,6 @@
   },
   "limits": [
     "Battery curves and thermal constants are illustrative, not cell-specific validation.",
-    "CFD solver and grid limits are unchanged from 0.85 Beta."
+    "This battery suite does not establish CFD accuracy."
   ]
 }

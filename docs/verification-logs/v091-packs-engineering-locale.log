@@ -1,0 +1,25 @@
+{
+  "version": "0.91.0-beta",
+  "packConfigurations": 60,
+  "electricalCases": 720,
+  "maxElectricalErrorW": 2.2737367544323206e-13,
+  "spanishEntries": 581,
+  "parsedModules": 28,
+  "missionSplitEnergyErrorWh": 0,
+  "checks": [
+    "pack S/P scaling and four voltage curves",
+    "component CG and point-mass inertia",
+    "CG moments in flight model",
+    "propeller coefficient round trip",
+    "sequential mission continuity and reserve",
+    "CSV escaping and formula-neutral text",
+    "English/Spanish dictionary and static HTML coverage",
+    "display-only housing explosion preserves physical geometry"
+  ],
+  "limits": [
+    "See 0.91 tests for CFD grid/domain/continuation changes; no real-drone experimental validation",
+    "Battery curves and thermal coefficients are illustrative",
+    "Mission uses steady horizontal headwind segments; no climb energy or acceleration",
+    "UI browser checks are documented separately"
+  ]
+}

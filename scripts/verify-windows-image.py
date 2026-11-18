@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parent.parent
-exe = root / 'artifacts/Drone-Weather-Lab-0.9-Beta.exe'
+exe = root / 'artifacts/Drone-Weather-Lab-0.91-Beta.exe'
 data = exe.read_bytes()
 pe = struct.unpack_from('<I', data, 60)[0]
 assert data[:2] == b'MZ' and data[pe:pe+4] == b'PE\0\0'
@@ -59,11 +59,11 @@ while ctypes.c_uint32.from_address(at+12).value:
         imports.append(library+':'+name)
         index += 1
     at += 20
-html = (root/'Drone-Weather-Lab-0.9-Beta.html').read_bytes()
+html = (root/'Drone-Weather-Lab-0.91-Beta.html').read_bytes()
 with tempfile.TemporaryDirectory(prefix='drone-launcher-') as folder:
     os.environ['DRONE_LAUNCHER_TEST_DIR'] = folder
     assert shim.invokeLauncher(base+entry,1,0) == 0
-    extracted = Path(folder)/'DroneWeatherLab-0.9-Beta/Drone-Weather-Lab-0.9-Beta.html'
+    extracted = Path(folder)/'DroneWeatherLab-0.91-Beta/Drone-Weather-Lab-0.91-Beta.html'
     assert extracted.read_bytes() == html
     assert shim.launchCount() == 0
     assert shim.invokeLauncher(base+entry,0,0) == 0

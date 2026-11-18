@@ -310,9 +310,10 @@ CFD потерял устойчивость на последнем шаге. В
 с⁻¹|s⁻¹
 с|s
 `;
-export const dictionary = { "Мой дрон · Батареи · План · Журнал":"My drone · Batteries · Mission · Log", "Расчёт отменён":"Calculation cancelled", "Поле устарело":"Field is outdated", "Нажми «Рассчитать поток» для текущих настроек.":"Select Calculate flow for the current settings.", "0.9 · Конструктор полёта":"0.9 · Design your flight", "Заряд батареи":"Battery charge", ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations, ...v089Translations };
+export const dictionary = {"0.91 · Проверка конфигурации":"0.91 · Configuration checks",
+"Численная вязкость":"Numerical viscosity","Сравнивай сетки при одной вязкости.":"Compare grids at the same viscosity.","Быстрое · 15 тыс.":"Fast · 15k cells","Среднее · 34 тыс.":"Balanced · 34k cells","Детальнее · 65 тыс.":"Fine · 65k cells", "Мой дрон · Батареи · План · Журнал":"My drone · Batteries · Mission · Log", "Расчёт отменён":"Calculation cancelled", "Поле устарело":"Field is outdated", "Нажми «Рассчитать поток» для текущих настроек.":"Select Calculate flow for the current settings.", "0.9 · Конструктор полёта":"0.9 · Design your flight", "Заряд батареи":"Battery charge", ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations, ...v089Translations };
 let language = 'ru';
-try { language = localStorage.getItem('drone-lab-language') || (typeof navigator !== 'undefined' && !navigator.language.startsWith('ru') ? 'en' : 'ru'); } catch {}
+try { const stored=localStorage.getItem('drone-lab-language'),browser=typeof navigator!=='undefined'?navigator.language:'ru';language=['ru','en','es'].includes(stored)?stored:browser.startsWith('es')?'es':browser.startsWith('ru')?'ru':'en'; } catch {}
 const cache = new Map();
 let matcher;
 export function rebuildDictionary() {

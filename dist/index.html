@@ -11,13 +11,13 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.9 Beta</span></p>
+        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.91 Beta</span></p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
         <label class="unit-control">Язык<select id="language"><option value="ru">Русский</option><option value="en">English</option><option value="es">Español</option></select></label>
         <label class="unit-control">Единицы<select id="unitSystem"><option value="metric">Метрические</option><option value="imperial">Имперские</option></select></label>
-        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.9-Beta.html" download>Скачать для запуска без установки</a>
+        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.91-Beta.html" download>Скачать для запуска без установки</a>
         <button id="showShortcuts" class="button" type="button" aria-expanded="false" aria-controls="shortcutHelp">Клавиши <kbd>?</kbd></button>
         <button id="toggleSimulation" class="button button-primary" type="button">Пауза</button>
         <button id="resetSimulation" class="button" type="button">Сбросить</button>
@@ -30,7 +30,7 @@
       <p>Клавиши работают в русской и английской раскладке вне полей ввода. G и C тоже переключают графики и обтекание. R сохраняет батарею и моторы; Shift + R сбрасывает все настройки и CAD.</p>
     </section>
 
-    <div class="release-notice">0.9 · Конструктор полёта</div>
+    <div class="release-notice">0.91 · Проверка конфигурации</div>
     <nav class="mode-tabs" aria-label="Режим визуализации" role="tablist">
       <button class="mode-tab active" id="flightTab" type="button" role="tab" aria-selected="true" aria-controls="flightView" data-view="flight">Полёт</button>
       <button class="mode-tab" id="graphTab" type="button" role="tab" aria-selected="false" aria-controls="graphView" data-view="graph">Графики</button>
@@ -258,7 +258,7 @@
         <details class="control-group" open>
           <summary><span>07</span><strong>CFD и визуализация</strong></summary>
           <div class="control-body">
-            <label class="control" for="cfdQuality"><span>Качество сетки</span><select id="cfdQuality"><option value="fast">Быстрое · 13 тыс.</option><option value="balanced" selected>Среднее · 31 тыс.</option><option value="fine">Детальнее · 61 тыс.</option></select></label>
+            <label class="control" for="cfdQuality"><span>Качество сетки</span><select id="cfdQuality"><option value="fast">Быстрое · 15 тыс.</option><option value="balanced" selected>Среднее · 34 тыс.</option><option value="fine">Детальнее · 65 тыс.</option></select></label>
             <label class="control" for="renderQuality"><span>Производительность</span><select id="renderQuality"><option value="auto">Авто · 30–60 FPS</option><option value="eco">Экономный · 30 FPS</option><option value="high">Полное · 60 FPS</option></select></label>
             <label class="control" for="flowColor"><span>Окраска потока</span><select id="flowColor"><option value="speed">Скорость</option><option value="pressure">Давление</option><option value="vorticity">Завихрение</option></select></label>
             <label class="control wide" for="flowObstacle"><span>Дополнительный объект</span><select id="flowObstacle"><option value="none">Нет</option><option value="sphere">Сфера справа</option><option value="wall">Вертикальная стенка</option><option value="payload">Груз под корпусом</option></select></label>
