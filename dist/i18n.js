@@ -1,3 +1,4 @@
+import { v089Translations } from "./i18n-v089.js";
 import { v088Translations } from "./i18n-v088.js";
 import { releaseTranslations } from "./i18n-v087.js";
 import { additionalTranslations } from "./i18n-extra.js";
@@ -308,7 +309,7 @@ CFD потерял устойчивость на последнем шаге. В
 с⁻¹|s⁻¹
 с|s
 `;
-export const dictionary = { ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations };
+export const dictionary = { ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations, ...v089Translations };
 let language = 'ru';
 try { language = localStorage.getItem('drone-lab-language') || (typeof navigator !== 'undefined' && !navigator.language.startsWith('ru') ? 'en' : 'ru'); } catch {}
 const cache = new Map();

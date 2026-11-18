@@ -36,9 +36,19 @@ export function validateExact(text, min, max, kind, system) {
   return { value, valid: Number.isFinite(value) && value >= min - tolerance && value <= max + tolerance };
 }
 export const graphKinds = { availableThrust: "force", windForce: "force", maxWind: "speed", diskLoading: "pressure" };
+export const shortcutBindings = {
+  Space: "pause", Digit1: "flight", Digit2: "graph", Digit3: "airflow", Digit4: "compare",
+  KeyF: "repair", KeyR: "reset", KeyG: "graph", KeyC: "airflow", KeyH: "help",
+  KeyB: "battery", KeyE: "report", KeyS: "save", KeyV: "vectors", KeyO: "camera"
+};
 export function shortcutAction(event) {
-  if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return null;
-  if (event.target?.closest?.("input, textarea, select, button, summary, [contenteditable]")) return null;
-  return ({ " ": "pause", f: "repair", r: "reset", g: "graph", c: "airflow", "1": "flight", "?": "help" })[event.key.toLowerCase()]
-    || ({ KeyF: "repair", KeyR: "reset", KeyG: "graph", KeyC: "airflow", Digit1: "flight" })[event.code] || null;
+  if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return null;
+  const target = event.target;
+  if (target?.isContentEditable || target?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="textbox"], [role="slider"], [role="combobox"]')) return null;
+  const key = String(event.key || "").toLowerCase();
+  if (key === "escape") return "closeHelp";
+  if (target?.closest?.('button, summary, a[href], [role="button"]')) return null;
+  if (key === "?" || (event.code === "Slash" && event.shiftKey)) return "help";
+  if (event.shiftKey) return event.code === "KeyR" || key === "r" ? "resetAll" : null;
+  return shortcutBindings[event.code] || ({ " ": "pause", "1": "flight", "2": "graph", "3": "airflow", "4": "compare", f: "repair", r: "reset", g: "graph", c: "airflow", h: "help", b: "battery", e: "report", s: "save", v: "vectors", o: "camera" })[key] || null;
 }

@@ -10,7 +10,7 @@ export function batterySeries(p) {
 }
 
 export function initialBattery(p) {
-  return { soc: p.stateOfCharge, temperature: p.batteryTemp, polarization: 0, usedAh: 0, outputWh: 0, heatWh: 0 };
+  return { soc: p.stateOfCharge, temperature: p.batteryTemp, polarization: 0, usedAh: 0, outputWh: 0, heatWh: 0, sourceWh: 0 };
 }
 
 export function openCircuitCellVoltage(soc, chemistry = "lipo") {
@@ -47,27 +47,50 @@ export function batteryCircuit(p, state = initialBattery(p), requestedPower = 0)
   return {
     openVoltage, sourceVoltage, terminalVoltage, current, currentLimit, currentRating, maximumPower, deliveredPower,
     requestedPower, resistance, polarizationResistance, cutoffVoltage, capacityAh, heat,
+    ohmicHeat: current * current * resistance, polarizationHeat: polarizationResistance > 0 ? polarization * polarization / polarizationResistance : 0,
     cells: seriesScale, nominalVoltage: seriesScale * chemistry.nominal, voltageSag: openVoltage - terminalVoltage,
     feasible: requestedPower <= maximumPower + 1e-6 && state.soc > 0 && terminalVoltage >= cutoffVoltage - 1e-6,
     controllerPowered: state.soc > 0 && maximumPower >= (p.avionicsPower ?? 18) && terminalVoltage >= (p.controllerCutoff ?? 6)
   };
 }
 
+// Exact RC and thermal integration for frozen current, OCV and resistance during a step.
+// Flight uses 1/60 s; forecasts compare smaller steps to bound this approximation.
 export function stepBattery(state, p, circuit, wind, density, dt) {
-  if (dt <= 0) return { ...state };
-  const activeDt = circuit.current > 0 ? Math.min(dt, Math.max(0, state.soc) / 100 * circuit.capacityAh * 3600 / circuit.current) : dt;
+  if (!Number.isFinite(dt) || dt < 0) throw new Error("Invalid battery time step");
+  if (dt === 0) return { ...state };
+  const capacity = Math.max(1e-9, circuit.capacityAh);
+  const current = Math.max(0, circuit.current);
+  const activeDt = current > 0 ? Math.min(dt, Math.max(0, state.soc) / 100 * capacity * 3600 / current) : dt;
   const inactiveDt = dt - activeDt;
-  const polarization = (circuit.current * circuit.polarizationResistance + (state.polarization - circuit.current * circuit.polarizationResistance) * Math.exp(-activeDt / 20)) * Math.exp(-inactiveDt / 20);
   const conductance = (0.8 + Math.max(0, wind) * 0.12) * Math.sqrt(Math.max(0.1, density / 1.225));
   const heatCapacity = Math.max(0.05, p.batteryMass ?? 0.8) * 900;
-  const equilibrium = p.temperature + circuit.heat / conductance;
-  const activeTemperature = equilibrium + (state.temperature - equilibrium) * Math.exp(-activeDt * conductance / heatCapacity);
-  const temperature = p.temperature + (activeTemperature - p.temperature) * Math.exp(-inactiveDt * conductance / heatCapacity);
-  const usedAh = Math.min(Math.max(0, state.soc) / 100 * circuit.capacityAh, circuit.current * dt / 3600);
+  const k = conductance / heatCapacity, tau = 20, rp = circuit.polarizationResistance;
+  let polarization = Math.max(0, state.polarization || 0), temperature = state.temperature;
+  let heatJ = 0, outputJ = 0;
+  const exactLosses = Number.isFinite(circuit.ohmicHeat);
+  const integrate = (seconds, amps) => {
+    if (seconds <= 0) return;
+    const decay = Math.exp(-seconds / tau), target = amps * rp, transient = polarization - target;
+    const integral = rate => -Math.expm1(-rate * seconds) / rate;
+    const convolution = rate => Math.abs(k - rate) < 1e-12 ? seconds * Math.exp(-k * seconds) : (Math.exp(-rate * seconds) - Math.exp(-k * seconds)) / (k - rate);
+    const h0 = exactLosses ? amps * amps * (circuit.resistance + rp) : amps > 0 || current === 0 ? circuit.heat : 0;
+    const h1 = exactLosses && rp > 0 ? 2 * amps * transient : 0;
+    const h2 = exactLosses && rp > 0 ? transient * transient / rp : 0;
+    temperature = p.temperature + (temperature - p.temperature) * Math.exp(-k * seconds)
+      + (h0 * convolution(0) + h1 * convolution(1 / tau) + h2 * convolution(2 / tau)) / heatCapacity;
+    heatJ += h0 * seconds + h1 * integral(1 / tau) + h2 * integral(2 / tau);
+    if (exactLosses) outputJ += amps * ((circuit.openVoltage - amps * circuit.resistance - target) * seconds - transient * integral(1 / tau));
+    else if (amps > 0) outputJ += circuit.deliveredPower * seconds;
+    polarization = exactLosses && rp === 0 ? 0 : target + transient * decay;
+  };
+  integrate(activeDt, current); integrate(inactiveDt, 0);
+  const usedAh = Math.min(Math.max(0, state.soc) / 100 * capacity, current * activeDt / 3600);
   return {
-    soc: Math.max(0, state.soc - usedAh / circuit.capacityAh * 100), temperature, polarization,
-    usedAh: (state.usedAh || 0) + usedAh, outputWh: (state.outputWh || 0) + circuit.deliveredPower * activeDt / 3600,
-    heatWh: (state.heatWh || 0) + circuit.heat * activeDt / 3600
+    soc: Math.max(0, state.soc - usedAh / capacity * 100), temperature, polarization,
+    usedAh: (state.usedAh || 0) + usedAh, outputWh: (state.outputWh || 0) + Math.max(0, outputJ) / 3600,
+    heatWh: (state.heatWh || 0) + Math.max(0, heatJ) / 3600,
+    sourceWh: (state.sourceWh || 0) + (Number.isFinite(circuit.openVoltage) ? current * circuit.openVoltage * activeDt / 3600 : outputJ / 3600 + heatJ / 3600)
   };
 }
 
@@ -91,7 +114,7 @@ export function forecastBattery(p, start, watts, wind = 0, density = 1.225, opti
   let state = { ...start }, seconds = 0;
   const reserve = clamp(p.reserveCharge ?? 15, 0, 100);
   const dt = options.dt ?? 2, maximumSeconds = options.maximumSeconds ?? 21600;
-  if (!(dt > 0 && maximumSeconds >= 0 && Number.isFinite(watts) && watts >= 0)) throw new Error("Invalid battery forecast parameters");
+  if (!(Number.isFinite(dt) && Number.isFinite(maximumSeconds) && dt > 0 && maximumSeconds >= 0 && Number.isFinite(watts) && watts >= 0)) throw new Error("Invalid battery forecast parameters");
   let reason = "time-limit", finalCircuit = batteryCircuit(p, state, watts);
   while (seconds < maximumSeconds) {
     finalCircuit = batteryCircuit(p, state, watts);
@@ -106,5 +129,22 @@ export function forecastBattery(p, start, watts, wind = 0, density = 1.225, opti
     seconds += step;
   }
   if (state.soc <= reserve + 1e-9) reason = "reserve";
-  return { seconds, minutes: seconds / 60, reason, finalSoc: state.soc, finalTemperature: state.temperature, deliveredWh: state.outputWh - (start.outputWh || 0), circuit: finalCircuit };
+  finalCircuit = batteryCircuit(p, state, watts);
+  return { seconds, minutes: seconds / 60, reason, finalState: { ...state }, finalSoc: state.soc, finalTemperature: state.temperature, deliveredWh: state.outputWh - (start.outputWh || 0), circuit: finalCircuit };
+}
+
+export function powerBudget(circuit, motorInputs, efficiencies, escEfficiency, avionicsDemand) {
+  const eta = clamp(escEfficiency, 0.5, 1), delivered = circuit.deliveredPower;
+  const avionics = Math.min(Math.max(0, avionicsDemand), delivered);
+  const requestedMotorBus = motorInputs.reduce((sum,v)=>sum+Math.max(0,v),0)/eta;
+  const scale = requestedMotorBus > 0 ? Math.min(1, Math.max(0, delivered-avionics)/requestedMotorBus) : 0;
+  const motors = motorInputs.reduce((sum,v)=>sum+Math.max(0,v)*scale,0);
+  const shaft = motorInputs.reduce((sum,v,i)=>sum+Math.max(0,v)*scale*clamp(efficiencies[i]??1,0,1),0);
+  const esc = motors*(1/eta-1), motorHeat=motors-shaft;
+  const chemical = circuit.current*circuit.openVoltage;
+  const polarizationPower = circuit.current*(circuit.openVoltage-circuit.sourceVoltage);
+  const rcStorage = polarizationPower-(circuit.polarizationHeat||0);
+  const unassigned = Math.max(0,delivered-avionics-motors/eta);
+  return { chemical, delivered, shaft, motorHeat, esc, avionics, batteryHeat:circuit.heat, rcStorage, unassigned,
+    balanceError:chemical-shaft-motorHeat-esc-avionics-circuit.heat-rcStorage-unassigned };
 }

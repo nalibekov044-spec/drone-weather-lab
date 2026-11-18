@@ -1,5 +1,5 @@
-import { batteryCircuit, initialBattery, escAvailability } from "./power-system.js";
-import { builderDefaults, designGeometry } from "./drone-builder.js";
+import { batteryCircuit, initialBattery, escAvailability, batterySeries } from "./power-system.js";
+import { builderDefaults, designGeometry, geometryFor } from "./drone-builder.js";
 export const G = 9.80665;
 export const INCH = 0.0254;
 
@@ -74,7 +74,7 @@ export const graphVariables = {
 export const graphMetrics = {
   reserve: { label: "Запас тяги", unit: "%", formula: "R = (Tдоступ / Tтреб − 1) · 100%" },
   tilt: { label: "Наклон", unit: "°", formula: "θ = atan(Fветра / Fверт)" },
-  flightMinutes: { label: "Время полёта", unit: "мин", formula: "t = Eисп / Pэл" },
+  flightMinutes: { label: "Время полёта", unit: "мин", formula: "t ≈ 60 · Qдо резерва / Iначальный" },
   electricalPower: { label: "Мощность", unit: "Вт", formula: "Pэл = ΣCₚρn³D⁵ / η + Pавионики" },
   powerLoad: { label: "Загрузка моторов", unit: "%", formula: "L = max(Pполёт, Pкоманда) / Pдоступ · 100%" },
   rpmPowerLimit: { label: "Доступный RPM", unit: "об/мин", formula: "nmax = 60 · ∛(Pвал / CₚρD⁵)" },
@@ -113,12 +113,6 @@ function icingEfficiency(icing) {
   return 1;
 }
 
-function batteryTemperatureFactor(tempC) {
-  if (tempC < 20) return clamp(1 - (20 - tempC) * 0.006, 0.55, 1);
-  if (tempC > 40) return clamp(1 - (tempC - 40) * 0.003, 0.84, 1);
-  return 1;
-}
-
 export function rotorPositions(count, radius = 1) {
   return Array.from({ length: count }, (_, index) => {
     const angle = index * Math.PI * 2 / count + (count === 4 ? Math.PI / 4 : 0);
@@ -145,10 +139,10 @@ export function calculate(parameters, options = {}) {
   const p = { ...baseDefaults, ...parameters };
   if (p.temperatureMode === "standard") p.temperature = 15 - 0.0065 * p.altitude;
   const batteryState = options.batteryState || initialBattery(p);
-  const supply = batteryCircuit(p, batteryState);
+  const supply = batteryCircuit({ ...p, cellCutoff: Math.max(p.cellCutoff, p.controllerCutoff / batterySeries(p)) }, batteryState);
   const escEfficiency = clamp(p.escEfficiency / 100, 0.5, 1);
   const avionicsPower = p.avionicsPower + p.rainRate * 0.45;
-  const design = p.dronePreset === "custom" ? designGeometry(p) : null;
+  const design = p.dronePreset === "custom" ? geometryFor(p) : null;
   if (design) p.frameSize = design.frameSize;
   const atmosphereResult = atmosphere(p);
   const rho = atmosphereResult.density;
@@ -211,7 +205,8 @@ export function calculate(parameters, options = {}) {
   const verticalArea = areas.top;
   const areaAtTilt = radians => areas.imported ? areas.frontal * Math.abs(Math.cos(radians)) + areas.top * Math.abs(Math.sin(radians)) : p.dragArea * (1 + 0.55 * Math.sin(radians));
   const verticalAirForce = 0.5 * rho * effectiveCd * verticalArea * verticalWind * Math.abs(verticalWind);
-  const requiredVertical = Math.max(weight * 0.2, weight - verticalAirForce);
+  const verticalDemand = weight - verticalAirForce;
+  const requiredVertical = Math.max(0, verticalDemand);
   let projectedArea = areas.frontal;
   let windForce = 0;
   let tilt = 0;
@@ -225,8 +220,8 @@ export function calculate(parameters, options = {}) {
   windForce = 0.5 * rho * effectiveCd * projectedArea * windSpeed ** 2;
   const requiredThrust = Math.hypot(requiredVertical, windForce);
   tilt = Math.atan2(windForce, requiredVertical) * 180 / Math.PI;
-  const reserve = (availableThrust / requiredThrust - 1) * 100;
-  const hardwareReserve = (hardwareMaxThrust / requiredThrust - 1) * 100;
+  const reserve = (availableThrust / Math.max(1e-9, requiredThrust) - 1) * 100;
+  const hardwareReserve = (hardwareMaxThrust / Math.max(1e-9, requiredThrust) - 1) * 100;
   const tiltLimitedHorizontal = requiredVertical * Math.tan((p.maxTilt ?? 35) * Math.PI / 180);
   const thrustLimitedHorizontal = Math.sqrt(Math.max(0, availableThrust ** 2 - requiredVertical ** 2));
   const horizontalAuthority = Math.min(tiltLimitedHorizontal, thrustLimitedHorizontal);
@@ -248,7 +243,7 @@ export function calculate(parameters, options = {}) {
     const mechanicalLoad = (Math.max(0, commandedRpms[index]) / Math.max(1, p.maxRpm)) ** 3 * 100;
     return Math.min(5000, Math.max(electricalLoad, mechanicalLoad));
   });
-  const batteryFactor = batteryTemperatureFactor(batteryState.temperature);
+  const batteryFactor = 1; // Temperature affects resistance and voltage, not a second hidden capacity multiplier.
   const battery = batteryCircuit(p, batteryState, electricalPower);
   const usableChargeAh = battery.capacityAh * Math.max(0, batteryState.soc - p.reserveCharge) / 100;
   const usableEnergyWh = battery.nominalVoltage * usableChargeAh * batteryFactor;
@@ -263,7 +258,7 @@ export function calculate(parameters, options = {}) {
   const thrustFeasible = availableThrust >= requiredThrust;
   const powerFeasible = rpmPowerLimits.every(limit => hoverRpm <= Math.min(p.maxRpm, limit) + 1e-6)
     && motorLoadPercents.every(load => load <= 100 + 1e-6);
-  const feasible = thrustFeasible && tiltFeasible && powerFeasible && batteryFeasible && battery.controllerPowered;
+  const feasible = verticalDemand >= 0 && thrustFeasible && tiltFeasible && powerFeasible && batteryFeasible && battery.controllerPowered;
   const flightMinutes = feasible ? usableChargeAh * batteryFactor / Math.max(0.001, current) * 60 : 0;
   const supportedVerticalThrust = Math.min(requiredVertical, availableThrust);
   const downwashSpeed = Math.sqrt(Math.max(0, supportedVerticalThrust) / Math.max(0.001, 2 * rho * diskArea));
@@ -315,6 +310,7 @@ export function calculate(parameters, options = {}) {
     windForce,
     verticalAirForce,
     requiredVertical,
+    verticalDemand,
     requiredThrust,
     tilt,
     reserve,
@@ -361,6 +357,7 @@ export function calculate(parameters, options = {}) {
 }
 
 export function graphSeries(parameters, variableName, metricName, from, to, samples = 90, options = {}) {
+  if (!Number.isInteger(samples) || samples < 2 || samples > 1000 || !Number.isFinite(from) || !Number.isFinite(to)) throw new Error("Invalid graph range or sample count");
   const points = [];
   for (let index = 0; index < samples; index += 1) {
     const ratio = index / (samples - 1);

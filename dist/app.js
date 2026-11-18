@@ -1,4 +1,4 @@
-import { batteryCircuit, initialBattery, stepBattery, stepESC, escAvailability, batterySeries, forecastBattery } from "./power-system.js";
+import { batteryCircuit, initialBattery, stepBattery, stepESC, escAvailability, batterySeries, forecastBattery, powerBudget } from "./power-system.js";
 import { t, getLanguage, setLanguage, installLanguage } from "./i18n.js";
 import { compareConfigurations } from "./comparison.js";
 import {
@@ -333,11 +333,12 @@ function updateMetrics(parameters, result) {
   ui.downwashSpeed.textContent = quantity(result.downwashSpeed, "speed");
   updateMotorCards(parameters, result);
   const engineering = [
+    ...(state.batteryActual && state.powerBudget ? [["Расход мощности", `${format(state.powerBudget.delivered,0)} Вт`, `На валах ${format(state.powerBudget.shaft,0)} Вт · потери моторов ${format(state.powerBudget.motorHeat,1)} Вт · ESC ${format(state.powerBudget.esc,1)} Вт · электроника ${format(state.powerBudget.avionics,1)} Вт. Потери батареи ${format(state.powerBudget.batteryHeat,1)} Вт; запасание в RC ${format(state.powerBudget.rcStorage,1)} Вт.`]] : []),
     ["Давление ветра", quantity(result.dynamicPressure, "pressure"), "q = ½ρV². Удвоение скорости даёт четырёхкратное давление."],
     ["Нагрузка на диск", quantity(result.diskLoading, "pressure"), "Вес / суммарная площадь дисков. Меньшая нагрузка снижает идеальные затраты на зависание."],
     ["Идеальная мощность", `${format(result.inducedPower, 0)} Вт`, "Нижняя оценка по теории импульса, без профильных и электрических потерь."],
     ["Конец лопасти", `${format(result.tipMach, 2)} M`, "Число Маха показывает скорость относительно скорости звука. При M > 0,65 простая модель винта ненадёжна."],
-    ["Батарея под нагрузкой", `${format(result.terminalVoltage, 1)} В`, `Просадка ${format(result.voltageSag, 1)} В; тепло I²R: ${format(result.batteryHeat, 0)} Вт. Сопротивление зависит от температуры и ресурса, RC-ветвь моделирует задержанную просадку.`],
+    ["Батарея под нагрузкой", `${format(result.terminalVoltage, 1)} В`, `Просадка ${format(result.voltageSag, 1)} В; тепловые потери: ${format(result.batteryHeat, 0)} Вт. Сопротивление зависит от температуры и ресурса, RC-ветвь моделирует задержанную просадку.`],
     ["Дальняя струя, идеал", quantity(result.farWakeSpeed, "speed"), "В штиле далеко под идеальным диском: ≈2vᵢ. Не измеренная скорость из CFD."],
     ["Ветер сейчас", quantity(state.windNow, "speed"), "Порывы и плавный переход в динамике полёта. CFD рассчитывает среднее поле."],
     ["Отрисовка", `${format(state.renderMs, 1)} мс`, "Время последнего кадра, не гарантия FPS. Авто снижает частоту и разрешение при нагрузке."]
@@ -354,7 +355,7 @@ function updateMetrics(parameters, result) {
   setStatus(parameters, peakResult, peakWind);
 }
 
-function replaceBattery() { state.battery = initialBattery(getParameters()); state.batteryActual = null; state.forecast = null; state.graphDirty = true; state.lastMetrics = 0; }
+function replaceBattery() { state.battery = initialBattery(getParameters()); state.batteryActual = null; state.powerBudget = null; state.forecast = null; state.graphDirty = true; state.lastMetrics = 0; }
 
 function resetDynamics(repair = true) {
   Object.assign(state, { t: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, ix: 0, iy: 0, controlX: 0, controlY: 0, windNow: 0, windVector: null, accumulator: 0, trail: [] });
@@ -432,6 +433,7 @@ function applyPreset(key) {
   buildMotorGrid();
   resetDynamics();
   syncOutputs(getParameters());
+  if (state.model) refreshModel();
 }
 
 function simulate(dt, parameters) {
@@ -444,7 +446,7 @@ function simulate(dt, parameters) {
   if (!state.windVector) state.windVector = target;
   const blend = 1 - Math.exp(-dt / parameters.windTransition);
   state.windVector = state.windVector.map((v, i) => v + (target[i] - v) * blend);
-  const windNow = Math.hypot(...state.windVector), actualWindAngle = Math.atan2(state.windVector[1], state.windVector[0]);
+  const windNow = Math.hypot(...state.windVector);
   if (!state.battery || !$("batteryDrain").checked) state.battery = initialBattery(parameters);
   const relative = relativeAirflow(parameters, [state.vx, state.vy, state.vz], state.windVector);
   const dynamicResult = calculate(parameters, liveOptions(relative));
@@ -465,7 +467,7 @@ function simulate(dt, parameters) {
     const scale = dynamicResult.horizontalAuthority / controlMagnitude;
     controlX *= scale; controlY *= scale;
   }
-  const arm = Math.max(0.05, parameters.frameSize / 2000);
+  const arm = Math.max(0.05, (parameters.dronePreset === "custom" ? designGeometry(parameters).frameSize : parameters.frameSize) / 2000);
   const imbalanceX = -dynamicResult.pitchMoment / arm * 0.12;
   const imbalanceY = dynamicResult.rollMoment / arm * 0.12;
   const ax = (windX + controlX + imbalanceX) / dynamicResult.mass;
@@ -474,7 +476,7 @@ function simulate(dt, parameters) {
   const desiredVerticalThrust = Math.max(0, dynamicResult.requiredVertical - dynamicResult.mass * (1.7 * state.z + 1.45 * state.vz));
   const actualVerticalThrust = dynamicResult.battery.controllerPowered ? Math.min(verticalAuthority, desiredVerticalThrust) : 0;
   state.actualVerticalThrust = actualVerticalThrust;
-  const az = (actualVerticalThrust - dynamicResult.requiredVertical) / dynamicResult.mass;
+  const az = (actualVerticalThrust - dynamicResult.verticalDemand) / dynamicResult.mass;
   state.vx = (state.vx + ax * dt) * Math.pow(0.996, dt * 60);
   state.vy = (state.vy + ay * dt) * Math.pow(0.996, dt * 60);
   state.vz = (state.vz + az * dt) * Math.pow(0.998, dt * 60);
@@ -489,6 +491,7 @@ function simulate(dt, parameters) {
   const motorPowers = dynamicResult.shaftPowers.map((power, i) => power * powerFraction / Math.max(0.1, dynamicResult.motorEfficiencies[i]));
   const actualPower = motorPowers.reduce((sum, power) => sum + power, 0) / dynamicResult.escEfficiency + dynamicResult.avionicsPower;
   state.batteryActual = batteryCircuit(parameters, state.battery, actualPower);
+  state.powerBudget = powerBudget(state.batteryActual, motorPowers, dynamicResult.motorEfficiencies, dynamicResult.escEfficiency, dynamicResult.avionicsPower);
   if ($("batteryDrain").checked) state.battery = stepBattery(state.battery, parameters, state.batteryActual, windNow, dynamicResult.density, dt);
   state.escTemps = stepESC(state.escTemps, parameters, motorPowers, state.batteryActual.terminalVoltage, windNow, dynamicResult.density, dt);
   updateMotorThermals(dt, parameters, { ...dynamicResult, motorThermalLoadPercents: motorPowers.map(power => power / Math.max(1, parameters.motorMaxPower) * 100) });
@@ -524,7 +527,10 @@ function renderGraph(parameters) {
   let to = fromDisplay(Number($("graphTo").value), parameterUnits[variableName], unitSystem);
   if (!Number.isFinite(from) || !Number.isFinite(to) || from === to) { from = variable.min; to = variable.max; }
   if (from > to) [from, to] = [to, from];
-  const points = graphSeries(parameters, variableName, metricName, from, to, 100, { motorRpms: state.motorRpms, motorHealths: effectiveMotorHealths() });
+  from = Math.max(variable.min, Math.min(variable.max, from));
+  to = Math.max(variable.min, Math.min(variable.max, to));
+  if (from === to) { from = variable.min; to = variable.max; }
+  const points = graphSeries(parameters, variableName, metricName, from, to, 100, { motorRpms: state.motorRpms, motorHealths: effectiveMotorHealths(), batteryState: state.battery, escTemps: state.escTemps });
   const xKind = parameterUnits[variableName], yKind = graphKinds[metricName];
   const displayPoints = points.map(p => ({ ...p, x: toDisplay(p.x, xKind, unitSystem), y: toDisplay(p.y, yKind, unitSystem) }));
   if (points.length) graphRenderer.draw(displayPoints, { ...variable, unit: xKind ? unitSpec(xKind, unitSystem).label : variable.unit }, { ...metric, unit: yKind ? unitSpec(yKind, unitSystem).label : metric.unit }, toDisplay(parameters[variableName], xKind, unitSystem), format);
@@ -549,7 +555,7 @@ function setActiveView(view) {
 document.querySelectorAll(".mode-tab").forEach(tab => tab.addEventListener("click", () => setActiveView(tab.dataset.view)));
 
 numberIds.forEach(id => inputs[id].addEventListener("input", () => {
-  parameterCache = null;
+  parameterCache = null; state.batteryActual = null;
   if (id === "rotors") buildMotorGrid();
   if (["voltage", "batteryCells", "capacity", "stateOfCharge", "batteryTemp", "batteryHealth"].includes(id)) replaceBattery();
   if (id === "rpm" && !$("individualMotors").checked) state.motorRpms = motorRpms(getParameters());
@@ -558,7 +564,7 @@ numberIds.forEach(id => inputs[id].addEventListener("input", () => {
   syncOutputs(getParameters());
   if ((id === "frameSize" || id in builderDefaults) && state.model) refreshModel();
 }));
-selectIds.forEach(id => inputs[id].addEventListener("change", () => { invalidateParameters(); if (id === "batteryChemistry") replaceBattery(); }));
+selectIds.forEach(id => inputs[id].addEventListener("change", () => { state.batteryActual = null; invalidateParameters(); if (id === "batteryChemistry") replaceBattery(); }));
 $("calibratedProps").addEventListener("change", invalidateParameters);
 
 inputs.dronePreset.addEventListener("change", event => { applyPreset(event.target.value); state.graphDirty = true; });
@@ -642,13 +648,13 @@ function populateModelDimensions() {
 
 function refreshModel() {
   if (!state.model) return;
-  areaGeneration++; areaWorker?.terminate(); areaWorker=null;
-  state.cadAerodynamics = null; parameterCache = null; $("cadDrag").disabled = true;
   const dims = modelDimensionIds.map(id=>Number($(id).value)), yaw = Number($("modelYaw").value);
   if (modelDimensionIds.some(id=>$(id).value==="") || dims.some(v=>!Number.isFinite(v)||v<0||v>2000) || !Number.isFinite(yaw) || Math.abs(yaw)>360 || Math.max(...dims)<=0) {
     $("modelStatus").textContent = "Размеры CAD: от 0 до 2000 мм, поворот: от −360° до 360°."; return;
   }
   try {
+    const areaKey = JSON.stringify([dims, $("modelUp").value, yaw]);
+    const reuseArea = state.areaModel === state.model && state.areaKey === areaKey && (state.cadAerodynamics || areaWorker);
     const scale = geometryFor(getParameters()).worldScale;
     const metres = fitMesh(state.model, dims.map(v=>v/1000), $("modelUp").value, yaw);
     const triangles = Float32Array.from(metres,v=>v/scale);
@@ -664,6 +670,10 @@ function refreshModel() {
     $("modelDimensions").textContent = `После поворота: X ${format(real[0]*1000,2)} × Y ${format(real[1]*1000,2)} × Z ${format(real[2]*1000,2)} мм. Центр сетки совмещён с центром рамы.`;
     $("modelStatus").textContent = `${state.model.name} · ${state.model.triangleCount} треугольников · ${state.model.closed ? "замкнутая сетка" : `незамкнутая / дефектная: ${state.model.badEdges} проблемных рёбер`}. ${exceedsDomain ? "CAD выходит к границе области: CFD отключён." : "Проверь положение винтов: их центры задаёт рама."}`;
     flightScene.setModel(triangles, false, preview); airflowScene.setModel(triangles, $("meshCFD").checked, preview);
+    if (reuseArea) { parameterCache=null; state.graphDirty=true; syncOutputs(getParameters()); return; }
+    areaGeneration++; areaWorker?.terminate(); areaWorker=null;
+    state.areaModel=state.model; state.areaKey=areaKey;
+    state.cadAerodynamics=null; parameterCache=null; $("cadDrag").disabled=true;
     $("cadDragStatus").textContent = "Оцениваю площадь проекции корпуса…";
     const generation=areaGeneration, worker=new Worker(new URL("./mesh-worker.js", import.meta.url), { type: "module" }); areaWorker=worker;
     worker.onmessage=({data})=>{
@@ -700,6 +710,9 @@ $("modelFile").addEventListener("change", async event => {
       if (generation !== modelGeneration) return;
       if (data.error) $("modelStatus").textContent = data.error;
       else {
+        areaGeneration++; areaWorker?.terminate(); areaWorker=null;
+        state.areaModel=null; state.areaKey=""; state.cadAerodynamics=null; parameterCache=null;
+        $("cadDrag").disabled=true;
         state.model = data.mesh;
         populateModelDimensions();
         $("meshCFD").checked = false;
@@ -735,7 +748,7 @@ $("resetModelTransform").addEventListener("click",()=>{ $("modelYaw").value="0";
 $("removeModel").addEventListener("click", () => {
   modelGeneration++; modelWorker?.terminate(); modelWorker = null;
   areaGeneration++; areaWorker?.terminate(); areaWorker=null;
-  state.model = null; state.cadAerodynamics=null; state.modelDimensionsMm=null; parameterCache=null;
+  state.model = null; state.areaModel=null; state.areaKey=""; state.cadAerodynamics=null; state.modelDimensionsMm=null; parameterCache=null;
   $("cadDrag").checked=false;$("cadDrag").disabled=true;$("modelDimensions").textContent="";$("cadDragStatus").textContent="Масса, коэффициент сопротивления и положение моторов задаются отдельно.";
   $("modelFile").value = "";
   $("meshCFD").checked = false; $("meshCFD").disabled = true; $("removeModel").disabled = true;
@@ -755,12 +768,12 @@ $("exportReport").addEventListener("click", () => {
   const result = calculate(parameters, liveOptions());
   airflowScene.ensureCFD(parameters, meanFlowResult(parameters), cfdSettings());
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd.status === "ready";
-  const report = { version: "0.88.0-beta", enduranceForecast: state.forecast, battery: state.battery, batteryActual: state.batteryActual, electronics: { escTemperatures: state.escTemps }, generatedAt: new Date().toISOString(), displayUnits: unitSystem, parameters, result, motors: { temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire, exposure: state.motorExposure, ignition: state.motorIgnition },
+  const report = { version: "0.89.0-beta", enduranceForecast: state.forecast, powerBudget: state.powerBudget, battery: state.battery, batteryActual: state.batteryActual, electronics: { escTemperatures: state.escTemps }, generatedAt: new Date().toISOString(), displayUnits: unitSystem, parameters, result, motors: { temperatures: state.motorTemps, healths: state.motorHealths, fires: state.motorFire, exposure: state.motorExposure, ignition: state.motorIgnition },
     importedMesh: state.model ? { name: state.model.name, triangles: state.model.triangleCount, closed: state.model.closed, spanMm: Number($("modelSpan").value), dimensionsMm: state.modelDimensionsMm, sourceUnits: $("modelUnits").value, aerodynamics: state.cadAerodynamics, dragEnabled: $("cadDrag").checked, upAxis: $("modelUp").value, yaw: Number($("modelYaw").value), usedInCFD: Boolean(airflowScene.meshCFD) } : null,
     cfd: matchingCFD ? { configuration: JSON.parse(airflowScene.cfd.fieldKey), stats: airflowScene.cfd.field.stats } : { status: "not-current-or-not-calculated" },
     limitations: ["TRT/BGK D3Q19 actuator-disk approximation; no experiment or grid-convergence validation.", "CFD mean wind, motor availability with thermal derating rounded to 10%; flight dynamics include smoothed gusts.", "Physical and effective solver Reynolds numbers differ.", "CAD projection is a rasterized silhouette estimate, no automatic mass or Cd identification. CFD force is not fed into flight dynamics.", "Battery voltage curves and battery, motor and ESC thermal coefficients are illustrative, not device-specific predictions."] };
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
-  const anchor = document.createElement("a"); anchor.href = url; anchor.download = "drone-weather-lab-v0.88-beta-report.json"; anchor.click();
+  const anchor = document.createElement("a"); anchor.href = url; anchor.download = "drone-weather-lab-v0.89-beta-report.json"; anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
@@ -838,8 +851,8 @@ const parameterHelp = {
   ct: "Безразмерный коэффициент: T = Cₜρn²D⁴, n в оборотах/с, D в метрах. Бери из стендовых данных своего винта; для чистого винта выставь состояние 100%.",
   cp: "Безразмерный коэффициент мощности на валу: P = Cₚρn³D⁵. Не путай с электрической мощностью и коэффициентом момента Cq.",
   rpm: "Команда задаёт доступную тягу. Удержание точки предполагает снижение оборотов до требуемых. Перегрузка команды используется как отдельный стресс-тест моторов. Дым и огонь условные, они не предсказывают реальный отказ.",
-  motorMaxPower: "Допустимая электрическая мощность одного мотора с ESC. Мощность на валу ниже из-за КПД. Лимит зависит от ресурса мотора.",
-  motorEfficiency: "КПД преобразования электрической мощности в механическую. Остаток нагревает мотор и регулятор ESC.",
+  motorMaxPower: "Допустимая электрическая мощность на входе мотора после ESC. Мощность на валу ниже из-за КПД мотора. Лимит зависит от ресурса мотора.",
+  motorEfficiency: "КПД преобразования электрической мощности в механическую. Потери мотора нагревают мотор. КПД и нагрев ESC учитываются отдельно.",
   windTransition: "Постоянная времени плавного перехода: через это время пройдено примерно 63% изменения скорости. Влияет на полёт, не на стационарный CFD.",
   gustFrequency: "В герцах измеряется число колебаний в секунду. 0,5 Гц означает характерный период около 2 секунд.",
   turbulence: "Условная интенсивность нерегулярных порывов в полёте. Это не полноценная модель LES/RANS в CFD.",
@@ -952,6 +965,13 @@ document.addEventListener("keydown", event => {
   else if (action === "repair") $("repairMotors").click();
   else if (action === "reset") resetDynamics(false);
   else if (action === "help") $("showShortcuts").click();
+  else if (action === "closeHelp") { $("shortcutHelp").hidden=true; $("showShortcuts").setAttribute("aria-expanded", "false"); }
+  else if (action === "resetAll") $("resetSimulation").click();
+  else if (action === "battery") $("replaceBattery").click();
+  else if (action === "report") $("exportReport").click();
+  else if (action === "save") $("saveDesign").click();
+  else if (action === "vectors") { $("forceVectors").checked=!$("forceVectors").checked; }
+  else if (action === "camera") { flightScene.resetCamera(); airflowScene.resetCamera(); }
   else setActiveView(action);
 });
 graphRangeFor("windSpeed");

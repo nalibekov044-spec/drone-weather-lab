@@ -118,7 +118,7 @@ export function visualDetails(p, geometry) {
   return parts;
 }
 
-export function geometryFor(p) {
+function buildGeometryFor(p) {
   if (p.dronePreset === "custom") return designGeometry(p);
   const rotors = Array.from({ length: p.rotors }, (_, i) => {
     const angle = i * 2 * Math.PI / p.rotors + (p.rotors === 4 ? Math.PI / 4 : 0);
@@ -138,4 +138,14 @@ export function geometryFor(p) {
     parts.push({ kind: "box", center: [x, -0.55, 0.02], size: [0.05, 0.04, 0.56], role: "landing" });
   }
   return { rotors, worldScale: p.frameSize / 1440, parts };
+}
+
+const geometryCache = new Map();
+export function geometryFor(p) {
+  const key = JSON.stringify([p.dronePreset, p.frameSize, p.rotors, p.diameter, ...Object.keys(builderDefaults).map(k=>p[k] ?? builderDefaults[k])]);
+  if (geometryCache.has(key)) return geometryCache.get(key);
+  const geometry = buildGeometryFor(p);
+  if (geometryCache.size >= 32) geometryCache.delete(geometryCache.keys().next().value);
+  geometryCache.set(key, geometry);
+  return geometry;
 }

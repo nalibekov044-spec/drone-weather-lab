@@ -30,6 +30,8 @@ const warm=batteryCircuit(p,state,600),cold=batteryCircuit(p,{...state,temperatu
 assert(cold.resistance>warm.resistance);assert(cold.terminalVoltage<warm.terminalVoltage);
 const current=4,heat=10;
 const fixed={...warm,current,heat,deliveredPower:80,polarizationResistance:.02};
+// This fixture specifies constant heat and output power, independently of circuit losses.
+delete fixed.ohmicHeat; delete fixed.polarizationHeat;
 let step=initialBattery({...p,batteryTemp:15});
 for(let i=0;i<3600;i++)step=stepBattery(step,p,fixed,0,1.225,1);
 assert(Math.abs(step.soc-60)<1e-9);assert(Math.abs(step.usedAh-4)<1e-10);assert(Math.abs(step.outputWh-80)<1e-9);

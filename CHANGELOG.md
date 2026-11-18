@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.89 Beta
+
+- More keyboard shortcuts. They follow physical key positions, so a Russian layout works too. They do nothing while you type in a field.
+- A new card shows where battery power goes.
+- The energy and heat of the battery RC branch are integrated exactly inside each step.
+- The quick flight time estimate no longer lowers cold capacity twice.
+- Strong updrafts, graph limits and paused power data are fixed.
+- CAD geometry is not recalculated when nothing changed. Broken ASCII STL vertices are rejected.
+
+The CFD core is the same as in 0.88.
+
 ## 0.88 Beta
 
 Three updates.

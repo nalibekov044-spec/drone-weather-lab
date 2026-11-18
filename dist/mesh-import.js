@@ -24,7 +24,7 @@ export function parseMesh(buffer, name) {
     } else {
       const text = new TextDecoder().decode(buffer);
       const vertices = [...text.matchAll(/vertex\s+([-+\deE.]+)\s+([-+\deE.]+)\s+([-+\deE.]+)/gi)].map(m => m.slice(1).map(Number));
-      if (vertices.length % 3) throw new Error("Повреждённая STL-сетка.");
+      if ((text.match(/\bvertex\b/gi) || []).length !== vertices.length || vertices.length % 3) throw new Error("Повреждённая STL-сетка.");
       for (let i = 0; i < vertices.length; i += 3) push(vertices.slice(i, i + 3).flat());
     }
   } else if (/\.obj$/i.test(name)) {

@@ -5,7 +5,7 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const offline = process.argv.includes("--offline");
-const html = fs.readFileSync(path.join(root, offline ? "Drone-Weather-Lab-0.88-Beta.html" : "dist/index.html"), "utf8");
+const html = fs.readFileSync(path.join(root, offline ? "Drone-Weather-Lab-0.89-Beta.html" : "dist/index.html"), "utf8");
 class Element {
   constructor(id = "", tag = "div") {
     this.id=id; this.tag=tag; this.value=""; this.checked=false; this.disabled=false; this.hidden=false; this.dataset={}; this.children=[]; this.listeners={}; this.style={}; this.width=800; this.height=520;
@@ -53,9 +53,9 @@ for(const m of html.matchAll(/<(\w+)[^>]*\bid="([^"]+)"[^>]*>/g)){
 const tabs=["flightTab","graphTab","airflowTab","compareTab"].map((id,i)=>{const e=elements.get(id);e.dataset.view=["flight","graph","airflow","compare"][i];return e;});
 const panels=["flightView","graphView","airflowView","compareView"].map(id=>elements.get(id));
 const weather=["calm","gust","rain"].map(key=>{const e=new Element();e.dataset.weather=key;return e;});
-let raf=null; const timers=[]; let solve,trace,parse,analyze;
+let raf=null; const timers=[]; let solve,trace,parse,analyze; let meshWorkerCount=0;
 class WorkerStub{
-  constructor(url){this.url=String(url);this.listeners={};}
+  constructor(url){this.url=String(url);this.listeners={};if(this.url.includes("mesh-worker"))meshWorkerCount++;}
   addEventListener(type,callback){this.listeners[type]=callback;}
   terminate(){}
   postMessage(request){
@@ -249,3 +249,21 @@ elements.get('batteryCells').value='12';elements.get('batteryCells').fire('input
 elements.get('dronePreset').value='racing';elements.get('dronePreset').fire('change');tick();
 assert.equal(elements.get('batteryCells').value,'0');assert.equal(elements.get('batteryChemistry').value,'lipo');
 console.log('v0.88 preset battery configuration reset passed.');
+
+// 0.89 keyboard actions and the unchanged-CAD worker cache.
+key('2');tick();assert(!elements.get('graphView').hidden);
+key('4');tick();assert(!elements.get('compareView').hidden);
+key('Escape');key('h');assert(!elements.get('shortcutHelp').hidden);key('Escape');assert(elements.get('shortcutHelp').hidden);
+const oldVectors=elements.get('forceVectors').checked;key('v');assert.equal(elements.get('forceVectors').checked,!oldVectors);
+key('o');key('e');key('s');
+const chargeBeforeKey=Number(elements.get('chargeBar').value);key('b');tick();assert(Number(elements.get('chargeBar').value)>=chargeBeforeKey);
+const physicalKey={key:'ф',code:'Digit1',target:new Element(),preventDefault(){}};
+documentListeners.keydown.forEach(fn=>fn(physicalKey));tick();assert(!elements.get('flightView').hidden);
+elements.get('modelFile').files=[{name:'cube.obj',size:cube.length,arrayBuffer:async()=>new TextEncoder().encode(cube).buffer}];
+await elements.get('modelFile').listeners.change[0]({target:elements.get('modelFile')});
+const workersBefore=meshWorkerCount;
+elements.get('meshCFD').checked=true;elements.get('meshCFD').fire('change');
+assert.equal(meshWorkerCount,workersBefore,'CAD area reused when only CFD is toggled');
+const width=Number(elements.get('modelWidth').value);elements.get('modelWidth').value=String(width+20);elements.get('modelWidth').fire('change');assert(meshWorkerCount>workersBefore);
+documentListeners.keydown.forEach(fn=>fn({key:'К',code:'KeyR',shiftKey:true,target:new Element(),preventDefault(){}}));tick();assert(elements.get('cadDrag').disabled);
+console.log('v0.89 UI: expanded hotkeys, physical layout, help close, camera reset, export/save, battery shortcut, all-reset and CAD analysis reuse passed.');

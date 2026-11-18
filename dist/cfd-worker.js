@@ -29,7 +29,9 @@ self.onmessage = ({ data }) => {
   if (type === "resume") { if (paused) { paused = false; if (active) timer = setTimeout(() => runChunk(active), 0); } return; }
   if (type === "cancel") { generation++; clearTimeout(timer); timer = null; active = null; return; }
   if (type === "trace") {
-    if (currentField && key === currentKey) self.postMessage({ type: "lines", key, traceKey: trace.key, lines: traceLines(currentField, currentConfig, trace.count, trace.layer) });
+    try {
+      if (currentField && key === currentKey && trace) self.postMessage({ type: "lines", key, traceKey: trace.key, lines: traceLines(currentField, currentConfig, trace.count, trace.layer) });
+    } catch (error) { self.postMessage({ type: "error", key, message: error.message }); }
     return;
   }
   const resume = type === "continue" && key === currentKey ? resumeState : null;

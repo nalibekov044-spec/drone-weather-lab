@@ -189,6 +189,11 @@ export class DroneScene3D {
     this.attachControls();
   }
 
+  resetCamera() {
+    this.camera = { yaw: this.mode === "airflow" ? -0.82 : -0.72, pitch: this.mode === "airflow" ? 0.35 : 0.48, distance: this.mode === "airflow" ? 6.2 : 3.5, target: [0, 0, 0] };
+    this.staticKey = "";
+  }
+
   attachControls() {
     this.canvas.addEventListener("pointerdown", event => {
       this.dragging = true;

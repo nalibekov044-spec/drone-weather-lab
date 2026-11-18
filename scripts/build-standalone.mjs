@@ -49,6 +49,6 @@ html = html.replace(/<a id="(?:downloadOffline|downloadWindows)"[^>]*>[^<]*<\/a>
 html = html.replace('<link rel="stylesheet" href="styles.css">', () => `<style>${fs.readFileSync(path.join(root, 'dist/styles.css'), 'utf8')}</style>`);
 html = html.replace('<script type="module" src="app.js"></script>', () => `<script>${app.replace(/<\/script/gi, '<\\/script')}</script>`);
 if (/<script[^>]+src=|<link[^>]+stylesheet|import\.meta/.test(html)) throw new Error('External runtime dependency remains');
-fs.writeFileSync(path.join(out, 'Drone-Weather-Lab-0.88-Beta.html'), html);
-fs.writeFileSync(path.join(out, 'dist', 'Drone-Weather-Lab-0.88-Beta.html'), html);
+fs.writeFileSync(path.join(out, 'Drone-Weather-Lab-0.89-Beta.html'), html);
+fs.writeFileSync(path.join(out, 'dist', 'Drone-Weather-Lab-0.89-Beta.html'), html);
 console.log(`Standalone HTML built: ${Buffer.byteLength(html)} bytes; two embedded calculation workers.`);

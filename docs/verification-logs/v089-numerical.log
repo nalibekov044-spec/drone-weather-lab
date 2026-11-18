@@ -1,0 +1,23 @@
+{
+  "version": "0.89.0-beta",
+  "baseRelease": "0.88 Beta",
+  "hotkeyCases": 105,
+  "powerBudgetCases": 180,
+  "maxPowerBudgetErrorW": 9.094947017729282e-13,
+  "rcEnergyBalanceErrorWh": 5.637851296924623e-17,
+  "rcStep120Seconds": {
+    "temperature": 20.44260695011943,
+    "polarization": 0.0977570822866867,
+    "outputWh": 6.623544759212742,
+    "heatWh": 0.09428824597156539,
+    "storedWh": 0.002166994815692978
+  },
+  "forecastMinutes": 22.764826043400287,
+  "limits": [
+    "All checks are numerical; real drone hardware is not calibrated.",
+    "CFD is coarse-grid and regularized, with no real-drone experimental validation.",
+    "A reviewed module and passing test suite do not prove absence of every bug."
+  ]
+}
+(node:13) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

@@ -1,21 +1,39 @@
-# Drone Weather Lab 0.88 Beta
+# Drone Weather Lab 0.89 Beta
 
-This version continues 0.87 Beta.
+[Русский](README.md)
 
-Extract the ZIP and open **Drone-Weather-Lab-0.88-Beta.html**. Scripts, styles and both workers are embedded. No installation or Internet connection is required. If local workers are blocked, use a different browser or run `python scripts/start.py`. For static hosting, publish `dist/`, with `index.html` at the hosting root. This package does not deploy automatically. A Windows executable is not included; launcher source and build scripts remain available.
+The simulator shows how wind, altitude, propellers and the battery affect a multicopter. Version 0.89 is a small update. It adds keyboard shortcuts and fixes the battery model, graphs and CAD.
 
-## Three changes
+## Run it
 
-1. **Power and endurance.** Select an integer pack from 1S to 16S or infer the integer series count from nominal voltage and chemistry. ESC power limits now solve shared loaded bus voltage iteratively. The main endurance tile integrates SOC, thermal response and RC polarization to reserve, cutoff or a power/temperature limit, at constant demand for the configured peak wind. It uses a two-second step and a six-hour horizon. Parameter sweeps retain their fast initial-current estimate. Battery thermal mass is not added to vehicle mass again.
-2. **Aerodynamics and CFD checks.** Flight drag uses air velocity relative to the moving vehicle, including vertical motion. The tilt-area iteration is refined, and an arbitrary 8% water-vapour pressure cap is removed. CFD convergence now also requires mass-flow balance and mean-density drift below 1%, together with velocity residual below 0.1% and force residual below 0.5%, for three checks after at least 200 iterations. Missing loaded rotor disks and CAD touching the outer boundary are rejected; under-resolved disks are flagged. CFD surface force is not fed into flight motion.
-3. **CAD import.** Source bounds and units, independent X width / Y height / Z length before yaw, aspect lock, continuous yaw, final bounds and reset. Source units must be selected manually. Optional drag area comes from the union silhouette rasterized at 96 × 96, sampled every 10 degrees and interpolated for wind direction. Cd, mass and motor positions remain manual. Planar concave OBJ faces use ear clipping; invalid/non-planar or overly large polygons are rejected. Files remain local. Closed geometry is required for mesh CFD.
+Unzip the archive and open **Drone-Weather-Lab-0.89-Beta.html**. Nothing needs to be installed. It works offline because styles, code and workers are built into the file.
 
-Example: `examples/box-100x40x200-mm-Y-up.obj`; choose millimetres and Y up to obtain 100/40/200 mm along X/Y/Z.
+Some browsers block workers in a local file. In that case run `python scripts/start.py`, or `Start.cmd` on Windows.
 
-## Verification
+The `dist/` folder is ready for static hosting. With GitHub Pages turned on, the site rebuilds after every push to `main`. No EXE is included, but the build scripts are.
 
-Run `node --experimental-vm-modules scripts/verify-v088.mjs`. Results: `verification-v088.json`; verification notes: `docs/VERIFICATION-0.88.md`. The previous electrical suite covers 1080 cases; the new pack/ESC sweep covers 288 cases. Earlier shear-wave, sphere-force, momentum/torque and UI checks also run on this code. Offline worker tests include the new CAD projection task. A real browser loaded an OBJ, applied 100 × 40 × 300 mm dimensions, enabled projected drag and completed a mesh-CFD solve.
+## What changed
 
-These are numerical checks, not experimental drone validation. CFD uses coarse grids and elevated numerical viscosity; physical and solver Reynolds numbers differ, and real-drone grid convergence is not established. Blades and boundary layers are unresolved. Battery curves and thermal constants remain illustrative. No real-device endurance claim is made.
+- Shortcuts for all four views, battery replacement, report and settings download, force vectors, camera reset and help. They use physical key positions, so a Russian layout works too. They do nothing while you type.
+- A new card shows where battery power goes: shafts, motors, ESC, electronics and the RC branch.
+- RC branch energy and heat are integrated analytically inside each step.
+- The quick flight time estimate no longer lowers cold capacity twice.
+- The forecast uses the final current and voltage. A voltage below the controller cutoff reduces the available thrust.
+- A strong updraft no longer gets an artificial minimum thrust.
+- Graphs stay inside their range and use the current battery and ESC state.
+- Stale power data no longer stays on screen during a pause.
+- CAD is not recalculated when nothing changed. Broken ASCII STL vertices are rejected.
 
-Build offline HTML with `node scripts/build-standalone.mjs`.
+The shortcut table is in the Russian README and in the in-app help (H).
+
+## Limits
+
+This is a teaching model. CFD runs on a coarse D3Q19 grid with higher viscosity than real air. Blades and the boundary layer are not resolved. The CFD force is shown on its own and does not move the drone. The CFD core did not change in 0.89.
+
+Battery and motor numbers have not been checked against real hardware. CAD drag area comes from the silhouette. You set mass, Cd and material yourself.
+
+## Checks
+
+Commands and results are in `docs/VERIFICATION-0.89.md`. The numbers are in `verification-v089.json`. All checks pass. That does not prove there are no bugs.
+
+Rebuild the HTML file with `node scripts/build-standalone.mjs` (Node 24).

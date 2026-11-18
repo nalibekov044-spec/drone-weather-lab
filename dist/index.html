@@ -11,13 +11,13 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.88 Beta</span></p>
+        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.89 Beta</span></p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
         <label class="unit-control">Язык<select id="language"><option value="ru">Русский</option><option value="en">English</option></select></label>
         <label class="unit-control">Единицы<select id="unitSystem"><option value="metric">Метрические</option><option value="imperial">Имперские</option></select></label>
-        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.88-Beta.html" download>Скачать для запуска без установки</a>
+        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.89-Beta.html" download>Скачать для запуска без установки</a>
         <button id="showShortcuts" class="button" type="button" aria-expanded="false" aria-controls="shortcutHelp">Клавиши <kbd>?</kbd></button>
         <button id="toggleSimulation" class="button button-primary" type="button">Пауза</button>
         <button id="resetSimulation" class="button" type="button">Сбросить</button>
@@ -25,11 +25,12 @@
       </div>
     </header>
     <section id="shortcutHelp" class="shortcut-help" hidden aria-label="Горячие клавиши">
-      <span><kbd>Пробел</kbd> Пауза</span><span><kbd>F</kbd> Восстановить моторы</span><span><kbd>R</kbd> Начать полёт заново</span><span><kbd>G</kbd> Графики</span><span><kbd>C</kbd> Обтекание</span><span><kbd>1</kbd> Полёт</span>
-      <p>Клавиши не срабатывают во время ввода. R сохраняет настройки, батарею и состояние моторов. Кнопка «Сбросить» возвращает исходные настройки.</p>
+      <span><kbd>Пробел</kbd> Пауза</span><span><kbd>1</kbd> Полёт</span><span><kbd>2</kbd> Графики</span><span><kbd>3</kbd> Обтекание</span><span><kbd>4</kbd> Сравнение</span>
+      <span><kbd>R</kbd> Начать полёт заново</span><span><kbd>Shift + R</kbd> Сбросить всё</span><span><kbd>F</kbd> Восстановить моторы</span><span><kbd>B</kbd> Заменить аккумулятор</span><span><kbd>E</kbd> Отчёт</span><span><kbd>S</kbd> Сохранить настройки</span><span><kbd>V</kbd> Векторы сил</span><span><kbd>O</kbd> Сбросить камеру</span><span><kbd>H / ?</kbd> Справка</span><span><kbd>Esc</kbd> Закрыть справку</span>
+      <p>Клавиши работают в русской и английской раскладке вне полей ввода. G и C тоже переключают графики и обтекание. R сохраняет батарею и моторы; Shift + R сбрасывает все настройки и CAD.</p>
     </section>
 
-    <div class="release-notice">0.88 · Питание и прогноз до резерва · Проверка сходимости CFD · Размеры и аэродинамическая проекция CAD</div>
+    <div class="release-notice">0.89 · Расширенные горячие клавиши · Исправления питания, CAD и расчётов</div>
     <nav class="mode-tabs" aria-label="Режим визуализации" role="tablist">
       <button class="mode-tab active" id="flightTab" type="button" role="tab" aria-selected="true" aria-controls="flightView" data-view="flight">Полёт</button>
       <button class="mode-tab" id="graphTab" type="button" role="tab" aria-selected="false" aria-controls="graphView" data-view="graph">Графики</button>

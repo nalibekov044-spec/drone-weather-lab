@@ -6,8 +6,8 @@
     "maxElectricalBalanceErrorW": 9.094947017729282e-13,
     "maxEscCurrentToLimitRatio": 1.0000000013820436,
     "forecast": {
-      "minutes": 21.506496254164126,
-      "fineStepMinutes": 21.504614727074657,
+      "minutes": 21.506534535858233,
+      "fineStepMinutes": 21.504624316480506,
       "reason": "reserve",
       "finalSoc": 20
     },

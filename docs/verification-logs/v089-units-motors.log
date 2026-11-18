@@ -1,0 +1,4 @@
+v0.7 passed: unit round trips, decimal validation, typing-safe shortcuts, short overload, delayed fire, cooling, irreversible wear, failed motor and timestep invariance.
+{"burstTemperature":58.38419037934764,"severeTemperature":239.23075270656167,"fireAt60s":0.5071666666666445,"healthAt60s":0}
+(node:13) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

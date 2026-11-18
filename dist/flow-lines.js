@@ -2,6 +2,7 @@ const add = (a, b, s = 1) => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s]
 const norm = a => { const l = Math.hypot(...a) || 1; return a.map(v => v / l); };
 
 export function sampleField(point, field) {
+  if (!point || point.length < 3 || point.some(v=>!Number.isFinite(v))) return null;
   const { bounds: b, nx, ny, nz } = field;
   if (point[0] <= b.xMin || point[0] >= b.xMax || point[1] <= b.yMin || point[1] >= b.yMax || point[2] <= b.zMin || point[2] >= b.zMax) return null;
   const g = [(point[0] - b.xMin) / (b.xMax - b.xMin) * (nx - 1), (point[1] - b.yMin) / (b.yMax - b.yMin) * (ny - 1), (point[2] - b.zMin) / (b.zMax - b.zMin) * (nz - 1)];
@@ -19,6 +20,7 @@ export function sampleField(point, field) {
 }
 
 export function traceLines(field, config, count, layer) {
+  count = Math.min(600, Math.max(0, Math.floor(Number(count) || 0)));
   const angle = (config.windDirection || 0) * Math.PI / 180;
   const wind = norm([Math.cos(angle)*(config.windSpeed||0),config.verticalWind||0,Math.sin(angle)*(config.windSpeed||0)]), lateral = [-Math.sin(angle), 0, Math.cos(angle)];
   const ambientCount = Math.hypot(config.windSpeed,config.verticalWind||0) < 0.1 ? 0 : Math.round(count * (layer === "volume" ? 0.7 : 1));
@@ -26,6 +28,7 @@ export function traceLines(field, config, count, layer) {
   for (let i = 0; i < count; i++) {
     let point;
     if (i >= ambientCount) {
+      if (!(config.rotors > 0) || !(config.propRadius > 0)) continue;
       const r = (i - ambientCount) % config.rotors, a = r * Math.PI * 2 / config.rotors + (config.rotors === 4 ? Math.PI / 4 : 0);
       const seed = i * 2.399963, radius = config.propRadius * (0.25 + 0.65 * ((i % 7) / 6));
       const rotor=config.rotorCenters?.[r]||{x:Math.cos(a)*0.72,z:Math.sin(a)*0.72,diskY:0.17};

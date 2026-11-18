@@ -1,0 +1,20 @@
+export const v089Translations = {
+  "t ≈ 60 · Qдо резерва / Iначальный": "t ≈ 60 · Qto reserve / Iinitial",
+  "0.89 · Расширенные горячие клавиши · Исправления питания, CAD и расчётов": "0.89 · Expanded keyboard shortcuts · Power, CAD and calculation fixes",
+  "Сбросить всё": "Reset everything",
+  "Отчёт": "Report",
+  "Сохранить настройки": "Save settings",
+  "Сбросить камеру": "Reset camera",
+  "Справка": "Help",
+  "Закрыть справку": "Close help",
+  "Клавиши работают в русской и английской раскладке вне полей ввода. G и C тоже переключают графики и обтекание. R сохраняет батарею и моторы; Shift + R сбрасывает все настройки и CAD.": "Shortcuts use physical keys in Russian and English layouts outside input fields. G and C also open Charts and Airflow. R keeps battery and motor state; Shift + R resets all settings and CAD.",
+  "Расход мощности": "Power allocation",
+  "На валах": "At motor shafts",
+  "потери моторов": "motor losses",
+  "электроника": "avionics",
+  "Потери батареи": "Battery heat",
+  "запасание в RC": "RC storage",
+  "тепловые потери": "heat losses",
+  "Допустимая электрическая мощность на входе мотора после ESC. Мощность на валу ниже из-за КПД мотора. Лимит зависит от ресурса мотора.": "Electrical input power of one motor after the ESC. Shaft power is lower due to motor efficiency. The limit varies with motor health.",
+  "КПД преобразования электрической мощности в механическую. Потери мотора нагревают мотор. КПД и нагрев ESC учитываются отдельно.": "Motor electrical-to-mechanical efficiency. Motor losses heat the motor. ESC efficiency and heating are accounted for separately."
+};

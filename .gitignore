@@ -1,0 +1,5 @@
+*.tar.gz
+*.zip
+artifacts/
+__pycache__/
+*.pyc
