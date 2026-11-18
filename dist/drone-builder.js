@@ -47,21 +47,21 @@ export function triangulateParts(parts){
       const c=Math.cos(part.rotation||0),s=Math.sin(part.rotation||0);
       return [x*c-z*s+part.center[0],y+part.center[1],x*s+z*c+part.center[2]];
     };
-    const triangle=(a,b,c)=>faces.push({points:[a,b,c].map(transform),role:part.role});
+    const triangle=(a,b,c)=>faces.push({points:[a,b,c].map(transform),role:part.role,part});
     if(part.kind==="box"){
       const v=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
       for(const [a,b,c,d]of[[0,3,2,1],[4,5,6,7],[0,1,5,4],[3,7,6,2],[1,2,6,5],[0,4,7,3]]){triangle(v[a],v[b],v[c]);triangle(v[a],v[c],v[d]);}
     }else if(part.kind==="cylinder"){
-      for(let i=0;i<20;i++){
-        const a=i*Math.PI/10,b=(i+1)*Math.PI/10;
+      for(let i=0;i<32;i++){
+        const a=i*Math.PI/16,b=(i+1)*Math.PI/16;
         const p=[Math.cos(a),-1,Math.sin(a)],q=[Math.cos(b),-1,Math.sin(b)],r=[q[0],1,q[2]],s=[p[0],1,p[2]];
         triangle(p,s,r);triangle(p,r,q);triangle([0,1,0],r,s);triangle([0,-1,0],p,q);
       }
     }else{
-      const point=(i,j)=>{const phi=-Math.PI/2+i*Math.PI/10,theta=j*Math.PI/10;return [Math.cos(phi)*Math.cos(theta),Math.sin(phi),Math.cos(phi)*Math.sin(theta)];};
-      for(let i=0;i<10;i++)for(let j=0;j<20;j++){
+      const point=(i,j)=>{const phi=-Math.PI/2+i*Math.PI/16,theta=j*Math.PI/16;return [Math.cos(phi)*Math.cos(theta),Math.sin(phi),Math.cos(phi)*Math.sin(theta)];};
+      for(let i=0;i<16;i++)for(let j=0;j<32;j++){
         if(i>0)triangle(point(i,j),point(i+1,j),point(i,j+1));
-        if(i<9)triangle(point(i,j+1),point(i+1,j),point(i+1,j+1));
+        if(i<15)triangle(point(i,j+1),point(i+1,j),point(i+1,j+1));
       }
     }
   }
@@ -77,6 +77,45 @@ export function exportDesignSTL(p){
     output.push(`facet normal ${n.map(x=>x/norm).join(" ")}`,"outer loop",... [a,b,c].map(v=>`vertex ${v.join(" ")}`),"endloop","endfacet");
   }
   output.push("endsolid drone_weather_lab");return output.join("\n");
+}
+
+export function visualDetails(p, geometry) {
+  const parts = [], body = geometry.parts.find(part => part.role === "body");
+  const add = (kind, center, size, role, rotation = 0) => parts.push({ kind, center, size, role, rotation });
+  const racing = p.dronePreset === "racing";
+  for (let i = 0; i < geometry.rotors.length; i++) {
+    const rotor = geometry.rotors[i], motor = geometry.parts.filter(part => part.role === "motor")[i];
+    if (!motor) continue;
+    const diameter = motor.size[0], height = motor.size[1], top = motor.center[1] + height / 2;
+    add("cylinder", [rotor.x, top - height * 0.08, rotor.z], [diameter * 1.03, height * 0.12, diameter * 1.03], "motorRing");
+    add("cylinder", [rotor.x, rotor.diskY, rotor.z], [diameter * 0.34, height * 0.27, diameter * 0.34], "hub");
+    for (let n = 0; n < 8; n++) {
+      const angle = n * Math.PI / 4, radius = diameter * 0.45;
+      add("box", [rotor.x + Math.cos(angle) * radius, motor.center[1], rotor.z + Math.sin(angle) * radius], [diameter * 0.13, height * 0.53, diameter * 0.06], "vent", angle);
+    }
+    const arm = geometry.parts.filter(part => part.role === "arm")[i];
+    if (arm) add("box", [arm.center[0], arm.center[1] + arm.size[1] * 0.52, arm.center[2]], [arm.size[0] * 0.72, arm.size[1] * 0.07, arm.size[2] * 0.22], i % 2 ? "rearLight" : "frontLight", arm.rotation);
+  }
+  const battery = geometry.parts.find(part => part.role === "battery");
+  if (battery) for (const position of [-0.25, 0.25]) add("box", [battery.center[0], battery.center[1] + battery.size[1] * 0.52, battery.center[2] + battery.size[2] * position], [battery.size[0] * 1.1, 0.014, battery.size[2] * 0.08], "strap");
+  if (!body) return parts;
+  const [width, height, depth] = body.size;
+  const [x, y, z] = body.center;
+  for (const side of [-1, 1]) {
+    add("box", [x + side * width * 0.41, y + height * 0.2, z], [width * 0.035, height * 0.11, depth * 0.6], "trim");
+    for (let n = 0; n < 5; n++) add("box", [x + side * width * 0.4, y, z + (n - 2) * depth * 0.06], [width * 0.07, height * 0.15, depth * 0.024], "vent");
+  }
+  if (p.dronePreset !== "custom") {
+    const camera = geometry.parts.find(part => part.role === "camera");
+    if (camera) {
+      add("ellipsoid", [camera.center[0], camera.center[1], camera.center[2] - camera.size[2] * 0.45], [0.09, 0.09, 0.055], "lens");
+      for (const side of [-1, 1]) add("box", [side * 0.077, camera.center[1] + 0.035, camera.center[2]], [0.024, 0.13, 0.026], "cameraMount");
+    }
+    add("cylinder", [0, y + height * 0.6, depth * 0.28], [0.13, 0.045, 0.13], "gps");
+    add("cylinder", [width * 0.3, y + height * 0.95, depth * 0.32], [0.014, height * 0.75, 0.014], "antenna");
+  }
+  if (racing) add("box", [0, y - height * 0.48, 0], [width * 1.15, height * 0.08, depth * 1.06], "carbon");
+  return parts;
 }
 
 export function geometryFor(p) {

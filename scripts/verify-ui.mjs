@@ -4,7 +4,8 @@ import path from "node:path";
 import vm from "node:vm";
 import assert from "node:assert/strict";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-const html = fs.readFileSync(path.join(root, "dist/index.html"), "utf8");
+const offline = process.argv.includes("--offline");
+const html = fs.readFileSync(path.join(root, offline ? "Drone-Weather-Lab-0.88-Beta.html" : "dist/index.html"), "utf8");
 class Element {
   constructor(id = "", tag = "div") {
     this.id=id; this.tag=tag; this.value=""; this.checked=false; this.disabled=false; this.hidden=false; this.dataset={}; this.children=[]; this.listeners={}; this.style={}; this.width=800; this.height=520;
@@ -52,16 +53,17 @@ for(const m of html.matchAll(/<(\w+)[^>]*\bid="([^"]+)"[^>]*>/g)){
 const tabs=["flightTab","graphTab","airflowTab","compareTab"].map((id,i)=>{const e=elements.get(id);e.dataset.view=["flight","graph","airflow","compare"][i];return e;});
 const panels=["flightView","graphView","airflowView","compareView"].map(id=>elements.get(id));
 const weather=["calm","gust","rain"].map(key=>{const e=new Element();e.dataset.weather=key;return e;});
-let raf=null; const timers=[]; let solve,trace,parse;
+let raf=null; const timers=[]; let solve,trace,parse,analyze;
 class WorkerStub{
   constructor(url){this.url=String(url);this.listeners={};}
   addEventListener(type,callback){this.listeners[type]=callback;}
   terminate(){}
   postMessage(request){
     if(["cancel","pause","resume"].includes(request.type))return;
+    if(this.url.includes("mesh-worker") && request.type==="analyze") {this.onmessage({data:{aerodynamics:analyze(request.triangles)}});return;}
     if(this.url.includes("mesh-worker")) {this.onmessage({data:{mesh:parse(request.buffer,request.name)}});return;}
     if(request.type==="trace") {this.listeners.message({data:{type:"lines",key:request.key,traceKey:request.trace.key,lines:trace(this.field,this.config,request.trace.count,request.trace.layer)}});return;}
-    this.config=request.config;this.field=solve(request.config);
+    this.config=request.config;this.field=solve({...request.config,quality:"fast",maxSteps:50});
     this.listeners.message({data:{type:"result",key:request.key,field:this.field}});
   }
 }
@@ -69,7 +71,17 @@ const documentListeners={};
 const document={ getElementById:id=>elements.get(id)||null, documentElement:new Element(), hidden:false, activeElement:null,
   createElement:tag=>new Element("",tag), addEventListener(type,fn){(documentListeners[type] ||= []).push(fn);}, querySelectorAll:selector=>selector===".mode-tab"?tabs:selector===".view-panel"?panels:selector==="[data-weather]"?weather:selector==='input[type="range"]'?[...elements.values()].filter(e=>e.type==="range"):[] };
 const preferences=new Map();
-const context=vm.createContext({document,localStorage:{getItem:key=>preferences.get(key),setItem:(key,value)=>preferences.set(key,value)},Event:class{constructor(type){this.type=type;}},window:{devicePixelRatio:1,addEventListener(){}},performance,console,URL,Blob,TextDecoder,TextEncoder,Worker:WorkerStub,requestAnimationFrame:callback=>{raf=callback;},setTimeout:callback=>{timers.push(callback);return timers.length;},clearTimeout:id=>{timers[id-1]=null;},getComputedStyle:()=>({getPropertyValue:()=>"#75f3c8"})});
+const workerURLs = new Map(); let objectIndex = 0;
+class TestBlob extends Blob { constructor(parts, options) { super(parts, options); this.parts = parts; } }
+class TestURL extends URL {
+  static createObjectURL(blob) {
+    const code = blob.parts?.join('') || '';
+    const name = code.includes('const mesh = parseMesh') ? 'mesh-worker' : code.includes('solveCFDGenerator') ? 'cfd-worker' : 'download';
+    const url = `blob:${name}/${++objectIndex}`; workerURLs.set(url, code); return url;
+  }
+  static revokeObjectURL(url) { workerURLs.delete(url); }
+}
+const context=vm.createContext({document,localStorage:{getItem:key=>preferences.get(key),setItem:(key,value)=>preferences.set(key,value)},Event:class{constructor(type){this.type=type;}},window:{devicePixelRatio:1,addEventListener(){}},performance,console,URL:TestURL,Blob:TestBlob,TextDecoder,TextEncoder,Worker:WorkerStub,requestAnimationFrame:callback=>{raf=callback;},setTimeout:callback=>{timers.push(callback);return timers.length;},clearTimeout:id=>{timers[id-1]=null;},getComputedStyle:()=>({getPropertyValue:()=>"#75f3c8"})});
 const modules=new Map();
 async function load(filename) {
   const absolute = path.resolve(root, filename); if (modules.has(absolute)) return modules.get(absolute);
@@ -79,8 +91,13 @@ async function load(filename) {
   })();
   modules.set(absolute, promise); return promise;
 }
-for(const [name,assign] of [["cfd-core",m=>solve=m.solveCFD],["flow-lines",m=>trace=m.traceLines],["mesh-import",m=>parse=m.parseMesh]]){const m=await load(`dist/${name}.js`);await m.evaluate();assign(m.namespace);}
-const app=await load("dist/app.js");await app.evaluate();
+for(const [name,assign] of [["cfd-core",m=>solve=m.solveCFD],["flow-lines",m=>trace=m.traceLines],["mesh-import",m=>{parse=m.parseMesh;analyze=m.meshAerodynamics;}]]){const m=await load(`dist/${name}.js`);await m.evaluate();assign(m.namespace);}
+if (offline) {
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  vm.runInContext(script, context);
+} else {
+  const app=await load("dist/app.js");await app.evaluate();
+}
 let now=performance.now();const tick=()=>{now+=20;raf(now);};
 for(let i=0;i<15;i++)tick();
 assert(elements.get("batteryCurrent").textContent?.includes("А"));
@@ -162,7 +179,8 @@ Element.prototype.insertBefore=function(child){this.append(child);};
 const hud=new Element("","canvas"), parent=new Element();parent.append(hud);hud.parentNode=parent;
 const rendererModule=await load("dist/gpu-scene.js");if(rendererModule.status!=="evaluated")await rendererModule.evaluate();
 const renderer=new rendererModule.namespace.GPUScene(hud);
-const p={...JSON.parse(JSON.stringify((await load("dist/physics.js")).namespace.baseDefaults))};
+const physicsModule=await load("dist/physics.js");if(physicsModule.status!=="evaluated")await physicsModule.evaluate();
+const p={...JSON.parse(JSON.stringify(physicsModule.namespace.baseDefaults))};
 const calc=(await load("dist/physics.js")).namespace.calculate(p);
 const basis={position:[0,2,6],right:[1,0,0],up:[0,1,0],forward:[0,0,-1],focal:500};
 renderer.begin(basis,800,520,1);renderer.model(p,{mode:"flight",modelRevision:0}, {position:[0,0,0]},calc,0);
@@ -173,3 +191,61 @@ for(const call of gpuCalls.filter(x=>x.name==="bufferData"||x.name==="bufferSubD
 assert(gpuCalls.some(x=>x.name==="drawArrays"));
 Element.prototype.getContext=oldContext;
 console.log("v0.8 UI: A/B capture, compare tab, clear comparison, finite GPU buffers and model buffer reuse passed. WebGL calls stubbed; shader compilation tested separately.");
+
+if (offline) {
+  assert([...workerURLs.keys()].some(url => url.includes('cfd-worker')));
+  assert([...workerURLs.keys()].some(url => url.includes('mesh-worker')));
+  console.log('Standalone UI integration passed. Browser file permissions are not simulated.');
+}
+
+elements.get("resetSimulation").fire("click");
+for(let i=0;i<200;i++)tick();
+assert(Number(elements.get("chargeBar").value)<100);
+elements.get("replaceBattery").fire("click");
+for(let i=0;i<12;i++)tick();
+assert(Number(elements.get("chargeBar").value)>99.9);
+elements.get("stateOfCharge").value="0";elements.get("stateOfCharge").fire("input");
+for(let i=0;i<15;i++)tick();
+assert.equal(Number(elements.get("chargeBar").value),0);
+assert(elements.get("flightStatus").innerHTML.includes("Контроллер без питания"));
+elements.get("resetSimulation").fire("click");
+elements.get("temperatureMode").value="standard";elements.get("temperatureMode").fire("change");
+elements.get("altitude").value="5000";elements.get("altitude").fire("input");
+for(let i=0;i<15;i++)tick();
+assert.equal(Number(elements.get("temperature").value),-17.5);
+assert(elements.get("temperature").disabled);
+assert(elements.get("atmosphereReading").textContent.includes("540"));
+elements.get("batteryDrain").checked=false;elements.get("batteryDrain").fire("change");
+for(let i=0;i<40;i++)tick();
+assert.equal(Number(elements.get("chargeBar").value),100);
+console.log("v0.87 UI: battery discharge, replacement, empty-pack controller shutdown, standard atmosphere and frozen-charge mode passed.");
+
+// New user paths in 0.88.
+elements.get('batteryCells').value='12';elements.get('batteryCells').fire('input');
+elements.get('batteryChemistry').value='lion';elements.get('batteryChemistry').fire('change');tick();
+assert.equal(elements.get('voltage').value,'43.2');assert(elements.get('voltage').disabled);
+assert(elements.get('batterySeriesHint').textContent.includes('12S'));
+assert(elements.get('enduranceReason').textContent.includes('постоянной мощности'));
+elements.get('resetSimulation').click();
+elements.get('modelSpan').value='200';
+elements.get('modelFile').files=[{name:'cube.obj',size:cube.length,arrayBuffer:async()=>new TextEncoder().encode(cube).buffer}];
+await elements.get('modelFile').listeners.change[0]({target:elements.get('modelFile')});
+elements.get('modelAspect').checked=false;
+elements.get('modelWidth').value='100';elements.get('modelWidth').fire('change');
+elements.get('modelHeight').value='40';elements.get('modelHeight').fire('change');
+elements.get('modelLength').value='300';elements.get('modelLength').fire('change');
+assert(elements.get('modelDimensions').textContent.includes('300'));
+assert(!elements.get('cadDrag').disabled);
+elements.get('cadDrag').checked=true;elements.get('cadDrag').fire('change');
+assert(elements.get('dragArea').disabled);
+elements.get('modelAspect').checked=true;
+elements.get('modelLength').value='600';elements.get('modelLength').fire('change');
+assert.equal(Number(elements.get('modelWidth').value),200);assert.equal(Number(elements.get('modelHeight').value),80);
+elements.get('resetModelTransform').click();assert.equal(elements.get('modelYaw').value,'0');
+elements.get('resetSimulation').click();assert(!elements.get('dragArea').disabled&&elements.get('cadDrag').disabled);
+console.log('v0.88 UI: explicit battery cells, nominal voltage, forecast label, independent CAD dimensions, aspect lock, projected-area opt-in and reset passed.');
+
+elements.get('batteryCells').value='12';elements.get('batteryCells').fire('input');
+elements.get('dronePreset').value='racing';elements.get('dronePreset').fire('change');tick();
+assert.equal(elements.get('batteryCells').value,'0');assert.equal(elements.get('batteryChemistry').value,'lipo');
+console.log('v0.88 preset battery configuration reset passed.');

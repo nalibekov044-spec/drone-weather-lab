@@ -1,3 +1,4 @@
+import { batteryCircuit, initialBattery, escAvailability } from "./power-system.js";
 import { builderDefaults, designGeometry } from "./drone-builder.js";
 export const G = 9.80665;
 export const INCH = 0.0254;
@@ -53,7 +54,9 @@ export const baseDefaults = {
   controlResponse: 0.7,
   maxTilt: 35,
   windTransition: 1.2, batteryResistance: 0.035, batteryCRating: 25,
-  ct: 0.091, cp: 0.059, calibratedProps: false
+  ct: 0.091, cp: 0.059, calibratedProps: false,
+  batteryCells: 0, batteryChemistry: "lipo", batteryHealth: 100, batteryMass: 0.8, cellCutoff: 3.2, reserveCharge: 15,
+  temperatureMode: "manual", escCurrentLimit: 60, escEfficiency: 97, avionicsPower: 18, controllerCutoff: 6, controllerRate: 100, sensorLatency: 10
 };
 
 export const graphVariables = {
@@ -98,7 +101,7 @@ export function atmosphere(parameters) {
     ? parameters.pressureHpa * 100
     : pressureFromAltitude(parameters.altitude);
   const saturationVaporPressure = 610.94 * Math.exp((17.625 * parameters.temperature) / (parameters.temperature + 243.04));
-  const vaporPressure = clamp(parameters.humidity / 100 * saturationVaporPressure, 0, pressure * 0.08);
+  const vaporPressure = clamp(parameters.humidity / 100 * saturationVaporPressure, 0, pressure * 0.99);
   const dryPressure = pressure - vaporPressure;
   const density = dryPressure / (287.05 * temperatureK) + vaporPressure / (461.495 * temperatureK);
   return { pressure, density, temperatureK, vaporPressure };
@@ -123,8 +126,28 @@ export function rotorPositions(count, radius = 1) {
   });
 }
 
+export function dragAreas(p, windDirection = p.windDirection || 0) {
+  const cad = p.cadAerodynamics;
+  if (!cad?.horizontal?.length) return { frontal: p.dragArea, top: p.dragArea * 0.72, imported: false };
+  const angle = ((windDirection % 180) + 180) % 180 / 180 * cad.horizontal.length;
+  const i = Math.floor(angle), f = angle - i;
+  return { frontal: cad.horizontal[i] * (1 - f) + cad.horizontal[(i + 1) % cad.horizontal.length] * f, top: cad.top, imported: true };
+}
+
+export function relativeAirflow(p, velocity = [0, 0, 0], wind = null) {
+  const angle = p.windDirection * Math.PI / 180;
+  const vector = wind || [Math.cos(angle) * p.windSpeed, Math.sin(angle) * p.windSpeed];
+  const x = vector[0] - velocity[0], z = vector[1] - velocity[1];
+  return { windSpeed: Math.hypot(x, z), windDirection: Math.atan2(z, x) * 180 / Math.PI, verticalWind: p.verticalWind - velocity[2], vector: [x, z] };
+}
+
 export function calculate(parameters, options = {}) {
-  const p = { ...parameters };
+  const p = { ...baseDefaults, ...parameters };
+  if (p.temperatureMode === "standard") p.temperature = 15 - 0.0065 * p.altitude;
+  const batteryState = options.batteryState || initialBattery(p);
+  const supply = batteryCircuit(p, batteryState);
+  const escEfficiency = clamp(p.escEfficiency / 100, 0.5, 1);
+  const avionicsPower = p.avionicsPower + p.rainRate * 0.45;
   const design = p.dronePreset === "custom" ? designGeometry(p) : null;
   if (design) p.frameSize = design.frameSize;
   const atmosphereResult = atmosphere(p);
@@ -140,7 +163,28 @@ export function calculate(parameters, options = {}) {
   const motorEfficiency = clamp(p.motorEfficiency / 100, 0.35, 0.98);
   const motorHealths = Array.from({ length: p.rotors }, (_, index) => clamp(options.motorHealths?.[index] ?? 1, 0, 1));
   const motorEfficiencies = motorHealths.map(health => motorEfficiency * (0.72 + 0.28 * health));
-  const shaftPowerLimits = motorHealths.map((health, index) => p.motorMaxPower * motorEfficiencies[index] * health ** 1.25);
+  const healthSum = motorHealths.reduce((sum, h) => sum + h, 0);
+  let shaftPowerLimits = motorHealths.map((health, index) => {
+    const escLimit = p.escCurrentLimit * supply.openVoltage * escEfficiency * escAvailability(options.escTemps?.[index] ?? p.temperature);
+    const share = Math.max(0, supply.maximumPower - avionicsPower) * health / Math.max(1e-9, healthSum) * escEfficiency;
+    return supply.controllerPowered ? Math.min(p.motorMaxPower * health ** 1.25, escLimit, share) * motorEfficiencies[index] : 0;
+  });
+  // Solve the shared bus voltage and each ESC input current together at full capacity.
+  // The battery share caps total power even when the requested RPM is excessive.
+  for (let iteration = 0; iteration < 40; iteration++) {
+    const demand = shaftPowerLimits.reduce((sum, power, i) => sum + power / Math.max(0.1, motorEfficiencies[i]), 0) / escEfficiency + avionicsPower;
+    const bus = batteryCircuit(p, batteryState, demand);
+    let error = 0;
+    shaftPowerLimits = shaftPowerLimits.map((previous, i) => {
+      const health = motorHealths[i];
+      const escLimit = p.escCurrentLimit * bus.terminalVoltage * escEfficiency * escAvailability(options.escTemps?.[i] ?? p.temperature);
+      const share = Math.max(0, supply.maximumPower - avionicsPower) * health / Math.max(1e-9, healthSum) * escEfficiency;
+      const next = supply.controllerPowered ? Math.min(p.motorMaxPower * health ** 1.25, escLimit, share) * motorEfficiencies[i] : 0;
+      error = Math.max(error, Math.abs(next - previous));
+      return (previous + next) * 0.5;
+    });
+    if (error < 1e-7) break;
+  }
   const rpmPowerLimits = shaftPowerLimits.map(limit => 60 * Math.cbrt(limit / Math.max(1e-9, powerCoefficient * rho * diameterM ** 5)));
   const rpmPowerLimit = Math.min(...rpmPowerLimits);
   const windSpeed = options.windSpeed ?? p.windSpeed;
@@ -163,16 +207,20 @@ export function calculate(parameters, options = {}) {
     return sum + thrustCoefficient * rho * maxN ** 2 * diameterM ** 4;
   }, 0);
   const effectiveCd = p.dragCoefficient * (1 + p.rainRate * 0.003 + (p.icing === "moderate" ? 0.16 : p.icing === "trace" ? 0.06 : 0));
-  const verticalArea = p.dragArea * 0.72;
+  const areas = dragAreas(p, options.windDirection ?? p.windDirection);
+  const verticalArea = areas.top;
+  const areaAtTilt = radians => areas.imported ? areas.frontal * Math.abs(Math.cos(radians)) + areas.top * Math.abs(Math.sin(radians)) : p.dragArea * (1 + 0.55 * Math.sin(radians));
   const verticalAirForce = 0.5 * rho * effectiveCd * verticalArea * verticalWind * Math.abs(verticalWind);
   const requiredVertical = Math.max(weight * 0.2, weight - verticalAirForce);
-  let projectedArea = p.dragArea;
+  let projectedArea = areas.frontal;
   let windForce = 0;
   let tilt = 0;
-  for (let iteration = 0; iteration < 4; iteration += 1) {
+  for (let iteration = 0; iteration < 32; iteration += 1) {
     windForce = 0.5 * rho * effectiveCd * projectedArea * windSpeed ** 2;
     tilt = Math.atan2(windForce, requiredVertical) * 180 / Math.PI;
-    projectedArea = p.dragArea * (1 + 0.55 * Math.sin(tilt * Math.PI / 180));
+    const nextArea = areaAtTilt(tilt * Math.PI / 180);
+    if (Math.abs(nextArea - projectedArea) < 1e-10) { projectedArea = nextArea; break; }
+    projectedArea = (nextArea + projectedArea) / 2;
   }
   windForce = 0.5 * rho * effectiveCd * projectedArea * windSpeed ** 2;
   const requiredThrust = Math.hypot(requiredVertical, windForce);
@@ -183,7 +231,7 @@ export function calculate(parameters, options = {}) {
   const thrustLimitedHorizontal = Math.sqrt(Math.max(0, availableThrust ** 2 - requiredVertical ** 2));
   const horizontalAuthority = Math.min(tiltLimitedHorizontal, thrustLimitedHorizontal);
   const authorityTilt = Math.atan2(horizontalAuthority, requiredVertical);
-  const maxProjectedArea = p.dragArea * (1 + 0.55 * Math.sin(authorityTilt));
+  const maxProjectedArea = areaAtTilt(authorityTilt);
   const maxWind = horizontalAuthority > 0
     ? Math.sqrt((2 * horizontalAuthority) / Math.max(0.0001, rho * effectiveCd * maxProjectedArea))
     : 0;
@@ -193,21 +241,21 @@ export function calculate(parameters, options = {}) {
   const hoverShaftPower = p.rotors * powerCoefficient * rho * (hoverRpm / 60) ** 3 * diameterM ** 5;
   const perMotorHoverPower = hoverShaftPower / Math.max(1, p.rotors);
   const propulsionPower = motorEfficiencies.reduce((sum, efficiency) => sum + perMotorHoverPower / Math.max(0.1, efficiency), 0);
-  const electricalPower = propulsionPower + 18 + p.rainRate * 0.45;
+  const electricalPower = propulsionPower / escEfficiency + avionicsPower;
   const systemPowerLimit = motorHealths.reduce((sum, health) => sum + p.motorMaxPower * health ** 1.25, 0);
   const motorLoadPercents = requestedShaftPowers.map((power, index) => {
     const electricalLoad = power / Math.max(1e-6, shaftPowerLimits[index]) * 100;
     const mechanicalLoad = (Math.max(0, commandedRpms[index]) / Math.max(1, p.maxRpm)) ** 3 * 100;
     return Math.min(5000, Math.max(electricalLoad, mechanicalLoad));
   });
-  const batteryFactor = batteryTemperatureFactor(p.batteryTemp);
-  const usableEnergyWh = p.voltage * (p.capacity / 1000) * 0.80 * (p.stateOfCharge / 100) * batteryFactor;
-  const resistance = Math.max(0, p.batteryResistance ?? 0.035);
-  const discriminant = p.voltage ** 2 - 4 * resistance * electricalPower;
-  const terminalVoltage = resistance > 1e-9 ? (p.voltage + Math.sqrt(Math.max(0, discriminant))) / 2 : p.voltage;
-  const current = electricalPower / Math.max(0.1, terminalVoltage);
-  const batteryCurrentLimit = p.capacity / 1000 * (p.batteryCRating ?? 25);
-  const batteryFeasible = discriminant >= 0 && current <= batteryCurrentLimit && terminalVoltage >= p.voltage * 0.75;
+  const batteryFactor = batteryTemperatureFactor(batteryState.temperature);
+  const battery = batteryCircuit(p, batteryState, electricalPower);
+  const usableChargeAh = battery.capacityAh * Math.max(0, batteryState.soc - p.reserveCharge) / 100;
+  const usableEnergyWh = battery.nominalVoltage * usableChargeAh * batteryFactor;
+  const { terminalVoltage, current } = battery;
+  const resistance = battery.resistance;
+  const batteryCurrentLimit = battery.currentRating;
+  const batteryFeasible = battery.feasible;
   const requiredPowerLoad = propulsionPower / Math.max(1, systemPowerLimit) * 100;
   const commandPowerLoad = Math.max(...motorLoadPercents);
   const powerLoad = Math.max(requiredPowerLoad, commandPowerLoad);
@@ -215,12 +263,12 @@ export function calculate(parameters, options = {}) {
   const thrustFeasible = availableThrust >= requiredThrust;
   const powerFeasible = rpmPowerLimits.every(limit => hoverRpm <= Math.min(p.maxRpm, limit) + 1e-6)
     && motorLoadPercents.every(load => load <= 100 + 1e-6);
-  const feasible = thrustFeasible && tiltFeasible && powerFeasible && batteryFeasible;
-  const flightMinutes = feasible ? usableEnergyWh / Math.max(1, electricalPower) * 60 : 0;
+  const feasible = thrustFeasible && tiltFeasible && powerFeasible && batteryFeasible && battery.controllerPowered;
+  const flightMinutes = feasible ? usableChargeAh * batteryFactor / Math.max(0.001, current) * 60 : 0;
   const supportedVerticalThrust = Math.min(requiredVertical, availableThrust);
   const downwashSpeed = Math.sqrt(Math.max(0, supportedVerticalThrust) / Math.max(0.001, 2 * rho * diskArea));
-  const commandedElectricalPower = shaftPowers.reduce((sum, value, index) => sum + value / Math.max(0.1, motorEfficiencies[index]), 0) + 18 + p.rainRate * 0.45;
-  const requestedElectricalPower = requestedShaftPowers.reduce((sum, value, index) => sum + value / Math.max(0.1, motorEfficiencies[index]), 0) + 18 + p.rainRate * 0.45;
+  const commandedElectricalPower = shaftPowers.reduce((sum, value, index) => sum + value / Math.max(0.1, motorEfficiencies[index]), 0) / escEfficiency + avionicsPower;
+  const requestedElectricalPower = requestedShaftPowers.reduce((sum, value, index) => sum + value / Math.max(0.1, motorEfficiencies[index]), 0) / escEfficiency + avionicsPower;
   const airSoundSpeed = Math.sqrt(1.4 * 287.05 * atmosphereResult.temperatureK);
   const tipSpeed = Math.hypot(Math.PI * diameterM * Math.max(...effectiveRpms) / 60, windSpeed);
   const tipMach = tipSpeed / airSoundSpeed;
@@ -249,6 +297,7 @@ export function calculate(parameters, options = {}) {
     surfaceEfficiency,
     effectiveCd,
     projectedArea,
+    dragAreas: areas,
     thrustCoefficient,
     powerCoefficient,
     motorHealths,
@@ -284,11 +333,11 @@ export function calculate(parameters, options = {}) {
     systemPowerLimit,
     flightMinutes,
     current,
-    terminalVoltage, voltageSag: p.voltage - terminalVoltage, batteryCurrentLimit, batteryFeasible,
+    terminalVoltage, voltageSag: battery.voltageSag, batteryCurrentLimit, batteryFeasible, battery, batteryState, escEfficiency, avionicsPower, usableEnergyWh,
     tipSpeed, tipMach, airSoundSpeed, propOverlap, rotorThrusts,
     dynamicPressure: 0.5 * rho * windSpeed ** 2,
     farWakeSpeed: downwashSpeed * 2,
-    batteryHeat: current ** 2 * resistance,
+    batteryHeat: battery.heat,
     powerLoad,
     requiredPowerLoad,
     commandPowerLoad,
@@ -320,7 +369,7 @@ export function graphSeries(parameters, variableName, metricName, from, to, samp
     const trialRpms = variableName === "rpm"
       ? Array.from({ length: trial.rotors }, () => x)
       : options.motorRpms;
-    const result = calculate(trial, { motorRpms: trialRpms, motorHealths: options.motorHealths });
+    const result = calculate(trial, { motorRpms: trialRpms, motorHealths: options.motorHealths, batteryState: options.batteryState, escTemps: options.escTemps });
     points.push({ x, y: result[metricName], result });
   }
   return points.filter(point => Number.isFinite(point.y));

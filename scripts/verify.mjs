@@ -18,7 +18,7 @@ const flow = await load("dist/flow-lines.js"); await flow.evaluate();
 const mesh = await load("dist/mesh-import.js"); await mesh.evaluate();
 const { calculate, baseDefaults } = physics.namespace;
 const r = calculate(baseDefaults);
-assert(r.batteryFeasible && r.terminalVoltage < baseDefaults.voltage);
+assert(r.batteryFeasible && r.terminalVoltage < r.battery.openVoltage);
 assert(Math.abs(r.current * r.terminalVoltage - r.electricalPower) < 1e-6);
 assert(Math.abs(r.rotorThrusts.reduce((a,b)=>a+b,0) - r.requiredVertical) < 1e-6);
 assert(!calculate({ ...baseDefaults, batteryCRating: 1 }).batteryFeasible);

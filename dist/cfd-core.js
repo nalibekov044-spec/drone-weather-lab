@@ -94,7 +94,7 @@ function makeGeometry(config, nx, ny, nz, bounds) {
   return { solid, solidCells, rotors, dx, dy, dz };
 }
 
-function makeBodyForce(config, nx, ny, nz, rotors, referenceSpeed, solid, bounds, spacing) {
+export function actuatorForces(config, nx, ny, nz, rotors, referenceSpeed, solid, bounds, spacing) {
   const count = nx * ny * nz;
   const fx = new Float32Array(count);
   const fy = new Float32Array(count);
@@ -103,6 +103,8 @@ function makeBodyForce(config, nx, ny, nz, rotors, referenceSpeed, solid, bounds
   const rho = config.density || 1.225;
   const velocityScale = referenceSpeed / 0.065;
   let appliedThrust = 0;
+  const appliedTorques = new Array(rotors.length).fill(0);
+  const diskNodes = new Array(rotors.length).fill(0);
   rotors.forEach((rotor, rotorIndex) => {
     const nodes = [];
     let totalWeight = 0;
@@ -116,20 +118,30 @@ function makeBodyForce(config, nx, ny, nz, rotors, referenceSpeed, solid, bounds
         const index = ix + nx * (iz + nz * iy);
         if (solid[index] || radial > propRadius) continue;
         const weight = Math.exp(-2 * (radial / propRadius) ** 2) * Math.exp(-2 * ((y - rotor.diskY) / spacing) ** 2);
-        nodes.push({ index, weight }); totalWeight += weight;
+        nodes.push({ index, weight, x: x - rotor.x, z: z - rotor.z }); totalWeight += weight;
       }
     }
     const thrust = Math.max(0, config.rotorThrusts?.[rotorIndex] ?? 0);
+    diskNodes[rotorIndex] = nodes.length;
     if (!totalWeight || !thrust) return;
     appliedThrust += thrust;
     // F_lattice = F_SI / (rho * h_SI² * velocityScale²); weights sum to one.
     const force = thrust / (rho * (spacing * config.worldScale) ** 2 * velocityScale ** 2);
+    const centroidX = nodes.reduce((sum, node) => sum + node.weight * node.x, 0) / totalWeight;
+    const centroidZ = nodes.reduce((sum, node) => sum + node.weight * node.z, 0) / totalWeight;
+    const radialMoment = nodes.reduce((sum, node) => sum + node.weight * ((node.x - centroidX) ** 2 + (node.z - centroidZ) ** 2), 0);
+    const torque = Number(config.rotorTorques?.[rotorIndex]) || 0;
+    const torqueScale = rho * (spacing * config.worldScale) ** 2 * velocityScale ** 2 * config.worldScale;
+    const angularForce = radialMoment > 1e-12 ? torque / (torqueScale * radialMoment) : 0;
+    appliedTorques[rotorIndex] = angularForce ? torque : 0;
     for (const node of nodes) {
       const f = -force * node.weight / totalWeight;
       fy[node.index] += f;
+      fx[node.index] += angularForce * (node.z - centroidZ) * node.weight;
+      fz[node.index] -= angularForce * (node.x - centroidX) * node.weight;
     }
   });
-  return { fx, fy, fz, appliedThrust };
+  return { fx, fy, fz, appliedThrust, appliedTorques, diskNodes };
 }
 
 function dynamicViscosity(temperatureK) {
@@ -151,6 +163,56 @@ export function collideCell(f,index,n,rho,ux,uy,uz,fx,fy,fz,even,odd,out){
   }
 }
 
+export function smagorinskyTau(baseTau, density, stressSquared, coefficient) {
+  if (!coefficient || stressSquared <= 0) return baseTau;
+  return 0.5 * (baseTau + Math.sqrt(baseTau * baseTau + 18 * coefficient * coefficient * Math.sqrt(2 * stressSquared) / density));
+}
+
+export function boundaryMassFlow(field, referenceDensity, cellSizeM, pressureScale) {
+  const { nx, ny, nz, velocityX, velocityY, velocityZ, pressure, solid } = field;
+  const dimensions = [nx, ny, nz], velocity = [velocityX, velocityY, velocityZ];
+  let incoming = 0, outgoing = 0;
+  for (let axis = 0; axis < 3; axis++) {
+    const a = (axis + 1) % 3, b = (axis + 2) % 3;
+    for (const side of [0, dimensions[axis] - 1]) {
+      const sign = side === 0 ? -1 : 1;
+      for (let j = 0; j < dimensions[a]; j++) for (let k = 0; k < dimensions[b]; k++) {
+        const position = [0, 0, 0]; position[axis] = side; position[a] = j; position[b] = k;
+        const i = position[0] + nx * (position[2] + nz * position[1]);
+        if (solid[i]) continue;
+        const weight = (j === 0 || j === dimensions[a] - 1 ? 0.5 : 1) * (k === 0 || k === dimensions[b] - 1 ? 0.5 : 1);
+        const density = referenceDensity * (1 + pressure[i] / pressureScale);
+        const flow = sign * density * velocity[axis][i] * cellSizeM * cellSizeM * weight;
+        if (flow < 0) incoming -= flow; else outgoing += flow;
+      }
+    }
+  }
+  const net = outgoing - incoming;
+  return { incoming, outgoing, net, relativeImbalance: Math.abs(net) / Math.max(1e-12, (incoming + outgoing) * 0.5) };
+}
+
+export function convergenceStatus({ residual, forceResidual, massImbalance, densityDrift }) {
+  return Number.isFinite(residual) && Number.isFinite(forceResidual) && Number.isFinite(massImbalance) && Number.isFinite(densityDrift)
+    && residual < 0.001 && forceResidual < 0.005 && massImbalance < 0.01 && Math.abs(densityDrift) < 0.01;
+}
+
+function populationMassBalance(f, nx, ny, nz) {
+  const count = nx * ny * nz, dim = [nx, ny, nz], directions = [CX, CY, CZ];
+  let incoming = 0, outgoing = 0;
+  for (let axis = 0; axis < 3; axis++) {
+    const a = (axis + 1) % 3, b = (axis + 2) % 3;
+    for (const side of [0, dim[axis] - 1]) for (let j = 0; j < dim[a]; j++) for (let k = 0; k < dim[b]; k++) {
+      const p = [0,0,0]; p[axis] = side; p[a] = j; p[b] = k;
+      const i = p[0] + nx * (p[2] + nz * p[1]);
+      let flux = 0;
+      for (let q = 1; q < 19; q++) flux += f[q * count + i] * directions[axis][q];
+      flux *= (side === 0 ? -1 : 1) * (j === 0 || j === dim[a] - 1 ? 0.5 : 1) * (k === 0 || k === dim[b] - 1 ? 0.5 : 1);
+      if (flux < 0) incoming -= flux; else outgoing += flux;
+    }
+  }
+  return Math.abs(outgoing - incoming) / Math.max(1e-12, (incoming + outgoing) * 0.5);
+}
+
 export function* solveCFDGenerator(config, onProgress, resume = null) {
   const started = typeof performance !== "undefined" ? performance.now() : Date.now();
   const quality = QUALITY[config.quality] || QUALITY.balanced;
@@ -160,6 +222,11 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
   const bounds = { ...BOUNDS, yMin: -(ny - 1) * spacing / 2, yMax: (ny - 1) * spacing / 2, zMin: -(nz - 1) * spacing / 2, zMax: (nz - 1) * spacing / 2 };
   config = { ...config, worldScale: config.worldScale || (config.frameSize || 520) / 1440 };
   const count = nx * ny * nz;
+  if (config.meshTriangles) for (let i = 0; i < config.meshTriangles.length; i += 3) {
+    const m = config.meshTriangles;
+    if (m[i] <= bounds.xMin + spacing || m[i] >= bounds.xMax - spacing || m[i+1] <= bounds.yMin + spacing || m[i+1] >= bounds.yMax - spacing || m[i+2] <= bounds.zMin + spacing || m[i+2] >= bounds.zMax - spacing)
+      throw new Error("CAD касается границы CFD. Уменьши размеры корпуса или увеличь раму.");
+  }
   const { solid, solidCells, rotors, dx, dy, dz } = makeGeometry(config, nx, ny, nz, bounds);
   const windAngle = (config.windDirection || 0) * Math.PI / 180;
   const windX = Math.cos(windAngle) * (config.windSpeed || 0);
@@ -168,11 +235,14 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
   const referenceSpeed = Math.max(1, Math.hypot(windX, windY, windZ), config.downwashSpeed || 0);
   const latticeScale = 0.065 / referenceSpeed;
   const inlet = [windX * latticeScale, windY * latticeScale, windZ * latticeScale];
-  const bodyForce = makeBodyForce(config, nx, ny, nz, rotors, referenceSpeed, solid, bounds, spacing);
+  const bodyForce = actuatorForces(config, nx, ny, nz, rotors, referenceSpeed, solid, bounds, spacing);
+  if (bodyForce.diskNodes.some((nodes, i) => !nodes && (config.rotorThrusts?.[i] || 0) > 0))
+    throw new Error("Диск винта не попал в сетку или перекрыт корпусом. Проверь CAD, размер рамы и диаметр винтов.");
   // Both modes regularize viscosity. TRT decouples viscous and odd kinetic relaxation.
   const trt = config.solverMode !== "bgk";
   const tau = config.kinematicViscosity ? 0.5 + 3 * config.kinematicViscosity / (spacing * config.worldScale * referenceSpeed / 0.065) : trt ? 0.54 : 0.62;
   if (!(tau > 0.501 && tau < 2)) throw new Error("Requested viscosity is outside the supported lattice range.");
+  const smagorinsky = clamp(Number(config.smagorinsky) || 0, 0, 0.25);
   const omega = 1 / tau;
   const omegaOdd = trt ? 1 / (0.5 + (3/16) / (tau - 0.5)) : omega;
   let distributions = resume?.distributions || new Float32Array(count * 19);
@@ -208,26 +278,35 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
   const collisionCells = [...fluid, ...boundary.filter(face => !solid[face.index]).map(face => face.index)];
   let stableChecks=resume?.stableChecks||0;
   let maxLatticeSpeed=0, maxDensityDeviation=0;
-  let meanDensity = 1, densityDrift = 0;
+  let meanDensity = 1, densityDrift = 0, massImbalance = Infinity;
   const boundaryScratch = new Float64Array(4);
   let surfaceForce = [0, 0, 0];
+  const forceHistory = resume?.forceHistory || [];
+  let forceResidual = Infinity, maxEffectiveTau = tau;
 
   for (let step = 0; step < steps; step += 1) {
     let deltaSquared = 0, velocitySquared = 0;
     const diagnosticStep = step % 20 === 0;
+    let diagnosticDensity = 0;
     for (const index of collisionCells) {
       let density = 0;
       let ux = 0;
       let uy = 0;
       let uz = 0;
+      let xx = 0, yy = 0, zz = 0, xy = 0, xz = 0, yz = 0;
       for (let q = 0; q < 19; q += 1) {
         const value = distributions[q * count + index];
         density += value;
         ux += value * CX[q];
         uy += value * CY[q];
         uz += value * CZ[q];
+        if (smagorinsky) {
+          xx += value * CX[q] * CX[q]; yy += value * CY[q] * CY[q]; zz += value * CZ[q] * CZ[q];
+          xy += value * CX[q] * CY[q]; xz += value * CX[q] * CZ[q]; yz += value * CY[q] * CZ[q];
+        }
       }
       if (!Number.isFinite(density) || density < 0.6 || density > 1.4) throw new Error("CFD потерял устойчивость. Выбери BGK, снизь тягу / ветер или увеличь винты.");
+      if (diagnosticStep) diagnosticDensity += density;
       maxDensityDeviation = Math.max(maxDensityDeviation,Math.abs(density-1));
       const forceX = bodyForce.fx[index], forceY = bodyForce.fy[index], forceZ = bodyForce.fz[index];
       ux = (ux + forceX * 0.5) / density;
@@ -242,7 +321,22 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
         velocitySquared += ux * ux + uy * uy + uz * uz;
         previousVelocity[a] = ux; previousVelocity[a + 1] = uy; previousVelocity[a + 2] = uz;
       }
-      collideCell(distributions,index,count,density,ux,uy,uz,forceX,forceY,forceZ,omega,omegaOdd,postCollision);
+      let localOmega = omega, localOdd = omegaOdd;
+      if (smagorinsky) {
+        xx -= density * (1 / 3 + ux * ux); xx += ux * forceX;
+        yy -= density * (1 / 3 + uy * uy); yy += uy * forceY;
+        zz -= density * (1 / 3 + uz * uz); zz += uz * forceZ;
+        xy -= density * ux * uy; xy += 0.5 * (ux * forceY + uy * forceX);
+        xz -= density * ux * uz; xz += 0.5 * (ux * forceZ + uz * forceX);
+        yz -= density * uy * uz; yz += 0.5 * (uy * forceZ + uz * forceY);
+        const stressSquared = xx * xx + yy * yy + zz * zz + 2 * (xy * xy + xz * xz + yz * yz);
+        const localTau = smagorinskyTau(tau, density, stressSquared, smagorinsky);
+        if (!Number.isFinite(localTau) || localTau > 2) throw new Error("LES: локальная вязкость вышла за допустимый диапазон. Уменьши нагрузку.");
+        maxEffectiveTau = Math.max(maxEffectiveTau, localTau);
+        localOmega = 1 / localTau;
+        localOdd = trt ? 1 / (0.5 + (3 / 16) / (localTau - 0.5)) : localOmega;
+      }
+      collideCell(distributions,index,count,density,ux,uy,uz,forceX,forceY,forceZ,localOmega,localOdd,postCollision);
     }
 
     for (const face of boundary) {
@@ -278,7 +372,15 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
       residual = Math.sqrt(deltaSquared / Math.max(1e-16, velocitySquared));
       residualHistory.push({ iteration: iterations, residual });
       if (onProgress) onProgress((step + 1) / steps);
-      stableChecks = residual < 0.001 ? stableChecks+1 : 0;
+      const previousForce = forceHistory.at(-1)?.force;
+      forceResidual = previousForce ? Math.hypot(...surfaceForce.map((v, i) => v - previousForce[i])) / Math.max(1e-4, Math.hypot(...surfaceForce), Math.hypot(...previousForce)) : Infinity;
+      forceHistory.push({ iteration: iterations, force: [...surfaceForce], residual: forceResidual });
+      if (forceHistory.length > 120) forceHistory.shift();
+      massImbalance = populationMassBalance(distributions, nx, ny, nz);
+      densityDrift = diagnosticDensity / Math.max(1, collisionCells.length) - 1;
+      residualHistory.at(-1).massImbalance = massImbalance;
+      residualHistory.at(-1).densityDrift = densityDrift;
+      stableChecks = convergenceStatus({ residual, forceResidual, massImbalance, densityDrift }) ? stableChecks + 1 : 0;
       if (iterations >= 200 && stableChecks >= 3) break;
     }
     if ((step+1)%5===0) yield { progress:(step+1)/steps, iterations, residual };
@@ -353,6 +455,9 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
   const reynolds = (config.density ?? 1.225) * reynoldsSpeed * characteristicLength / viscosity;
   const numericalViscosity = (tau - 0.5) / 3 * spacing * config.worldScale * physicalVelocityScale;
   simulatedTime = iterations * spacing * config.worldScale / physicalVelocityScale;
+  const massFlow = boundaryMassFlow({ nx, ny, nz, velocityX, velocityY, velocityZ, pressure, solid }, config.density ?? 1.225, spacing * config.worldScale, physicalPressureScale);
+  const forceSamples = forceHistory.slice(-10);
+  const meanSurfaceForce = [0, 1, 2].map(axis => forceSamples.reduce((sum, sample) => sum + sample.force[axis], 0) * forceScale / Math.max(1, forceSamples.length));
   const finished = typeof performance !== "undefined" ? performance.now() : Date.now();
   return {
     nx, ny, nz, bounds, velocityX, velocityY, velocityZ, pressure, vorticity, solid,
@@ -360,6 +465,9 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
       cells: count,
       solidCells,
       meanDensity, densityDrift, surfaceForce: surfaceForce.map(v => v * forceScale),
+      meanSurfaceForce, forceResidual, forceSamples: forceSamples.length,
+      forceHistory: forceHistory.map(sample => ({ iteration: sample.iteration, force: sample.force.map(v => v * forceScale), residual: sample.residual })),
+      massFlow, smagorinsky, maxEddyViscosity: (maxEffectiveTau - tau) / 3 * spacing * config.worldScale * physicalVelocityScale,
       boundaryMethod: "non-equilibrium extrapolation, velocity inlet / density outlet",
       iterations,
       residual, residualHistory: residualHistory.slice(-120), converged: iterations>=200&&stableChecks>=3, clampedCells,
@@ -367,6 +475,11 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
       divergenceRms: Math.sqrt(divergenceSquared / Math.max(1, diagnosticCells)),
       spacingM: spacing * config.worldScale, simulatedTime, worldScale: config.worldScale,
       appliedThrust: bodyForce.appliedThrust,
+      requestedThrust: (config.rotorThrusts || []).reduce((sum, t) => sum + Math.max(0, t), 0),
+      diskNodes: bodyForce.diskNodes,
+      underresolvedDisks: bodyForce.diskNodes.map((nodes, i) => nodes < 8 && (config.rotorThrusts?.[i] || 0) > 0 ? i + 1 : null).filter(Boolean),
+      convergenceCriteria: { velocity: 0.001, force: 0.005, massFlow: 0.01, densityDrift: 0.01, consecutiveChecks: 3 },
+      appliedTorques: bodyForce.appliedTorques,
       effectiveReynolds: reynoldsSpeed * characteristicLength / numericalViscosity,
       numericalViscosity,
       elapsedMs: Math.round(finished - started),
@@ -375,9 +488,9 @@ export function* solveCFDGenerator(config, onProgress, resume = null) {
       maxPressure: Number.isFinite(maxPressure) ? maxPressure : 0,
       maxVorticity,
       reynolds,
-      method: trt ? "D3Q19 TRT + Guo" : "D3Q19 BGK + Guo"
+      method: `${trt ? "D3Q19 TRT" : "D3Q19 BGK"} + Guo${smagorinsky ? " + Smagorinsky LES" : ""}`
     },
-    _resume: { distributions,previousVelocity,residualHistory:residualHistory.slice(-120),iterations,stableChecks }
+    _resume: { distributions,previousVelocity,residualHistory:residualHistory.slice(-120),iterations,stableChecks,forceHistory }
   };
 }
 

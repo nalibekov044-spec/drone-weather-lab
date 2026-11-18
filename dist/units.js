@@ -11,7 +11,7 @@ const definitions = {
   resistance: ["мОм", "мОм", 1000, 1000]
 };
 export const parameterUnits = {
-  mass: "kg", payload: "kg", frameSize: "mm", diameter: "inch", pitch: "inch", dragArea: "area",
+  batteryMass: "kg", mass: "kg", payload: "kg", frameSize: "mm", diameter: "inch", pitch: "inch", dragArea: "area",
   windSpeed: "speed", verticalWind: "speed", rainRate: "rain", temperature: "temperature",
   altitude: "m", pressureHpa: "hpa", batteryTemp: "temperature", payloadX: "cm", payloadY: "cm",
   bodyLength: "mm", bodyWidth: "mm", bodyHeight: "mm", armLength: "mm", armThickness: "mm",
