@@ -42,6 +42,9 @@ import {
 import {
   labText
 } from './workbench-language.js';
+import {
+  installLab094
+} from './lab-094.js';
 const $ = id => document.getElementById(id);
 const escape = s => String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
 const L = s => getLanguage() === 'en' ? s : (labText[s]?.[getLanguage() === 'es' ? 1 : 0] || s);
@@ -141,7 +144,7 @@ export function installWorkbench(api) {
     `<div class="activity-strip"><output id="activityState" role="status"></output><span>${k('Background work can be throttled or frozen by your browser. Returning does not fast-forward the flight.')}</span></div>`
     );
   document.querySelector('.release-notice').innerHTML =
-    `<div><span class="version-orbit">.93</span><div>${k('Active configuration')}<small>${k('Geometry, power and airflow')}</small></div></div><div class="release-tags">CAD · ENERGY · CFD</div>`;
+    `<div><span class="version-orbit">.94</span><div>${k('Active configuration')}<small>${k('Geometry, power and airflow')}</small></div></div><div class="release-tags">CAD · ENERGY · CFD</div>`;
   document.querySelector('.controls-panel').insertAdjacentHTML('afterbegin',
     `<div class="controls-tools"><input id="controlSearch" type="search" placeholder="${L('Find a parameter')}" aria-label="${L('Find a parameter')}">${button('collapseControls','Collapse panels')}</div>`
   );
@@ -936,6 +939,17 @@ export function installWorkbench(api) {
   function restoreProject(p) {
     if (!p || p.format !== 'dwl-project' || p.version !== 1 || !p.parameters || !Array.isArray(p.stages))
       throw Error();
+    // 0.94: projects saved before the datasheet motor model get its defaults (the simple model stays selected).
+    p = {
+      ...p,
+      parameters: {
+        motorModel: 'rated',
+        motorKv: 330,
+        motorResistance: 0.085,
+        motorIdleCurrent: 1.1,
+        ...p.parameters
+      }
+    };
     applyParameters(p.parameters, {
       complete: true,
       validateOnly: true
@@ -1411,12 +1425,25 @@ export function installWorkbench(api) {
     projectList();
     if (!$('graphTable').hidden) updateGraphTable();
   }
-  document.addEventListener('languagechange', refreshLanguage);
+  // 0.94: validation tab, temperatures, overload tests and motor failure.
+  const lab = installLab094(api, {
+    L,
+    k,
+    button,
+    fmt,
+    toast,
+    escape
+  });
+  document.addEventListener('languagechange', () => {
+    refreshLanguage();
+    lab.refreshLanguage();
+  });
   refreshLanguage();
   let lastUI = -Infinity,
     shownView = '';
   return {
     tick(now, render = true) {
+      lab.tick(now, render);
       if (state.t < lastSample) {
         telemetry = [];
         lastSample = -Infinity;
@@ -1471,6 +1498,7 @@ export function installWorkbench(api) {
     refreshLanguage, activityChanged:renderActivity,
     // 0.92: results shown in display units are re-rendered after a unit switch.
     unitsChanged() {
+      lab.unitsChanged();
       renderCustom();
       ledgerPreview();
       renderMission();

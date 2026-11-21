@@ -2957,3 +2957,137 @@ select {
   }
 }
 #activityState[data-phase=waiting],#activityState[data-phase=frozen]{color:var(--muted);border-style:dashed}
+
+/* 0.94 · validation, temperatures and overload tests */
+.v94-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 10px
+}
+
+.v94-key {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 2px solid var(--accent);
+  margin-right: -8px;
+  vertical-align: middle
+}
+
+.v94-key.dot {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent)
+}
+
+.v94-key.blue {
+  border-color: var(--blue)
+}
+
+.v94-key.blue.dot {
+  background: var(--blue)
+}
+
+.v94-key.warning {
+  border-color: var(--warning)
+}
+
+.v94-key.danger {
+  border-color: var(--danger)
+}
+
+.v94-text {
+  width: 100%;
+  min-height: 120px;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  resize: vertical
+}
+
+.thermal-panel {
+  border-top: 1px solid var(--line);
+  padding: 16px 20px 18px
+}
+
+.thermal-panel>header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: end;
+  gap: 8px 18px
+}
+
+.thermal-panel h3 {
+  font-size: 15px;
+  font-weight: 550;
+  margin: 6px 0 0
+}
+
+.thermal-chart {
+  height: 180px
+}
+
+.v94-forecast {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border-left: 3px solid var(--accent);
+  background: var(--bg)
+}
+
+.v94-forecast[data-tone="warm"] {
+  border-left-color: var(--warning)
+}
+
+.v94-forecast[data-tone="critical"] {
+  border-left-color: var(--danger);
+  color: var(--danger)
+}
+
+.thermal-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px 20px
+}
+
+.thermal-actions .lab-actions {
+  margin: 8px 0 0
+}
+
+.thermal-actions .button {
+  font-size: 12px;
+  padding: 7px 10px
+}
+
+.datasheet-only[hidden] {
+  display: none !important
+}
+
+.v94-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0 14px
+}
+
+.lab-view textarea.v94-text {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line-bright);
+  border-radius: 4px;
+  padding: 10px
+}
+
+@media (max-width: 520px) {
+  #v94Scenarios .button {
+    flex: 1 1 100%
+  }
+
+  .thermal-panel {
+    padding: 14px
+  }
+}

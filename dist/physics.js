@@ -15,6 +15,13 @@ import {
 import {
   thermalAvailability
 } from "./systems.js";
+import {
+  motorSpec,
+  motorPoint,
+  motorConstants,
+  limitedRpm,
+  ESC_MODULATION
+} from "./motor-model.js";
 export const G = 9.80665;
 export const INCH = 0.0254;
 
@@ -36,7 +43,12 @@ export const dronePresets = {
     motorMaxPower: 420,
     motorEfficiency: 88,
     voltage: 22.2,
-    capacity: 10000
+    capacity: 10000,
+    batteryResistance: 0.018,
+    batteryMass: 1.3,
+    motorKv: 330,
+    motorResistance: 0.085,
+    motorIdleCurrent: 1.1
   },
   racing: {
     label: "Гоночный FPV",
@@ -53,9 +65,14 @@ export const dronePresets = {
     rpm: 16800,
     maxRpm: 23000,
     motorMaxPower: 780,
-    motorEfficiency: 90,
+    motorEfficiency: 80,
     voltage: 22.2,
-    capacity: 1300
+    capacity: 1300,
+    batteryResistance: 0.03,
+    batteryMass: 0.2,
+    motorKv: 1950,
+    motorResistance: 0.045,
+    motorIdleCurrent: 1.1
   },
   industrialHex: {
     label: "Промышленный гексакоптер",
@@ -74,7 +91,12 @@ export const dronePresets = {
     motorMaxPower: 880,
     motorEfficiency: 87,
     voltage: 44.4,
-    capacity: 16000
+    capacity: 10000,
+    batteryResistance: 0.03,
+    batteryMass: 2.6,
+    motorKv: 150,
+    motorResistance: 0.12,
+    motorIdleCurrent: 0.6
   },
   cargoOcto: {
     label: "Грузовой октокоптер",
@@ -93,7 +115,12 @@ export const dronePresets = {
     motorMaxPower: 1800,
     motorEfficiency: 86,
     voltage: 51.8,
-    capacity: 28000
+    capacity: 16000,
+    batteryResistance: 0.025,
+    batteryMass: 5,
+    motorKv: 100,
+    motorResistance: 0.07,
+    motorIdleCurrent: 1
   }
 };
 
@@ -121,15 +148,15 @@ export const baseDefaults = {
   controlResponse: 0.7,
   maxTilt: 35,
   windTransition: 1.2,
-  batteryResistance: 0.035,
   batteryCRating: 25,
+  // 0.94: defaults for calibrated propellers follow the new power model (15 × 5.2 propeller).
   ct: 0.091,
-  cp: 0.059,
+  cp: 0.0223,
+  motorModel: "rated",
   calibratedProps: false,
   batteryCells: 0,
   batteryChemistry: "lipo",
   batteryHealth: 100,
-  batteryMass: 0.8,
   cellCutoff: 3.2,
   reserveCharge: 15,
   temperatureMode: "manual",
@@ -358,6 +385,29 @@ export function relativeAirflow(p, velocity = [0, 0, 0], wind = null) {
   };
 }
 
+// 0.94: static propeller coefficients from the pitch ratio (pitch / diameter).
+// The thrust coefficient is the earlier fit. Up to 0.93 the power coefficient was 0.045 + 0.04 · pitch ratio,
+// about 2.5 times the measured value: a 15 × 5 propeller had a figure of merit near 0.26, while bench data
+// for a 15 × 5 carbon propeller on 6S (T-MOTOR MN4014 test reports MN.00025 and MN.00026) gives 0.68–0.73.
+// Now Cp follows from Ct and a figure of merit: 0.68 for low-pitch multirotor propellers, falling to 0.45
+// at a pitch ratio of 0.9 (high-pitch FPV propellers, 0.41–0.44 in T-MOTOR F60 PRO V data).
+// FM = Ct^1.5 / (Cp · √(π/2)) is defined with the default propeller state (86%), which the user scales.
+export const PROP_REFERENCE_STATE = 0.86;
+export function figureOfMerit(pitchRatio) {
+  return clamp(0.68 - 0.406 * (pitchRatio - 1 / 3), 0.4, 0.72);
+}
+export function propCoefficients(pitchRatio) {
+  const ratio = clamp(pitchRatio, 0.18, 0.95);
+  const ct = 0.078 + 0.038 * ratio;
+  const s = PROP_REFERENCE_STATE;
+  const cp = (ct * s) ** 1.5 * s / (figureOfMerit(ratio) * Math.sqrt(Math.PI / 2));
+  return {
+    ct,
+    cp,
+    figureOfMerit: figureOfMerit(ratio)
+  };
+}
+
 export function calculate(parameters, options = {}) {
   const p = {
     ...baseDefaults,
@@ -381,8 +431,9 @@ export function calculate(parameters, options = {}) {
   const pitchRatio = clamp(p.pitch / p.diameter, 0.18, 0.95);
   const rainEfficiency = clamp(1 - p.rainRate * 0.0015, 0.86, 1);
   const surfaceEfficiency = p.propEfficiency / 100 * icingEfficiency(p.icing) * rainEfficiency;
-  const thrustCoefficient = (p.calibratedProps ? p.ct : 0.078 + 0.038 * pitchRatio) * surfaceEfficiency;
-  const powerCoefficient = (p.calibratedProps ? p.cp : 0.045 + 0.04 * pitchRatio) / clamp(surfaceEfficiency,
+  const coefficients = propCoefficients(pitchRatio);
+  const thrustCoefficient = (p.calibratedProps ? p.ct : coefficients.ct) * surfaceEfficiency;
+  const powerCoefficient = (p.calibratedProps ? p.cp : coefficients.cp) / clamp(surfaceEfficiency,
     0.5, 1);
   const motorEfficiency = clamp(p.motorEfficiency / 100, 0.35, 0.98);
   const motorHealths = Array.from({
@@ -390,9 +441,15 @@ export function calculate(parameters, options = {}) {
   }, (_, index) => clamp(options.motorHealths?.[index] ?? 1, 0, 1));
   // 0.93: a hot motor keeps drawing power but converts less of it into torque (magnets weaken),
   // so overload heats it further instead of being throttled by a hidden protection.
-  const magnetFactors = motorHealths.map((_, index) => thermalAvailability(options.motorTemps?.[index] ?? p
-    .temperature));
-  const motorEfficiencies = motorHealths.map((health, index) => motorEfficiency * (0.72 + 0.28 * health) *
+  // 0.94: with the datasheet motor model the efficiency comes from Kv, R and I0 at each operating point,
+  // and heat acts through the winding resistance and the magnet flux instead of a fixed factor.
+  const datasheet = p.motorModel === "datasheet";
+  const motorTempsNow = motorHealths.map((_, index) => options.motorTemps?.[index] ?? p.temperature);
+  const specs = datasheet ? motorHealths.map(health => motorSpec(p, health)) : null;
+  const shaftAt = rpm => powerCoefficient * rho * (Math.max(0, rpm) / 60) ** 3 * diameterM ** 5;
+  const magnetFactors = motorHealths.map((_, index) => datasheet ? motorConstants(specs[index], motorTempsNow[
+    index]).magnet : thermalAvailability(motorTempsNow[index]));
+  let motorEfficiencies = motorHealths.map((health, index) => motorEfficiency * (0.72 + 0.28 * health) *
     magnetFactors[index]);
   const healthSum = motorHealths.reduce((sum, h) => sum + h, 0);
   // 0.93: rated motor power is the continuous rating, not a hard ceiling. Hard limits are the ESC current,
@@ -424,6 +481,32 @@ export function calculate(parameters, options = {}) {
     });
     if (error < 1e-7) break;
   }
+  // 0.94: datasheet motors. The highest speed is where either the motor voltage reaches what the ESC can apply
+  // (Kv and the loaded bus voltage) or the input power reaches the ESC current or the battery share.
+  let voltageRpmLimits = null;
+  if (datasheet) {
+    let limits = motorHealths.map(() => 0),
+      bus = batteryCircuit(p, batteryState, 0);
+    for (let iteration = 0; iteration < 30; iteration++) {
+      const next = motorHealths.map((health, i) => {
+        if (!supply.controllerPowered || health <= 0.02) return 0;
+        const escLimit = p.escCurrentLimit * bus.terminalVoltage * escEfficiency * escAvailability(options
+          .escTemps?.[i] ?? p.temperature);
+        const share = Math.max(0, supply.maximumPower - avionicsPower) * health / Math.max(1e-9, healthSum) *
+          escEfficiency;
+        return limitedRpm(specs[i], shaftAt, bus.terminalVoltage * ESC_MODULATION, Math.min(escLimit, share),
+          motorTempsNow[i], p.maxRpm);
+      });
+      const demand = next.reduce((sum, rpm, i) => sum + motorPoint(specs[i], rpm, shaftAt(rpm), motorTempsNow[i])
+        .input, 0) / escEfficiency + avionicsPower;
+      const error = Math.max(...next.map((rpm, i) => Math.abs(rpm - limits[i])));
+      limits = iteration ? next.map((rpm, i) => (rpm + limits[i]) / 2) : next;
+      bus = batteryCircuit(p, batteryState, demand);
+      if (error < 0.05) break;
+    }
+    voltageRpmLimits = limits;
+    shaftPowerLimits = limits.map(shaftAt);
+  }
   const rpmPowerLimits = shaftPowerLimits.map(limit => 60 * Math.cbrt(limit / Math.max(1e-9,
     powerCoefficient * rho * diameterM ** 5)));
   const rpmPowerLimit = Math.min(...rpmPowerLimits);
@@ -445,6 +528,9 @@ export function calculate(parameters, options = {}) {
     return thrustCoefficient * rho * n ** 2 * diameterM ** 4;
   });
   const shaftPowers = effectiveRpms.map(rpm => powerCoefficient * rho * (rpm / 60) ** 3 * diameterM ** 5);
+  const motorPoints = datasheet ? effectiveRpms.map((rpm, i) => motorPoint(specs[i], rpm, shaftPowers[i],
+    motorTempsNow[i])) : null;
+  if (datasheet) motorEfficiencies = motorPoints.map(point => point.efficiency);
   const availableThrust = thrusts.reduce((sum, value) => sum + value, 0);
   const hardwareMaxThrust = rpmPowerLimits.reduce((sum, limit) => {
     const maxN = Math.min(p.maxRpm, limit) / 60;
@@ -491,7 +577,10 @@ export function calculate(parameters, options = {}) {
     diameterM ** 4));
   const hoverShaftPower = p.rotors * powerCoefficient * rho * (hoverRpm / 60) ** 3 * diameterM ** 5;
   const perMotorHoverPower = hoverShaftPower / Math.max(1, p.rotors);
-  const propulsionPower = motorEfficiencies.reduce((sum, efficiency) => sum + perMotorHoverPower / Math.max(
+  const hoverMotorPoints = datasheet ? specs.map((spec, i) => motorPoint(spec, hoverRpm, perMotorHoverPower,
+    motorTempsNow[i])) : null;
+  const propulsionPower = datasheet ? hoverMotorPoints.reduce((sum, point) => sum + point.input, 0) :
+    motorEfficiencies.reduce((sum, efficiency) => sum + perMotorHoverPower / Math.max(
     0.1, efficiency), 0);
   const electricalPower = propulsionPower / escEfficiency + avionicsPower;
   // Loads are input power relative to the rated power: above 100% the motor is overloaded and heats up.
@@ -646,6 +735,13 @@ export function calculate(parameters, options = {}) {
     commandLimited,
     magnetFactors,
     ratedPower,
+    motorModel: datasheet ? "datasheet" : "rated",
+    motorPoints,
+    hoverMotorPoints,
+    voltageRpmLimits,
+    // 0.94: true when the motor voltage (Kv × bus voltage) caps the speed below the command.
+    voltageLimited: datasheet && commandedRpms.some((rpm, i) => rpm > voltageRpmLimits[i] + 1 &&
+      voltageRpmLimits[i] < p.maxRpm - 1),
     tiltFeasible,
     icingRisk: p.temperature <= 3 && p.temperature >= -15 && p.rainRate > 0 && p.icing === "none"
   };
@@ -681,4 +777,26 @@ export function graphSeries(parameters, variableName, metricName, from, to, samp
     });
   }
   return points.filter(point => Number.isFinite(point.y));
+}
+
+// 0.94: what each motor really draws at its actual speed and shaft power (flight uses only the hover share,
+// the stand uses the command). Rated model: fixed efficiency. Datasheet model: Kv, R, I0 and temperature.
+export function motorDraw(parameters, result, rpms, shafts, temperatures = [], healths = []) {
+  const p = {
+    ...baseDefaults,
+    ...parameters
+  };
+  if (p.motorModel !== "datasheet") return shafts.map((shaft, i) => {
+    const efficiency = Math.max(0.1, result.motorEfficiencies[i] ?? p.motorEfficiency / 100);
+    const input = Math.max(0, shaft) / efficiency;
+    return {
+      input,
+      loss: input - Math.max(0, shaft),
+      efficiency,
+      current: null,
+      voltage: null
+    };
+  });
+  return shafts.map((shaft, i) => motorPoint(motorSpec(p, healths[i] ?? 1), rpms[i], shaft, temperatures[i] ?? p
+    .temperature));
 }

@@ -1,0 +1,56 @@
+{
+  "version": "0.94.0-beta",
+  "update": "Checked against measurements",
+  "items": [
+    {
+      "name": "Мощность винта по замерам",
+      "code": "physics.js / propCoefficients, figureOfMerit",
+      "verification": "MN4014 15 × 5: мощность от 2 до 8%, тяга от 3 до 6%; FM 0,26 → 0,67"
+    },
+    {
+      "name": "Мотор по даташиту",
+      "code": "motor-model.js; physics.js / calculate, motorDraw; systems.js / motorTargetTemperature",
+      "verification": "Баланс энергии; полный газ 5 902 об/мин против 6 000 в таблице"
+    },
+    {
+      "name": "Вкладка «Проверка»",
+      "code": "validation.js, reference-data.js, lab-094.js",
+      "verification": "CSV в г, кгс и Н; подбор Ct и Cp точный; журнал 240 Вт, 4 Вт·ч"
+    },
+    {
+      "name": "Температуры и прогноз",
+      "code": "thermal-lab.js, lab-094.js",
+      "verification": "Прогноз 52,73 с против 52,74 с пошагово"
+    },
+    {
+      "name": "Опыты с перегрузкой",
+      "code": "thermal-lab.js / overloadScenarios",
+      "verification": "Дым → огонь → отказ во всех трёх, батарея не отключается раньше"
+    },
+    {
+      "name": "Отказ мотора в полёте",
+      "code": "app.js / simulate; scene3d.js",
+      "verification": "Гексакоптер держит рысканье, квадрокоптер вращается (браузер)"
+    },
+    {
+      "name": "Батареи пресетов",
+      "code": "physics.js / dronePresets",
+      "verification": "От 144 до 171 Вт·ч/кг, все пресеты висят"
+    },
+    {
+      "name": "Карточки моторов и статусы",
+      "code": "app.js / updateMotorCards, setStatus",
+      "verification": "Браузер на трёх языках"
+    },
+    {
+      "name": "Температуры в CSV",
+      "code": "lab-094.js",
+      "verification": "Браузер"
+    },
+    {
+      "name": "Автопроверки на GitHub",
+      "code": "scripts/verify-all.mjs, .github/workflows/tests.yml",
+      "verification": "15 из 15 проверок проходят"
+    }
+  ]
+}

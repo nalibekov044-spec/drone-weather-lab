@@ -683,7 +683,8 @@ export class DroneScene3D {
       position: dronePosition,
       roll: -Math.sin(tiltDirection) * tiltMagnitude,
       pitch: Math.cos(tiltDirection) * tiltMagnitude,
-      yaw: 0
+      // 0.94: a quadcopter that lost a motor spins around its vertical axis.
+      yaw: state.yaw || 0
     };
 
     const homeCircle = Array.from({

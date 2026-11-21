@@ -7,9 +7,25 @@ export function thermalAvailability(temperature) {
   return clamp(1 - Math.max(0, temperature - 95) / 125 * 0.25, 0.75, 1);
 }
 
+// 0.94: thermal resistance from the winding to the air, from the continuous rating: at the rated input power
+// with about 85% efficiency (15% losses) the winding settles 65 °C above the air, as in the 0.93 calibration.
+export function motorThermalResistance(parameters) {
+  return 65 / (0.15 * Math.max(1, parameters.motorMaxPower ?? 420));
+}
+export function motorCooling(parameters, windNow) {
+  return 1 + Math.max(0, windNow) * 0.035 + Math.max(0, parameters.rainRate) * 0.003;
+}
+// Temperature the winding approaches with these losses (datasheet model) or this load ratio (rated model).
+export function motorTargetTemperature(parameters, ratio, lossScale, lossWatts, windNow, fire = 0) {
+  const cooling = motorCooling(parameters, windNow);
+  const rise = Number.isFinite(lossWatts) && parameters.motorModel === "datasheet" ? Math.max(0, lossWatts) *
+    motorThermalResistance(parameters) : (20 * ratio + 45 * ratio * ratio) * lossScale;
+  return parameters.temperature + rise / cooling + fire * 80;
+}
+
 export function stepMotorThermals(system, parameters, result, windNow, dt) {
   const next = { temperatures: [], healths: [], fires: [], loads: [], exposure: [], ignition: [] };
-  const cooling = 1 + Math.max(0, windNow) * 0.035 + Math.max(0, parameters.rainRate) * 0.003;
+  const cooling = motorCooling(parameters, windNow);
   for (let i = 0; i < result.effectiveRpms.length; i++) {
     const health = system.healths[i] ?? 1;
     const temperature = system.temperatures[i] ?? parameters.temperature;
@@ -24,7 +40,9 @@ export function stepMotorThermals(system, parameters, result, windNow, dt) {
     const lossScale = clamp((100 - efficiency * 100) / 12, 0.3, 4);
     // 0.93 calibration: at the rated power (ratio 1) a motor without wind settles about 65 °C above the air,
     // the usual meaning of a continuous rating. Copper losses grow with current², so overload heats fast.
-    const target = parameters.temperature + (20 * ratio + 45 * ratio * ratio) * lossScale / cooling + fire * 80;
+    // 0.94: the datasheet model passes the real losses (copper I²R + iron I0·E) in watts.
+    const target = motorTargetTemperature(parameters, ratio, lossScale, active ? result.motorLossWatts?.[i] : 0,
+      windNow, fire);
     const tau = 42 / cooling;
     const temp = clamp(temperature + (target - temperature) * (1 - Math.exp(-dt / tau)), parameters.temperature, 320);
     const exposure = Math.max(0, (system.exposure?.[i] || 0) + (ratio > 1 ? ratio * ratio - 1 : -0.6) * dt);

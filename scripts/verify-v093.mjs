@@ -20,7 +20,9 @@ async function load(name) {
 async function ns(name) { const m = await load(name); if (m.status !== 'evaluated') await m.evaluate(); return m.namespace; }
 const physics = await ns('physics'), systems = await ns('systems'), power = await ns('power-system'), engineering = await ns('engineering');
 const near = (a, b, t = 1e-9, msg = '') => assert(Math.abs(a - b) <= t, `${msg} ${a} versus ${b}`);
-const base = { ...physics.baseDefaults }, report = { version: '0.93.1-beta' };
+// 0.94: the propeller power model was recalibrated against bench data (hover power fell about 2.5 times),
+// so the overload cases below use weaker motors to load them as much as before.
+const base = { ...physics.baseDefaults }, report = { version: '0.93.1-beta', calibration: '0.94 propeller power model' };
 
 // 1. Rated power does not cap RPM; ESC current, battery and maximum RPM do.
 {
@@ -36,7 +38,7 @@ const base = { ...physics.baseDefaults }, report = { version: '0.93.1-beta' };
 }
 // 2. An overloaded motor can still hover; it is flagged, not declared impossible.
 {
-  const p = { ...base, motorMaxPower: 150 }, r = physics.calculate(p);
+  const p = { ...base, motorMaxPower: 60 }, r = physics.calculate(p);
   assert(r.feasible && r.motorOverload && r.requiredPowerLoad > 100);
   const fine = physics.calculate(base);
   assert(fine.feasible && !fine.motorOverload);
@@ -82,7 +84,7 @@ function run(p, stand, seconds, dt = .1) {
 }
 // 5. Test stand at full command with a battery that can feed the motors: smoke, fire, failure, in this order.
 {
-  const p = { ...base, rpm: 7200, batteryCRating: 60, capacity: 10000, batteryResistance: .012 };
+  const p = { ...base, rpm: 7200, batteryCRating: 60, capacity: 10000, batteryResistance: .012, motorMaxPower: 260 };
   const stand = run(p, true, 90), flight = run(p, false, 90);
   assert(stand.events.smoke < stand.events.fire && stand.events.fire < stand.events.failure, JSON.stringify(stand.events));
   assert.equal(stand.final.rpm, 0, 'a failed motor stops');
@@ -97,7 +99,7 @@ function run(p, stand, seconds, dt = .1) {
 }
 // 7. A weak motor overloaded in hover burns in flight.
 {
-  const p = { ...base, payload: 2, motorMaxPower: 200, rpm: 7200 }, f = run(p, false, 150);
+  const p = { ...base, payload: 3.5, motorMaxPower: 90, rpm: 7200 }, f = run(p, false, 150);
   assert(physics.calculate(p).feasible && f.events.fire !== undefined && f.events.failure !== undefined);
   report.flightOverloadBurn = f.events;
 }
@@ -116,9 +118,9 @@ function run(p, stand, seconds, dt = .1) {
 // 9. Mission and ceiling report the hover load against the rating.
 {
   const plan = [{ name: 'hover', minutes: 1, speed: 0, altitude: 500, wind: 3 }];
-  const weak = engineering.missionForecast({ ...base, motorMaxPower: 150 }, plan), normal = engineering.missionForecast(base, plan);
+  const weak = engineering.missionForecast({ ...base, motorMaxPower: 60 }, plan), normal = engineering.missionForecast(base, plan);
   assert(weak.motorLoad > 100 && normal.motorLoad < 100);
-  const ceiling = engineering.altitudeEnvelope({ ...base, motorMaxPower: 200 }, { step: 1000 });
+  const ceiling = engineering.altitudeEnvelope({ ...base, motorMaxPower: 60 }, { step: 1000 });
   assert(ceiling.rows.some(r => r.feasible && r.overload));
 }
 // 10. 0.93.1 mixer with motor limits: unconstrained equals the exact mixer; limits are respected; residuals are reported.

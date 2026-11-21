@@ -1,31 +1,32 @@
-# Drone Weather Lab 0.93 Beta
+# Drone Weather Lab 0.94 Beta
 
 [Русский](README.md) · [Español](README.es.md)
 
-The simulator shows how wind, altitude, propellers and the battery affect a multicopter. In 0.93 the motor model was rebuilt. Motors can now overheat and burn, like real ones.
+[![Tests](https://github.com/nalibekov044-spec/drone-weather-lab/actions/workflows/tests.yml/badge.svg)](https://github.com/nalibekov044-spec/drone-weather-lab/actions/workflows/tests.yml)
+
+The simulator shows how wind, altitude, propellers, motors and the battery affect a multicopter. In 0.94 the model was checked against published bench data, and its numbers are now much closer to real drones.
 
 ## Run it
 
-Unzip the archive and open **Drone-Weather-Lab-0.93-Beta.html**, or `Start.cmd` on Windows. Nothing needs to be installed.
+Unzip the archive and open **Drone-Weather-Lab-0.94-Beta.html**, or `Start.cmd` on Windows. Nothing needs to be installed.
 
-## Motors
+## What is new
 
-- **The rating is not a ceiling.** Motor power is the continuous rating. The ESC current, the battery and the maximum RPM are the hard limits. Above the rating a motor still runs, and it heats up.
-- **Hot magnets.** Above 95 °C efficiency drops, so an overloaded motor heats even faster.
-- **Stages.** Above 110 °C the motor wears out, above 145 °C it smokes, above 175 °C it can catch fire. Then it fails and stops.
-- **Test stand.** A new checkbox in Motors and RPM. The drone stays fixed while every motor spins at the command.
-- **Readouts.** The RPM line shows real speed, command and limit. Motor cards show the real load.
+- **Propeller power fixed.** It was about 2.5 times too high. Hover power now matches T-MOTOR bench tables within a few percent, and flight time is realistic.
+- **Datasheet motor.** A motor can be set by three datasheet numbers: Kv, winding resistance and idle current. The speed limit follows the voltage, efficiency changes with load, and heating comes from copper and iron losses.
+- **Validation tab (key 9).** The model is compared with manufacturer bench tables and with your own CSV. Ct and Cp can be fitted to your measurements.
+- **Temperatures.** Under the flight scene you can see what overheats first and when. Three overload tests make a motor really burn.
+- **Motor failure in flight.** A quadcopter without one motor spins and sinks; a hexacopter holds its heading.
+- **Smaller fixes.** Realistic preset batteries, current and efficiency on motor cards, new statuses, temperatures to CSV, checks on GitHub.
 
-Try it: turn on the test stand, set 7200 RPM and about 260 W motor power. The motor catches fire in about half a minute. Press F to repair the motors.
+Why does a motor not burn in normal flight? It should not. A matched motor has a margin, like a real one. To see overheating, run one of the overload tests.
 
-## Other fixes
-
-The component table now limits each motor to the thrust it has. The flight log counts energy since the last battery change. A/B no longer judges raw thrust, or power and current across different masses.
+Details: `docs/CHANGES-0.94.md` (in Russian).
 
 ## Limits
 
-Thermal values are illustrative. Time to fire is for illustration, not a prediction. The model has not been checked against a real drone.
+The model is checked against bench tables, not against a real flight. Thermal values are illustrative.
 
 ## Checks
 
-Commands and results are in `docs/VERIFICATION-0.93.md`. All checks pass. That does not prove there are no bugs.
+`node scripts/verify-all.mjs` runs all 15 checks. Results are in `docs/VERIFICATION-0.94.md`. All checks pass. That does not prove there are no bugs.

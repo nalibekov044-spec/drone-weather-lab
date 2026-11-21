@@ -34,8 +34,13 @@ import {
   graphVariables,
   pressureFromAltitude,
   relativeAirflow,
-  dragAreas
+  dragAreas,
+  motorDraw,
+  rotorPlanPositions
 } from "./physics.js";
+import {
+  cgAllocation
+} from "./engineering.js";
 import {
   GraphRenderer
 } from "./renderers.js";
@@ -86,10 +91,10 @@ const numberIds = [
   "batteryHealth", "batteryMass", "cellCutoff", "reserveCharge", "escCurrentLimit", "escEfficiency",
   "avionicsPower", "controllerCutoff", "controllerRate", "sensorLatency",
   "bodyLength", "bodyWidth", "bodyHeight", "armLength", "armThickness", "frameStretch", "motorDiameter",
-  "motorHeight"
+  "motorHeight", "motorKv", "motorResistance", "motorIdleCurrent"
 ];
 const selectIds = ["dronePreset", "pressureMode", "icing", "flowObstacle", "bodyShape", "rotorLayout",
-  "batteryChemistry", "temperatureMode"
+  "batteryChemistry", "temperatureMode", "motorModel"
 ];
 const inputs = Object.fromEntries([...numberIds, ...selectIds].map(id => [id, $(id)]));
 const flightCanvas = $("flightCanvas");
@@ -197,7 +202,10 @@ const outputConfig = {
   sensorLatency: value => `${format(value, 1)} ms`,
   batteryCRating: value => `${format(value, 0)} C`,
   ct: value => format(value, 3),
-  cp: value => format(value, 3)
+  cp: value => format(value, 4),
+  motorKv: value => `${Math.round(value)} об/мин/В`,
+  motorResistance: value => `${format(value * 1000, 0)} мОм`,
+  motorIdleCurrent: value => `${format(value, 2)} А`
 };
 
 const state = {
@@ -482,6 +490,10 @@ function syncOutputs(parameters) {
   if (inputs.temperature.disabled) inputs.temperature.value = String(parameters.temperature);
   inputs.pressureHpa.disabled = parameters.pressureMode !== "manual";
   inputs.ct.disabled = inputs.cp.disabled = !parameters.calibratedProps;
+  // 0.94: Kv, winding resistance and idle current belong to the datasheet model; fixed efficiency to the simple one.
+  const datasheetMotor = parameters.motorModel === "datasheet";
+  document.querySelectorAll(".datasheet-only").forEach(label => label.hidden = !datasheetMotor);
+  inputs.motorEfficiency.disabled = datasheetMotor;
   const custom = parameters.dronePreset === "custom";
   $("builderPanel").hidden = !custom;
   inputs.frameSize.disabled = custom;
@@ -517,7 +529,9 @@ function setStatus(parameters, result, peakWind) {
     text = "Возгорание мотора";
   } else if (weakestMotor < 0.18) {
     status.classList.add("danger");
-    text = "Отказ двигателя";
+    // 0.94: what the re-mixed motors cannot hold after the failure.
+    text = Math.abs(state.allocation?.yawError ?? 0) > 0.05 ? "Отказ двигателя: дрон вращается" : (state
+      .allocation?.thrustError ?? 0) < -0.01 ? "Отказ двигателя: тяги не хватает" : "Отказ двигателя";
   } else if (hottestMotor > 125) {
     status.classList.add("danger");
     text = "Критический перегрев";
@@ -547,7 +561,8 @@ function setStatus(parameters, result, peakWind) {
     text = "Моторы выше номинала: нагрев";
   } else if (result.commandLimited) {
     status.classList.add("warning");
-    text = "Команда RPM выше предела: обороты ограничены";
+    text = result.voltageLimited ? "Обороты ограничены напряжением и Kv" :
+      "Команда RPM выше предела: обороты ограничены";
   } else if (result.icingRisk) {
     status.classList.add("warning");
     text = "Возможное обледенение";
@@ -700,7 +715,11 @@ function resetDynamics(repair = true) {
     accumulator: 0,
     trail: [],
     motorLoads: [],
-    motorActualRpms: []
+    motorActualRpms: [],
+    motorDraws: [],
+    yaw: 0,
+    yawRate: 0,
+    allocation: null
   });
   ensureMotorState(getParameters(), repair);
   if (repair) {
@@ -728,11 +747,18 @@ function updateMotorCards(parameters, result) {
     // 0.93: the card shows the power the motor really draws and its real speed.
     const load = state.motorLoads[i] ?? result.motorLoadPercents[i] ?? 0,
       rpm = state.motorActualRpms[i] ?? result.effectiveRpms[i] ?? 0;
-    const label = burning ? "Огонь" : failed ? "Отказ" : temp > 125 ? "Перегрев" : availability < 1 ?
+    // 0.94: the datasheet model shows the motor current and efficiency at the real operating point.
+    const datasheet = parameters.motorModel === "datasheet",
+      draw = state.motorDraws?.[i];
+    const label = burning ? "Огонь" : failed ? "Отказ" : temp > 125 ? "Перегрев" : datasheet ? temp > 95 ?
+      "Магниты слабеют" : load > 100 ? "Перегрузка" : "Норма" : availability < 1 ?
       "Магниты слабеют" : load > 100 ? "Перегрузка" : "Норма";
+    const detail = datasheet && draw && Number.isFinite(draw.current) ?
+      `Ток ${format(draw.current, 1)} А · КПД ${format(draw.efficiency * 100, 0)}% · ${format(rpm, 0)} RPM` :
+      `Магниты ${format(availability * 100, 0)}% · ${format(rpm, 0)} RPM`;
     card.className = `motor-card ${burning || failed ? "critical" : temp > 95 ? "warm" : ""}`;
     card.innerHTML =
-      `<header><strong>M${i + 1}</strong><span>${label}</span></header><div class="motor-temperature">${quantity(temp, "temperature", 0)}</div><div class="health-track"><i style="width:${health * 100}%"></i></div><small>Ресурс ${format(health * 100, 0)}% · нагрузка ${visibleLoad(load)}</small><small>Магниты ${format(availability * 100, 0)}% · ${format(rpm, 0)} RPM</small>`;
+      `<header><strong>M${i + 1}</strong><span>${label}</span></header><div class="motor-temperature">${quantity(temp, "temperature", 0)}</div><div class="health-track"><i style="width:${health * 100}%"></i></div><small>Ресурс ${format(health * 100, 0)}% · нагрузка ${visibleLoad(load)}</small><small>${detail}</small>`;
   });
 }
 
@@ -853,7 +879,9 @@ function simulate(dt, parameters) {
     controlY) ** 2));
   const desiredVerticalThrust = Math.max(0, dynamicResult.requiredVertical - dynamicResult.mass * (1.7 * state
     .z + 1.45 * state.vz));
-  const actualVerticalThrust = dynamicResult.battery.controllerPowered ? Math.min(verticalAuthority,
+  // 0.94: after a motor failure the re-mixed motors may not lift the full weight (thrustError < 0).
+  const liftShare = state.allocation ? Math.max(0, 1 + Math.min(0, state.allocation.thrustError)) : 1;
+  const actualVerticalThrust = dynamicResult.battery.controllerPowered ? Math.min(verticalAuthority * liftShare,
     desiredVerticalThrust) : 0;
   state.actualVerticalThrust = actualVerticalThrust;
   const az = (actualVerticalThrust - dynamicResult.verticalDemand) / dynamicResult.mass;
@@ -879,9 +907,37 @@ function simulate(dt, parameters) {
   const thrustFraction = Math.min(1, actualThrust / Math.max(1e-9, dynamicResult.availableThrust));
   const powerFraction = thrustFraction ** 1.5;
   // Thrust ∝ RPM², so the spinning speed is the commanded speed times √(thrust share).
-  state.motorActualRpms = dynamicResult.effectiveRpms.map(rpm => rpm * Math.sqrt(thrustFraction));
-  const motorPowers = dynamicResult.shaftPowers.map((power, i) => power * powerFraction / Math.max(0.1,
-    dynamicResult.motorEfficiencies[i]));
+  // 0.94: with a failed motor in flight the controller re-mixes. The motor-limited mixer (0.93.1) gives every
+  // working motor its own thrust: roll and pitch first, then lift, and yaw is given up first, so a quadcopter
+  // spins while a hexacopter can hold its heading. The working motors carry more and heat more.
+  const failedInFlight = !stand && state.motorHealths.some(health => health < 0.18);
+  let actualRpms, actualShafts;
+  state.allocation = null;
+  if (failedInFlight && actualThrust > 1e-6) {
+    const average = actualThrust / parameters.rotors;
+    const allocation = cgAllocation([0, 0], rotorPlanPositions(parameters), dynamicResult.thrusts.map(thrust =>
+      thrust / Math.max(1e-9, average)), actualThrust);
+    state.allocation = allocation;
+    const thrustScale = dynamicResult.thrustCoefficient * dynamicResult.density * dynamicResult.diameterM ** 4;
+    actualRpms = allocation.shares.map(share => 60 * Math.sqrt(Math.max(0, share * average) / Math.max(1e-12,
+      thrustScale)));
+    actualShafts = actualRpms.map(rpm => dynamicResult.powerCoefficient * dynamicResult.density * (rpm / 60) **
+      3 * dynamicResult.diameterM ** 5);
+  } else {
+    actualRpms = dynamicResult.effectiveRpms.map(rpm => rpm * Math.sqrt(thrustFraction));
+    actualShafts = dynamicResult.shaftPowers.map(power => power * powerFraction);
+  }
+  state.motorActualRpms = actualRpms;
+  // Uneven torque from the re-mixed motors turns the frame; air drag on the frame limits the spin rate.
+  const yawError = state.allocation?.yawError ?? 0;
+  state.yawRate = (state.yawRate || 0) + (yawError * 14 - (state.yawRate || 0) * 1.2) * dt;
+  if (Math.abs(yawError) < 0.02) state.yawRate *= Math.exp(-3 * dt);
+  state.yaw = ((state.yaw || 0) + state.yawRate * dt) % (Math.PI * 2);
+  // 0.94: input power and losses at the real operating point (fixed efficiency or the datasheet model).
+  const draws = motorDraw(parameters, dynamicResult, actualRpms, actualShafts, state.motorTemps, state
+    .motorHealths);
+  state.motorDraws = draws;
+  const motorPowers = draws.map(draw => draw.input);
   const actualPower = motorPowers.reduce((sum, power) => sum + power, 0) / dynamicResult.escEfficiency +
     dynamicResult.avionicsPower;
   state.batteryActual = batteryCircuit(parameters, state.battery, actualPower);
@@ -895,7 +951,8 @@ function simulate(dt, parameters) {
   state.motorLoads = motorPowers.map(power => power / Math.max(1, parameters.motorMaxPower) * 100);
   updateMotorThermals(dt, parameters, {
     ...dynamicResult,
-    motorThermalLoadPercents: state.motorLoads
+    motorThermalLoadPercents: state.motorLoads,
+    motorLossWatts: draws.map(draw => draw.loss)
   });
   state.t += dt;
   if (state.t % 0.075 < dt) {
@@ -1418,7 +1475,7 @@ $("exportReport").addEventListener("click", () => {
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd
     .status === "ready";
   const report = {
-    version: "0.93.1-beta",
+    version: "0.94.0-beta",
     enduranceForecast: state.forecast,
     powerBudget: state.powerBudget,
     battery: state.battery,
@@ -1472,7 +1529,7 @@ $("exportReport").addEventListener("click", () => {
   }));
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "drone-weather-lab-v0.93-beta-report.json";
+  anchor.download = "drone-weather-lab-v0.94-beta-report.json";
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
@@ -1508,7 +1565,8 @@ $("loadDesign").addEventListener("change", async event => {
       throw new Error("Нужен JSON, сохранённый кнопкой «Сохранить настройки».");
     const newKeys = ["batteryCells", "batteryHealth", "batteryMass", "cellCutoff", "reserveCharge",
       "escCurrentLimit", "escEfficiency", "avionicsPower", "controllerCutoff", "controllerRate",
-      "sensorLatency", "batteryChemistry", "temperatureMode"
+      "sensorLatency", "batteryChemistry", "temperatureMode", "motorModel", "motorKv", "motorResistance",
+      "motorIdleCurrent"
     ];
     const p = {
       ...Object.fromEntries(newKeys.map(id => [id, baseDefaults[id]])),
@@ -1593,8 +1651,12 @@ const parameterHelp = {
   ct: "Безразмерный коэффициент: T = Cₜρn²D⁴, n в оборотах/с, D в метрах. Бери из стендовых данных своего винта; для чистого винта выставь состояние 100%.",
   cp: "Безразмерный коэффициент мощности на валу: P = Cₚρn³D⁵. Не путай с электрической мощностью и коэффициентом момента Cq.",
   rpm: "В полёте контроллер сам снижает обороты до нужной тяги, а команда задаёт, сколько тяги ему доступно. Реальные обороты ограничены пределом двигателя, током ESC и мощностью батареи. На стендовом тесте моторы крутятся именно на команде. Дым и огонь условные, они не предсказывают реальный отказ.",
-  standTest: "Дрон закреплён на стенде и не двигается. Все моторы крутятся на команде RPM, но не выше предела двигателя, тока ESC и мощности батареи. Так проверяют, выдержит ли мотор долгую работу на этих оборотах. Первой может перегреться батарея: при 75 °C она отключает питание.",
+  standTest: "Дрон закреплён на стенде и не двигается. Все моторы крутятся на команде RPM, но не выше предела двигателя, тока ESC и мощности батареи. Так проверяют, выдержит ли мотор долгую работу на этих оборотах. Что перегреется первым и когда, показывает раздел «Температуры» под сценой. Батарея при 75 °C отключает питание.",
   motorMaxPower: "Номинальная длительная мощность на входе мотора. Это не потолок: если ESC и батарея дают больше, мотор её возьмёт и будет перегреваться. При номинале без ветра мотор нагревается примерно на 65 °C выше воздуха; мощность на валу меньше из-за КПД.",
+  motorModel: "Простая модель задаёт мотор номинальной мощностью и постоянным КПД. Модель по даташиту берёт три числа из паспорта мотора: Kv, сопротивление обмотки и ток холостого хода. Тогда предел оборотов зависит от напряжения батареи, КПД меняется с нагрузкой, а нагрев считается по реальным потерям: в меди I²R и в железе I₀·E. Горячая обмотка сопротивляется сильнее, поэтому перегретый мотор греется ещё быстрее.",
+  motorKv: "Обороты без нагрузки на один вольт. Вместе с напряжением батареи задаёт предел оборотов: под нагрузкой мотор не раскрутится быстрее, чем позволяет напряжение за вычетом падения на обмотке.",
+  motorResistance: "Сопротивление обмотки из паспорта мотора (internal resistance). Потери в меди равны I²R и растут как квадрат тока. При нагреве на 100 °C сопротивление меди растёт примерно на 39%.",
+  motorIdleCurrent: "Ток без винта, обычно его меряют при 10 В. Описывает потери в железе и трение, они растут с оборотами.",
   motorEfficiency: "КПД преобразования электрической мощности в механическую. Потери мотора нагревают мотор. КПД и нагрев ESC учитываются отдельно.",
   windTransition: "Постоянная времени плавного перехода: через это время пройдено примерно 63% изменения скорости. Влияет на полёт, не на стационарный CFD.",
   gustFrequency: "В герцах измеряется число колебаний в секунду. 0,5 Гц означает характерный период около 2 секунд.",

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.94 Beta
+
+Checked against measurements.
+
+- The propeller power coefficient was about 2.5 times too high. Hover power now matches published T-MOTOR bench data within a few percent, and hover flight time is realistic.
+- Preset batteries now have realistic resistance and mass. The hexacopter and octocopter packs now fit the weight of the drone.
+- A datasheet motor model (Kv, winding resistance, idle current). It gives the speed limit from the voltage, efficiency at each point and heating from copper and iron losses. A hot winding draws more current.
+- A Validation tab compares the model with published bench tables and with your own CSV, fits Ct and Cp, and draws the motor efficiency curve.
+- A Temperatures section shows live temperatures, predicts what overheats first and has three one-click overload tests.
+- Motor failure in flight: the mixer shares the thrust among the remaining motors. A quadcopter spins, a hexacopter holds its heading.
+- Smaller things: motor cards show current and efficiency, new statuses, temperatures export to CSV, and all checks run on GitHub.
+
 ## 0.93 Beta
 
 The motor model was rebuilt.

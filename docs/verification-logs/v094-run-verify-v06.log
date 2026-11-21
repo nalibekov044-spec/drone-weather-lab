@@ -1,0 +1,10 @@
+{"test":"uniform flow","mode":"trt","speed":0,"angle":0,"vertical":0,"maxError":0}
+{"test":"uniform flow","mode":"trt","speed":7,"angle":0,"vertical":0,"maxError":0.0000019073486328125}
+{"test":"uniform flow","mode":"trt","speed":5,"angle":137,"vertical":-2,"maxError":4.2452346438182076e-7}
+{"test":"uniform flow","mode":"bgk","speed":0,"angle":0,"vertical":0,"maxError":0}
+{"test":"uniform flow","mode":"bgk","speed":7,"angle":0,"vertical":0,"maxError":0.0000019073486328125}
+{"test":"uniform flow","mode":"bgk","speed":5,"angle":137,"vertical":-2,"maxError":0.0000020934535180927583}
+{"test":"designer, continuation, hover","symmetryError":0,"solidCells":11,"tallSolidCells":17,"method":"D3Q19 TRT + Guo"}
+{"test":"600-step designer","residual":0.0013780104727434907,"mach":0.22471455700507276,"elapsedMs":4895}
+Actual worker: pause/resume, warm continuation, stale cancellation and 600-line tracing passed.
+v0.6 numerical regression passed. No grid-convergence or experimental validation claimed.

@@ -1,7 +1,7 @@
-# Drone Weather Lab 0.93 Beta
+# Drone Weather Lab 0.94 Beta
 
-A new motor model. Rated power is no longer a ceiling, so an overloaded motor heats up, smokes, can catch fire and fail. Hot magnets lower efficiency and speed up overheating.
+Checked against measurements. Propeller power was about 2.5 times too high; now it matches T-MOTOR bench tables within a few percent. Flight time and the preset batteries are realistic too.
 
-A new test stand spins every motor at the RPM command while the drone stays fixed. The RPM line shows real speed, command and limit. The component table respects motor limits, and the flight log counts energy since the last battery change.
+A new datasheet motor model uses Kv, winding resistance and idle current. The Validation tab compares the model with manufacturer tables and with your own CSV. The Temperatures section shows what overheats first and runs overload tests. A motor can be switched off in flight: a quadcopter starts to spin, a hexacopter holds its heading.
 
-Download the ZIP, unzip it and open Drone-Weather-Lab-0.93-Beta.html. The thermal model is illustrative, and time to fire is not a prediction.
+Download the ZIP, unzip it and open Drone-Weather-Lab-0.94-Beta.html. The model is checked against bench data, not against a real flight.

@@ -16,7 +16,7 @@ export const parameterUnits = {
   altitude: "m", pressureHpa: "hpa", batteryTemp: "temperature", payloadX: "cm", payloadY: "cm",
   bodyLength: "mm", bodyWidth: "mm", bodyHeight: "mm", armLength: "mm", armThickness: "mm",
   motorDiameter: "mm", motorHeight: "mm", modelSpan: "mm", probeX: "m", probeY: "m", probeZ: "m",
-  batteryResistance: "resistance"
+  batteryResistance: "resistance", motorResistance: "resistance"
 };
 export function unitSpec(kind, system = "metric") {
   const d = definitions[kind];
@@ -38,7 +38,7 @@ export function validateExact(text, min, max, kind, system) {
 export const graphKinds = { availableThrust: "force", windForce: "force", maxWind: "speed", diskLoading: "pressure" };
 export const shortcutBindings = {
   Space: "pause", Digit1: "flight", Digit2: "graph", Digit3: "airflow", Digit4: "compare",
-  Digit5: "engineering", Digit6: "batteries", Digit7: "mission", Digit8: "history",
+  Digit5: "engineering", Digit6: "batteries", Digit7: "mission", Digit8: "history", Digit9: "validation",
   KeyF: "repair", KeyR: "reset", KeyG: "graph", KeyC: "airflow", KeyH: "help",
   KeyB: "battery", KeyE: "report", KeyS: "save", KeyV: "vectors", KeyO: "camera"
 };
@@ -51,5 +51,5 @@ export function shortcutAction(event) {
   if (target?.closest?.('button, summary, a[href], [role="button"]')) return null;
   if (key === "?" || (event.code === "Slash" && event.shiftKey)) return "help";
   if (event.shiftKey) return event.code === "KeyR" || key === "r" ? "resetAll" : null;
-  return shortcutBindings[event.code] || ({ " ": "pause", "1": "flight", "2": "graph", "3": "airflow", "4": "compare", "5":"engineering", "6":"batteries", "7":"mission", "8":"history", f: "repair", r: "reset", g: "graph", c: "airflow", h: "help", b: "battery", e: "report", s: "save", v: "vectors", o: "camera" })[key] || null;
+  return shortcutBindings[event.code] || ({ " ": "pause", "1": "flight", "2": "graph", "3": "airflow", "4": "compare", "5":"engineering", "6":"batteries", "7":"mission", "8":"history", "9":"validation", f: "repair", r: "reset", g: "graph", c: "airflow", h: "help", b: "battery", e: "report", s: "save", v: "vectors", o: "camera" })[key] || null;
 }
