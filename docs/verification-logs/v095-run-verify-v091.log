@@ -1,0 +1,59 @@
+{
+  "version": "0.91.0-beta",
+  "activityPolicyCases": 24,
+  "localeCases": 5,
+  "schedulerChecks": "visible/hidden/focus/background/freeze/resume/stop; one pending callback",
+  "midpointForecast": {
+    "coarseSeconds": 1313.0678647585305,
+    "fineSeconds": 1313.0678932678284,
+    "newErrorSeconds": 0.0000285092978629109,
+    "oldFirstOrderErrorSeconds": 0.15028025303922732
+  },
+  "gridChecks": [
+    {
+      "quality": "fast",
+      "cells": 14725,
+      "spacingM": 0.06999999999999999,
+      "viscosity": 0.03230769230769233,
+      "converged": false,
+      "force": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "quality": "balanced",
+      "cells": 33825,
+      "spacingM": 0.0525,
+      "viscosity": 0.03230769230769233,
+      "converged": false,
+      "force": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "quality": "fine",
+      "cells": 64821,
+      "spacingM": 0.041999999999999996,
+      "viscosity": 0.03230769230769233,
+      "converged": false,
+      "force": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "continuation": "37+43 steps matches uninterrupted 80-step diagnostics and velocity; changed configuration rejected",
+  "checks": [
+    "5 g battery thermal mass analytical solution",
+    "tip velocity vector maximum against 20000 azimuth samples",
+    "yaw torque from shaft power/omega",
+    "manual-pressure mission independent of altitude at fixed temperature",
+    "all mission stages validated before discharge",
+    "blank numeric fields rejected"
+  ]
+}

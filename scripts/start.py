@@ -14,7 +14,7 @@ try:
 except OSError:
     raise SystemExit("Port unavailable. Try: python scripts/start.py --port 8001")
 url = f"http://127.0.0.1:{args.port}/"
-print(f"Drone Weather Lab 0.94 Beta: {url}\nKeep this window open. Press Ctrl+C to stop.", flush=True)
+print(f"Drone Weather Lab 0.95 Beta: {url}\nKeep this window open. Press Ctrl+C to stop.", flush=True)
 if not args.no_browser:
     webbrowser.open(url)
 try:

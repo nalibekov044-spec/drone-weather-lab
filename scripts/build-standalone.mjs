@@ -19,7 +19,7 @@ function bundle(entry, offline = false) {
     });
     if (offline) source = source.replace(/new Worker\(new URL\("\.\/(cfd-worker|mesh-worker)\.js",\s*import\.meta\.url\),\s*\{\s*type:\s*"module"\s*\}\)/g, (_, worker) => `createOfflineWorker("${worker}.js")`);
     const exports = [];
-    source = source.replace(/^export\s+(?=(?:const|function\*?|class)\s+)(const|function\*?|class)\s+([A-Za-z_$][\w$]*)/gm, (_, kind, symbol) => {
+    source = source.replace(/^export\s+(?=(?:const|async\s+function|function\*?|class)\s+)(const|async\s+function|function\*?|class)\s+([A-Za-z_$][\w$]*)/gm, (_, kind, symbol) => {
       exports.push(symbol); return `${kind} ${symbol}`;
     });
     if (/^import\s|^export\s|import\.meta/m.test(source)) throw new Error(`Unsupported module syntax: ${name}`);
@@ -49,6 +49,6 @@ html = html.replace(/<a id="(?:downloadOffline|downloadWindows)"[^>]*>[^<]*<\/a>
 html = html.replace('<link rel="stylesheet" href="styles.css">', () => `<style>${fs.readFileSync(path.join(root, 'dist/styles.css'), 'utf8')}</style>`);
 html = html.replace('<script type="module" src="app.js"></script>', () => `<script>${app.replace(/<\/script/gi, '<\\/script')}</script>`);
 if (/<script[^>]+src=|<link[^>]+stylesheet|import\.meta/.test(html)) throw new Error('External runtime dependency remains');
-fs.writeFileSync(path.join(out, 'Drone-Weather-Lab-0.94-Beta.html'), html);
-fs.writeFileSync(path.join(out, 'dist', 'Drone-Weather-Lab-0.94-Beta.html'), html);
+fs.writeFileSync(path.join(out, 'Drone-Weather-Lab-0.95-Beta.html'), html);
+fs.writeFileSync(path.join(out, 'dist', 'Drone-Weather-Lab-0.95-Beta.html'), html);
 console.log(`Standalone HTML built: ${Buffer.byteLength(html)} bytes; two embedded calculation workers.`);

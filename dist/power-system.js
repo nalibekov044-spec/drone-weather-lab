@@ -22,15 +22,19 @@ export const curves = {
       [1, 4.35]
     ]
   },
+  // 0.95: LiFePO4 resting voltages. 3.65 V is the charging voltage, not the resting one: a rested full cell
+  // sits near 3.4 V and the plateau is 3.30 to 3.36 V between 40% and 90%.
   lifepo4: {
     nominal: 3.2,
     points: [
       [0, 2.5],
-      [.1, 3.1],
+      [.1, 3.0],
       [.2, 3.2],
-      [.5, 3.25],
-      [.8, 3.3],
-      [1, 3.65]
+      [.4, 3.3],
+      [.5, 3.31],
+      [.8, 3.34],
+      [.9, 3.36],
+      [1, 3.4]
     ]
   },
   lion: {
@@ -45,6 +49,17 @@ export const curves = {
     ]
   }
 };
+
+// 0.95: typical energy of a whole pack per kilogram (cells, wrap, wires, connector), Wh/kg.
+export const packSpecificEnergy = {
+  lipo: 165,
+  lihv: 180,
+  lion: 220,
+  lifepo4: 110
+};
+export function packEnergyWh(p) {
+  return Math.max(0, p.capacity) / 1000 * batterySeries(p) * (curves[p.batteryChemistry] || curves.lipo).nominal;
+}
 
 export function batterySeries(p) {
   const nominal = (curves[p.batteryChemistry] || curves.lipo).nominal;

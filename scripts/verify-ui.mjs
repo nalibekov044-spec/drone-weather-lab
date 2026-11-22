@@ -5,7 +5,7 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const offline = process.argv.includes("--offline");
-const html = fs.readFileSync(path.join(root, offline ? "Drone-Weather-Lab-0.94-Beta.html" : "dist/index.html"), "utf8");
+const html = fs.readFileSync(path.join(root, offline ? "Drone-Weather-Lab-0.95-Beta.html" : "dist/index.html"), "utf8");
 class Element {
   constructor(id = "", tag = "div") {
     this.id=id; this.tag=tag; this.value=""; this.checked=false; this.disabled=false; this.hidden=false; this.dataset={}; this.children=[]; this.listeners={}; this.style={}; this.width=800; this.height=520;
@@ -70,7 +70,7 @@ class WorkerStub{
 }
 const documentListeners={};
 const document={ getElementById:id=>elements.get(id)||null, documentElement:new Element(), hidden:false, activeElement:null,
-  createElement:tag=>new Element("",tag), addEventListener(type,fn){(documentListeners[type] ||= []).push(fn);}, querySelectorAll:selector=>selector===".mode-tab"?tabs:selector===".view-panel"?panels:selector==="[data-weather]"?weather:selector==='input[type="range"]'?[...elements.values()].filter(e=>e.type==="range"):[] };
+  createElement:tag=>new Element("",tag), querySelector:()=>null, addEventListener(type,fn){(documentListeners[type] ||= []).push(fn);}, querySelectorAll:selector=>selector===".mode-tab"?tabs:selector===".view-panel"?panels:selector==="[data-weather]"?weather:selector==='input[type="range"]'?[...elements.values()].filter(e=>e.type==="range"):[] };
 const preferences=new Map();
 const workerURLs = new Map(); let objectIndex = 0;
 class TestBlob extends Blob { constructor(parts, options) { super(parts, options); this.parts = parts; } }

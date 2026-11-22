@@ -1,0 +1,48 @@
+{
+  "version": "0.95.0-beta",
+  "isa": [
+    {
+      "altitude": 0,
+      "model": 1.2250122659906946,
+      "isa": 1.225
+    },
+    {
+      "altitude": 1000,
+      "model": 1.1116535840100732,
+      "isa": 1.1117
+    },
+    {
+      "altitude": 3000,
+      "model": 0.9091308719552407,
+      "isa": 0.9093
+    },
+    {
+      "altitude": 5000,
+      "model": 0.7361227958090097,
+      "isa": 0.7364
+    }
+  ],
+  "batterySize": {
+    "nowMinutes": 41.935432154832036,
+    "bestCapacity": 28750,
+    "bestMinutes": 51.899270804488275,
+    "bestThrustToWeight": 2.0157463090249705
+  },
+  "hexFullThrottle": {
+    "mn6007Model": 5866.516094657497,
+    "mn6007Bench": 5716,
+    "hexCap": 5300,
+    "hexDatasheet": 5420.070999520752
+  },
+  "racing": {
+    "thrustMAE": 3.179193471491515,
+    "powerMAE": 6.244894654139038,
+    "thrustToWeight": 7.683404602447012
+  },
+  "cad": {
+    "boxVolumeMm3": 200000.00298023227,
+    "bigSource": 119560,
+    "bigKept": 38464,
+    "bigVolumeRatio": 0.9988585033676641
+  }
+}

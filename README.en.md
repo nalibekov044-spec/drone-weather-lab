@@ -1,32 +1,30 @@
-# Drone Weather Lab 0.94 Beta
+# Drone Weather Lab 0.95 Beta
 
 [Русский](README.md) · [Español](README.es.md)
 
 [![Tests](https://github.com/nalibekov044-spec/drone-weather-lab/actions/workflows/tests.yml/badge.svg)](https://github.com/nalibekov044-spec/drone-weather-lab/actions/workflows/tests.yml)
 
-The simulator shows how wind, altitude, propellers, motors and the battery affect a multicopter. In 0.94 the model was checked against published bench data, and its numbers are now much closer to real drones.
+The simulator shows how wind, altitude, propellers, motors and the battery affect a multicopter. In 0.95 the interface was redesigned for the third time. The scene and the main numbers are visible right away.
 
 ## Run it
 
-Unzip the archive and open **Drone-Weather-Lab-0.94-Beta.html**, or `Start.cmd` on Windows. Nothing needs to be installed.
+Unzip the archive and open **Drone-Weather-Lab-0.95-Beta.html**, or `Start.cmd` on Windows. Nothing needs to be installed.
 
 ## What is new
 
-- **Propeller power fixed.** It was about 2.5 times too high. Hover power now matches T-MOTOR bench tables within a few percent, and flight time is realistic.
-- **Datasheet motor.** A motor can be set by three datasheet numbers: Kv, winding resistance and idle current. The speed limit follows the voltage, efficiency changes with load, and heating comes from copper and iron losses.
-- **Validation tab (key 9).** The model is compared with manufacturer bench tables and with your own CSV. Ct and Cp can be fitted to your measurements.
-- **Temperatures.** Under the flight scene you can see what overheats first and when. Three overload tests make a motor really burn.
-- **Motor failure in flight.** A quadcopter without one motor spins and sinks; a hexacopter holds its heading.
-- **Smaller fixes.** Realistic preset batteries, current and efficiency on motor cards, new statuses, temperatures to CSV, checks on GitHub.
+- **Third redesign.** The top of the page takes half the space. The flight scene starts at 322 px instead of 667. Only the main settings are shown by default; the rest of the 90 open with one button.
+- **Weather by place.** Almaty, Shymbulak, Big Almaty Lake, Medeu, Astana or your own coordinates. An Open-Meteo forecast fills in temperature, wind, gusts, pressure, rain and altitude.
+- **Battery recalculated.** The LiFePO4 curve is fixed. Battery and drone mass follow the capacity. A new chart on the Batteries tab shows which capacity flies longest.
+- **Motors recalculated.** The racer now has a three-blade propeller fitted to a bench table, with a thrust-to-weight of 7.7 instead of 3.2. The hexacopter speed limit is checked against a T-MOTOR table.
+- **Your own CAD.** 3MF is supported. Files up to 64 MB; large meshes are simplified automatically. Drop a file on the scene. Units and the up axis are guessed, and the part mass follows the material and infill.
+- **Faster.** On-screen text is rewritten only when it changes.
 
-Why does a motor not burn in normal flight? It should not. A matched motor has a margin, like a real one. To see overheating, run one of the overload tests.
-
-Details: `docs/CHANGES-0.94.md` (in Russian).
+Details: `docs/CHANGES-0.95.md` (in Russian).
 
 ## Limits
 
-The model is checked against bench tables, not against a real flight. Thermal values are illustrative.
+The model is checked against bench tables, not against a real flight. Thermal values are illustrative. The weather forecast needs the internet; everything else works offline.
 
 ## Checks
 
-`node scripts/verify-all.mjs` runs all 15 checks. Results are in `docs/VERIFICATION-0.94.md`. All checks pass. That does not prove there are no bugs.
+`node scripts/verify-all.mjs` runs all 16 checks. Results are in `docs/VERIFICATION-0.95.md`. All checks pass. That does not prove there are no bugs.

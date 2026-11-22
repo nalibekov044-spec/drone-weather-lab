@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.95 Beta
+
+Third redesign and recalculation.
+
+- The first screen is compact: one header row, the run state in the tab row, one band of readings. The flight scene starts at 322 px instead of 667 in a 1440 × 900 window. Only the main settings are shown by default.
+- On-screen text is written only when it changes, which cuts page updates by more than half.
+- Weather by place from Open-Meteo: Almaty, Shymbulak, Big Almaty Lake, Medeu, Astana or coordinates, now or up to two days ahead.
+- LiFePO4 resting voltages fixed (3.65 V was the charging voltage). Battery and drone mass follow capacity, cells and chemistry. A chart shows which capacity gives the longest hover while keeping a thrust-to-weight of 2.
+- The racer has a three-blade propeller fitted to T-MOTOR F60 PRO V + T5147 data (thrust error 48% to 3%). The hexacopter speed limit is checked against T-MOTOR MN6007II data.
+- CAD import reads 3MF, accepts files up to 64 MB and simplifies large meshes. Files can be dropped on the scene. Units and the up axis are guessed, and the part mass follows the material and infill.
+
 ## 0.94 Beta
 
 Checked against measurements.

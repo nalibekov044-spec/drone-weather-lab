@@ -58,12 +58,18 @@ export const dronePresets = {
     frameSize: 220,
     rotors: 4,
     diameter: 5.1,
-    pitch: 4.6,
+    // 0.95: a three-blade 5.1 × 4.7 FPV propeller with coefficients fitted to T-MOTOR F60 PRO V + T5147 bench
+    // data. The two-blade fit gave about half the thrust, so the racer had a thrust-to-weight of 3 instead of ~10.
+    pitch: 4.7,
+    calibratedProps: true,
+    ct: 0.202,
+    cp: 0.132,
+    batteryCRating: 75,
     dragArea: 0.026,
     dragCoefficient: 0.72,
-    propEfficiency: 91,
+    propEfficiency: 100,
     rpm: 16800,
-    maxRpm: 23000,
+    maxRpm: 30000,
     motorMaxPower: 780,
     motorEfficiency: 80,
     voltage: 22.2,
@@ -87,7 +93,9 @@ export const dronePresets = {
     dragCoefficient: 1.08,
     propEfficiency: 84,
     rpm: 3400,
-    maxRpm: 5600,
+    // 0.95: full throttle of a Kv 150 motor with a 21-inch propeller on 12S. T-MOTOR MN6007II KV160 with P21×6.3
+    // reaches 5 716 RPM at 47.3 V (75% of Kv × U); the datasheet model gives 5 270 to 5 420 RPM for this preset.
+    maxRpm: 5300,
     motorMaxPower: 880,
     motorEfficiency: 87,
     voltage: 44.4,

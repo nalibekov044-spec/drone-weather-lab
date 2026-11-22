@@ -11,6 +11,8 @@ import {
   stepESC,
   escAvailability,
   batterySeries,
+  packEnergyWh,
+  packSpecificEnergy,
   forecastBattery,
   powerBudget,
   curves
@@ -570,7 +572,22 @@ function setStatus(parameters, result, peakWind) {
     status.classList.add("warning");
     text = "Малый запас";
   }
-  status.innerHTML = `<span></span> ${text}`;
+  const statusHtml = `<span></span> ${text}`;
+  if (status.dataset.html !== statusHtml) {
+    status.dataset.html = statusHtml;
+    status.innerHTML = statusHtml;
+  }
+}
+
+// 0.95: write text only when it changed; unchanged writes still cost layout and re-translation.
+// The comparison uses the text the app wrote, not the DOM text, which the translator may have changed.
+const writtenText = new WeakMap();
+function setText(element, text) {
+  if (!element) return;
+  const value = String(text);
+  if (writtenText.get(element) === value && element.isConnected) return;
+  writtenText.set(element, value);
+  element.textContent = value;
 }
 
 function updateMetrics(parameters, result) {
@@ -578,17 +595,17 @@ function updateMetrics(parameters, result) {
   const peakResult = calculate(parameters, liveOptions({
     windSpeed: peakWind
   }));
-  ui.thrustReserve.textContent = `${format(peakResult.reserve, 0)}%`;
-  ui.thrustRatio.textContent = `${format(result.thrustToWeight, 2)} : 1 тяга/вес`;
-  ui.tiltAngle.textContent = `${format(result.tilt, 1)}°`;
+  setText(ui.thrustReserve, `${format(peakResult.reserve, 0)}%`);
+  setText(ui.thrustRatio, `${format(result.thrustToWeight, 2)} : 1 тяга/вес`);
+  setText(ui.tiltAngle, `${format(result.tilt, 1)}°`);
   if (!state.forecast || state.forecastParameters !== parameters || state.t - state.forecastAt > 2) {
     state.forecast = forecastBattery(parameters, state.battery || initialBattery(parameters), peakResult
       .electricalPower, peakWind, peakResult.density);
     state.forecastParameters = parameters;
     state.forecastAt = state.t;
   }
-  ui.flightTime.textContent = peakResult.feasible ? `${format(state.forecast.minutes, 1)} мин` :
-    "Нет зависания";
+  setText(ui.flightTime, peakResult.feasible ? `${format(state.forecast.minutes, 1)} мин` :
+    "Нет зависания");
   const reasons = {
     reserve: "до заданного резерва",
     cutoff: "до отсечки напряжения",
@@ -598,16 +615,16 @@ function updateMetrics(parameters, result) {
   };
   $("enduranceReason").textContent =
     `${reasons[state.forecast.reason]} · при постоянной мощности для пикового ветра`;
-  ui.powerDraw.textContent = peakResult.feasible ? `${format(peakResult.electricalPower, 0)} Вт` :
-    "режим полёта невозможен";
+  setText(ui.powerDraw, peakResult.feasible ? `${format(peakResult.electricalPower, 0)} Вт` :
+    "режим полёта невозможен");
   const actualBattery = state.batteryActual || result.battery;
-  ui.batteryCurrent.textContent = `${format(actualBattery.current, 1)} А`;
+  setText(ui.batteryCurrent, `${format(actualBattery.current, 1)} А`);
   ui.batteryLoad.textContent =
     `команда ${visibleLoad(peakResult.commandPowerLoad)} · полёт ${visibleLoad(peakResult.requiredPowerLoad)}`;
-  ui.maxWind.textContent = quantity(result.maxWind, "speed");
-  ui.airDensity.textContent = quantity(result.density, "density", unitSystem === "imperial" ? 5 : 3);
-  ui.peakWind.textContent = quantity(peakWind, "speed");
-  ui.motorBalance.textContent = `${format(result.balancePercent, 0)}%`;
+  setText(ui.maxWind, quantity(result.maxWind, "speed"));
+  setText(ui.airDensity, quantity(result.density, "density", unitSystem === "imperial" ? 5 : 3));
+  setText(ui.peakWind, quantity(peakWind, "speed"));
+  setText(ui.motorBalance, `${format(result.balancePercent, 0)}%`);
   const averageEffectiveRpm = result.effectiveRpms.reduce((sum, value) => sum + value, 0) / Math.max(1, result
     .effectiveRpms.length);
   // 0.93: actual spinning speed (hover share in flight, full command on the stand), the command after limits,
@@ -625,7 +642,7 @@ function updateMetrics(parameters, result) {
     `${quantity(hottestMotor, "temperature", 0)} · ресурс ${format(weakestMotor * 100, 0)}% · нагрузка ${visibleLoad(hottestLoad)}`;
   ui.motorThermal.classList.toggle("danger-text", hottestMotor > 120 || weakestMotor < 0.5);
   ui.motorThermal.classList.toggle("warning-text", hottestMotor > 85 && hottestMotor <= 120);
-  ui.displacement.textContent = quantity(Math.hypot(state.x, state.y, state.z), "m", 2);
+  setText(ui.displacement, quantity(Math.hypot(state.x, state.y, state.z), "m", 2));
   document.querySelectorAll(".motor-condition").forEach((element, index) => {
     const temperature = state.motorTemps[index] ?? parameters.temperature;
     const health = state.motorHealths[index] ?? 1;
@@ -636,9 +653,9 @@ function updateMetrics(parameters, result) {
     element.classList.toggle("warning-text", !element.classList.contains("danger-text") && (temperature >
       85 || load > 100));
   });
-  ui.flowSpeed.textContent = quantity(parameters.windSpeed, "speed");
-  ui.flowDensity.textContent = `${$("streamlineCount").value} линий`;
-  ui.downwashSpeed.textContent = quantity(result.downwashSpeed, "speed");
+  setText(ui.flowSpeed, quantity(parameters.windSpeed, "speed"));
+  setText(ui.flowDensity, `${$("streamlineCount").value} линий`);
+  setText(ui.downwashSpeed, quantity(result.downwashSpeed, "speed"));
   updateMotorCards(parameters, result);
   const engineering = [
     ...(state.batteryActual && state.powerBudget ? [
@@ -682,7 +699,7 @@ function updateMetrics(parameters, result) {
   if (result.hoverShaftPower < result.inducedPower) warnings.push(
     "Выбранные Cₜ/Cₚ дают мощность ниже идеальной: коэффициенты физически несогласованы.");
   if (!result.batteryFeasible) warnings.push("Превышена токоотдача или слишком большая просадка батареи.");
-  $("engineeringWarnings").textContent = warnings.join(" ");
+  setText($("engineeringWarnings"), warnings.join(" "));
   $("engineeringWarnings").className = warnings.length ? "warning-text" : "";
   updatePowerTelemetry(parameters, result, actualBattery);
   setStatus(parameters, peakResult, peakWind);
@@ -756,9 +773,15 @@ function updateMotorCards(parameters, result) {
     const detail = datasheet && draw && Number.isFinite(draw.current) ?
       `Ток ${format(draw.current, 1)} А · КПД ${format(draw.efficiency * 100, 0)}% · ${format(rpm, 0)} RPM` :
       `Магниты ${format(availability * 100, 0)}% · ${format(rpm, 0)} RPM`;
-    card.className = `motor-card ${burning || failed ? "critical" : temp > 95 ? "warm" : ""}`;
-    card.innerHTML =
+    const cardClass = `motor-card ${burning || failed ? "critical" : temp > 95 ? "warm" : ""}`;
+    if (card.className !== cardClass) card.className = cardClass;
+    // 0.95: rebuild a card only when its text changed (fewer DOM changes and fewer re-translations).
+    const html =
       `<header><strong>M${i + 1}</strong><span>${label}</span></header><div class="motor-temperature">${quantity(temp, "temperature", 0)}</div><div class="health-track"><i style="width:${health * 100}%"></i></div><small>Ресурс ${format(health * 100, 0)}% · нагрузка ${visibleLoad(load)}</small><small>${detail}</small>`;
+    if (card.dataset.html !== html) {
+      card.dataset.html = html;
+      card.innerHTML = html;
+    }
   });
 }
 
@@ -822,6 +845,8 @@ function applyPreset(key) {
   Object.entries(preset).forEach(([id, value]) => {
     if (inputs[id] && typeof value !== "string") inputs[id].value = String(value);
   });
+  // 0.95: a preset may carry measured propeller coefficients (the racer's three-blade propeller).
+  if (preset.calibratedProps) $("calibratedProps").checked = true;
   inputs.rotors.value = String(preset.rotors);
   inputs.batteryCells.value = "0";
   inputs.batteryChemistry.value = "lipo";
@@ -1053,6 +1078,41 @@ function setActiveView(view) {
 document.querySelectorAll(".mode-tab").forEach(tab => tab.addEventListener("click", () => setActiveView(tab
   .dataset.view)));
 
+// 0.95: a bigger battery is heavier. When capacity, voltage, cell count or chemistry change, the battery mass
+// follows its energy at the pack's own Wh/kg (scaled by chemistry), and the drone mass changes by the same amount.
+let batteryBaseline = null;
+const batteryInputs = ["capacity", "voltage", "batteryCells", "batteryChemistry"];
+function adjustBatteryMass(event) {
+  const id = event.target?.id;
+  if (!batteryInputs.includes(id)) return;
+  const before = parameterCache || batteryBaseline;
+  if (!before || !$("batteryMassAuto").checked) return;
+  const value = id === "batteryChemistry" ? inputs[id].value : Number(inputs[id].value);
+  const after = {
+    ...before,
+    [id]: value
+  };
+  if (id === "voltage") after.batteryCells = 0;
+  const oldWh = packEnergyWh(before),
+    newWh = packEnergyWh(after);
+  if (!(oldWh > 0) || !(before.batteryMass > 0)) return;
+  const perKg = oldWh / before.batteryMass * (packSpecificEnergy[after.batteryChemistry] || 165) / (packSpecificEnergy[
+    before.batteryChemistry] || 165);
+  const batteryMass = Math.min(8, Math.max(0.005, newWh / perKg));
+  const delta = batteryMass - Number(inputs.batteryMass.value);
+  const mass = Math.min(Number(inputs.mass.max), Math.max(Number(inputs.mass.min), Number(inputs.mass.value) + delta));
+  inputs.batteryMass.value = String(batteryMass);
+  inputs.mass.value = String(mass);
+  batteryBaseline = {
+    ...after,
+    batteryMass,
+    mass
+  };
+}
+document.addEventListener("input", adjustBatteryMass, true);
+document.addEventListener("change", event => {
+  if (event.target?.id === "batteryChemistry") adjustBatteryMass(event);
+}, true);
 numberIds.forEach(id => inputs[id].addEventListener("input", () => {
   parameterCache = null;
   state.batteryActual = null;
@@ -1188,6 +1248,44 @@ const modelDimensionIds = ["modelWidth", "modelHeight", "modelLength"];
 let areaWorker = null,
   areaGeneration = 0;
 
+const unitNames = {
+  mm: "миллиметры",
+  cm: "сантиметры",
+  m: "метры",
+  in: "дюймы"
+};
+// 0.95: volume of the closed mesh at the chosen size, and the mass if printed or cut from a material.
+const modelMaterials = {
+  pla: 1.24,
+  petg: 1.27,
+  nylon: 1.14,
+  carbon: 1.6,
+  aluminium: 2.7
+};
+function updateModelMass() {
+  const out = $("modelMass");
+  if (!out || !state.model) return;
+  const source = state.model.sourceDimensions,
+    dims = modelDimensionIds.map(id => Number($(id).value));
+  const ratio = dims.reduce((a, v) => a * v, 1) / Math.max(1e-30, source.reduce((a, v) => a * v, 1) * (unitScaleMm() **
+    3));
+  const volumeCm3 = state.model.sourceVolume * unitScaleMm() ** 3 * ratio / 1000;
+  const areaCm2 = state.model.sourceArea * unitScaleMm() ** 2 * Math.cbrt(ratio) ** 2 / 100;
+  const infill = Math.min(100, Math.max(5, Number($("modelInfill").value) || 100)) / 100;
+  const density = modelMaterials[$("modelMaterial").value] || 1.24;
+  const grams = volumeCm3 * density * infill;
+  out.textContent = state.model.closed || state.model.badEdges < 50 ?
+    `Объём ${format(volumeCm3, 0)} см³ · поверхность ${format(areaCm2, 0)} см² · масса из этого материала ≈ ${format(grams, 0)} г. Это масса корпуса без электроники; в массу дрона её не добавляю сам.` :
+    "Сетка не замкнута, объём посчитать нельзя.";
+}
+function unitScaleMm() {
+  return ({
+    mm: 1,
+    cm: 10,
+    m: 1000,
+    in: 25.4
+  })[$("modelUnits").value] || (Number($("modelSpan").value) / Math.max(1e-12, state.model?.sourceSpan || 1));
+}
 function populateModelDimensions() {
   if (!state.model) return;
   const mode = $("modelUnits").value,
@@ -1241,8 +1339,13 @@ function refreshModel() {
     state.modelDimensionsMm = dims;
     $("modelDimensions").textContent =
       `После поворота: X ${format(real[0]*1000,2)} × Y ${format(real[1]*1000,2)} × Z ${format(real[2]*1000,2)} мм. Центр сетки совмещён с центром рамы.`;
+    const guesses = [state.model.unitGuess && $("modelUnits").value === state.model.unitGuess ?
+      `единицы: ${unitNames[state.model.unitGuess]} (по размеру)` : "", state.model.upGuess && $("modelUp").value === state
+      .model.upGuess ? `вертикаль: ${state.model.upGuess.toUpperCase()} (самая тонкая ось)` : ""
+    ].filter(Boolean).join(", ");
     $("modelStatus").textContent =
-      `${state.model.name} · ${state.model.triangleCount} треугольников · ${state.model.closed ? "замкнутая сетка" : `незамкнутая / дефектная: ${state.model.badEdges} проблемных рёбер`}. ${exceedsDomain ? "CAD выходит к границе области: CFD отключён." : "Проверь положение винтов: их центры задаёт рама."}`;
+      `${state.model.name} · ${format(state.model.triangleCount, 0)} треугольников${state.model.simplified ? ` (упрощено из ${format(state.model.sourceTriangleCount, 0)})` : ""} · ${state.model.closed ? "замкнутая сетка" : `незамкнутая / дефектная: ${state.model.badEdges} проблемных рёбер`}.${guesses ? ` Угадано: ${guesses}. Проверь и поправь, если нужно.` : ""} ${exceedsDomain ? "CAD выходит к границе области: CFD отключён." : "Проверь положение винтов: их центры задаёт рама."}`;
+    updateModelMass();
     flightScene.setModel(triangles, false, preview);
     airflowScene.setModel(triangles, $("meshCFD").checked, preview);
     if (reuseArea) {
@@ -1303,11 +1406,33 @@ function refreshModel() {
 
 let modelWorker = null,
   modelGeneration = 0;
-$("modelFile").addEventListener("change", async event => {
-  const file = event.target.files[0];
+// 0.95: one entry point for the file input and for drag and drop onto the CAD section or the scene.
+$("modelFile").addEventListener("change", event => importModelFile(event.target.files[0]));
+for (const zone of [document.querySelector(".cad-group"), $("flightCanvas")].filter(Boolean)) {
+  zone.addEventListener("dragover", event => {
+    if (![...(event.dataTransfer?.items || [])].some(item => item.kind === "file")) return;
+    event.preventDefault();
+    document.querySelector(".cad-group")?.classList.add("dropping");
+  });
+  zone.addEventListener("dragleave", () => document.querySelector(".cad-group")?.classList.remove("dropping"));
+  zone.addEventListener("drop", event => {
+    const file = event.dataTransfer?.files?.[0];
+    document.querySelector(".cad-group")?.classList.remove("dropping");
+    if (!file) return;
+    event.preventDefault();
+    const group = document.querySelector(".cad-group");
+    if (group && !group.open) group.open = true;
+    importModelFile(file);
+  });
+}
+async function importModelFile(file) {
   if (!file) return;
-  if (file.size > 16 * 1024 * 1024) {
-    $("modelStatus").textContent = "Файл больше 16 МБ. Уменьши сетку в CAD.";
+  if (!/\.(stl|obj|3mf)$/i.test(file.name)) {
+    $("modelStatus").textContent = "Поддерживаются STL, OBJ и 3MF. Из STEP / CAD сначала экспортируй сетку.";
+    return;
+  }
+  if (file.size > 64 * 1024 * 1024) {
+    $("modelStatus").textContent = "Файл больше 64 МБ. Уменьши сетку в CAD.";
     return;
   }
   modelWorker?.terminate();
@@ -1335,6 +1460,9 @@ $("modelFile").addEventListener("change", async event => {
         parameterCache = null;
         $("cadDrag").disabled = true;
         state.model = data.mesh;
+        // 0.95: the units and the vertical axis are guessed from the size; both stay editable.
+        if (data.mesh.unitGuess) $("modelUnits").value = data.mesh.unitGuess;
+        if (data.mesh.upGuess) $("modelUp").value = data.mesh.upGuess;
         populateModelDimensions();
         $("meshCFD").checked = false;
         $("removeModel").disabled = false;
@@ -1356,7 +1484,8 @@ $("modelFile").addEventListener("change", async event => {
   } catch {
     $("modelStatus").textContent = "Не удалось открыть файл модели.";
   }
-});
+}
+for (const id of ["modelMaterial", "modelInfill"]) $(id).addEventListener("input", updateModelMass);
 $("modelSpan").addEventListener("change", () => {
   $("modelUnits").value = "fit";
   populateModelDimensions();
@@ -1475,7 +1604,7 @@ $("exportReport").addEventListener("click", () => {
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd
     .status === "ready";
   const report = {
-    version: "0.94.0-beta",
+    version: "0.95.0-beta",
     enduranceForecast: state.forecast,
     powerBudget: state.powerBudget,
     battery: state.battery,
@@ -1529,7 +1658,7 @@ $("exportReport").addEventListener("click", () => {
   }));
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "drone-weather-lab-v0.94-beta-report.json";
+  anchor.download = "drone-weather-lab-v0.95-beta-report.json";
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
@@ -1621,19 +1750,18 @@ $("batteryDrain").addEventListener("change", replaceBattery);
 
 function updatePowerTelemetry(p, result, circuit) {
   const battery = state.battery || initialBattery(p);
-  $("chargeReading").textContent = `${format(battery.soc, 1)}%`;
-  $("chargeBar").value = battery.soc;
-  $("chargeBar").setAttribute("aria-valuenow", String(battery.soc));
-  $("packReading").textContent =
-    `${format(circuit.terminalVoltage, 2)} V · ${quantity(battery.temperature, "temperature", 1)}`;
-  $("packHistory").textContent =
-    `${format(battery.usedAh * 1000, 0)} mAh · ${format(battery.outputWh, 2)} Wh`;
-  $("escReading").textContent =
-    `${quantity(Math.max(p.temperature, ...state.escTemps), "temperature", 1)} · ${format(p.escCurrentLimit, 1)} A`;
-  $("controllerReading").textContent = circuit.controllerPowered ?
-    `${format(p.controllerRate, 0)} Hz · ${format(p.sensorLatency, 1)} ms` : "Контроллер без питания";
-  $("atmosphereReading").textContent =
-    `${quantity(p.altitude, "m", 0)} · ${quantity(result.pressure / 100, "hpa", 1)}`;
+  setText($("chargeReading"), `${format(battery.soc, 1)}%`);
+  const charge = String(Math.round(battery.soc * 10) / 10);
+  if ($("chargeBar").getAttribute("aria-valuenow") !== charge) {
+    $("chargeBar").value = Number(charge);
+    $("chargeBar").setAttribute("aria-valuenow", charge);
+  }
+  setText($("packReading"), `${format(circuit.terminalVoltage, 2)} V · ${quantity(battery.temperature, "temperature", 1)}`);
+  setText($("packHistory"), `${format(battery.usedAh * 1000, 0)} mAh · ${format(battery.outputWh, 2)} Wh`);
+  setText($("escReading"), `${quantity(Math.max(p.temperature, ...state.escTemps), "temperature", 1)} · ${format(p.escCurrentLimit, 1)} A`);
+  setText($("controllerReading"), circuit.controllerPowered ?
+    `${format(p.controllerRate, 0)} Hz · ${format(p.sensorLatency, 1)} ms` : "Контроллер без питания");
+  setText($("atmosphereReading"), `${quantity(p.altitude, "m", 0)} · ${quantity(result.pressure / 100, "hpa", 1)}`);
 }
 
 const parameterHelp = {

@@ -1,0 +1,56 @@
+{
+  "version": "0.93.1-beta",
+  "calibration": "0.94 propeller power model",
+  "hardLimits": {
+    "rpmLimitWithRating80W": 9872.339363035026,
+    "rpmLimitWithRating2500W": 9872.339363035026,
+    "rpmLimitEsc10A": 5729.182689746313
+  },
+  "overloadHover": {
+    "requiredLoadPercent": 115.51442487739239,
+    "feasible": true
+  },
+  "ratedSteadyStateC": 79.9999593831282,
+  "standBurn": {
+    "smoke": 40.400000000000304,
+    "fire": 53.200000000000486,
+    "failure": 58.20000000000056,
+    "flightHottestC": 21.5231080283206
+  },
+  "flightCommandIndependence": {
+    "rpm4800C": 18.076309657712095,
+    "rpm6000C": 18.07630965771209
+  },
+  "flightOverloadBurn": {
+    "smoke": 30.20000000000016,
+    "fire": 41.100000000000314,
+    "failure": 46.000000000000384
+  },
+  "fireOut": {
+    "failedAtS": 38.833333333333336,
+    "maxFire": 1,
+    "finalC": 23.210817335240385
+  },
+  "limitedMixer": {
+    "cappedSaturated": [
+      0,
+      3
+    ],
+    "cappedMomentNm": 0.05050252531672756,
+    "cappedLiftError": -0.04251271204605356,
+    "hexFailedMomentNm": 4.975409704222179e-13,
+    "quadFailedYawError": -0.8771929824556729
+  },
+  "abVerdicts": {
+    "heavierB": {
+      "reserve": "worse",
+      "tilt": "better",
+      "flightMinutes": "worse",
+      "electricalPower": "context",
+      "current": "context",
+      "maxWind": "better",
+      "availableThrust": "info",
+      "thrustToWeight": "worse"
+    }
+  }
+}

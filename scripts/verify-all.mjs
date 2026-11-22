@@ -7,7 +7,7 @@ const root = path.resolve(import.meta.dirname, '..');
 const checks = [
   'verify.mjs', 'verify-v06.mjs', 'verify-v07.mjs', 'verify-v08.mjs', 'verify-v085.mjs', 'verify-v087.mjs',
   'verify-v088.mjs', 'verify-v089.mjs', 'verify-v090.mjs', 'verify-v091.mjs', 'verify-v092.mjs', 'verify-v093.mjs',
-  'verify-v094.mjs', 'verify-ui.mjs', 'verify-standalone.mjs'
+  'verify-v094.mjs', 'verify-v095.mjs', 'verify-ui.mjs', 'verify-standalone.mjs'
 ];
 const failed = [];
 for (const name of checks) {

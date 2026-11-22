@@ -1,7 +1,7 @@
-# Drone Weather Lab 0.94 Beta
+# Drone Weather Lab 0.95 Beta
 
-Checked against measurements. Propeller power was about 2.5 times too high; now it matches T-MOTOR bench tables within a few percent. Flight time and the preset batteries are realistic too.
+Third redesign. The scene and the main numbers are visible right away, and the top of the page takes half the space. Only the main settings are shown by default.
 
-A new datasheet motor model uses Kv, winding resistance and idle current. The Validation tab compares the model with manufacturer tables and with your own CSV. The Temperatures section shows what overheats first and runs overload tests. A motor can be switched off in flight: a quadcopter starts to spin, a hexacopter holds its heading.
+Weather by place: Almaty, Shymbulak, Big Almaty Lake, Medeu, Astana or your own coordinates. The battery was recalculated: LiFePO4 is fixed, mass follows capacity, and a new chart shows which battery flies longest. The racer got a three-blade propeller fitted to a bench table. Your own CAD can now be loaded as 3MF, up to 64 MB, by dropping it on the scene.
 
-Download the ZIP, unzip it and open Drone-Weather-Lab-0.94-Beta.html. The model is checked against bench data, not against a real flight.
+Download the ZIP, unzip it and open Drone-Weather-Lab-0.95-Beta.html. The model is checked against bench data, not against a real flight.

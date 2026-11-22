@@ -11,13 +11,13 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.94 Beta</span></p>
+        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.95 Beta</span></p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
         <label class="unit-control">Язык<select id="language"><option value="ru">Русский</option><option value="en">English</option><option value="es">Español</option></select></label>
         <label class="unit-control">Единицы<select id="unitSystem"><option value="metric">Метрические</option><option value="imperial">Имперские</option></select></label>
-        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.94-Beta.html" download>Скачать для запуска без установки</a>
+        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.95-Beta.html" download>Скачать для запуска без установки</a>
         <button id="showShortcuts" class="button" type="button" aria-expanded="false" aria-controls="shortcutHelp">Клавиши <kbd>?</kbd></button>
         <button id="toggleSimulation" class="button button-primary" type="button">Пауза</button>
         <button id="resetSimulation" class="button" type="button">Сбросить</button>
@@ -30,7 +30,7 @@
       <p>Клавиши работают в русской и английской раскладке вне полей ввода. G и C тоже переключают графики и обтекание. R сохраняет батарею и моторы; Shift + R сбрасывает все настройки и CAD.</p>
     </section>
 
-    <div class="release-notice">0.94 · Проверка по измерениям</div>
+    <div class="release-notice">0.95 · Удобнее и точнее</div>
     <nav class="mode-tabs" aria-label="Режим визуализации" role="tablist">
       <button class="mode-tab active" id="flightTab" type="button" role="tab" aria-selected="true" aria-controls="flightView" data-view="flight">Полёт</button>
       <button class="mode-tab" id="graphTab" type="button" role="tab" aria-selected="false" aria-controls="graphView" data-view="graph">Графики</button>
@@ -232,7 +232,8 @@
             <label class="control" for="batteryResistance"><span>Сопротивление пакета <output id="batteryResistanceValue">18 мОм</output></span><input id="batteryResistance" type="range" min="0" max="0.5" value="0.018" step="0.001"></label>
             <label class="control" for="batteryCRating"><span>Токоотдача <output id="batteryCRatingValue">25 C</output></span><input id="batteryCRating" type="range" min="1" max="100" value="25" step="1"></label>
             <label class="control "><span>Ресурс батареи <output id="batteryHealthValue"></output></span><input id="batteryHealth" type="range" min="10" max="100" value="100" step="1"></label>
-            <label class="control "><span>Масса батареи для нагрева <output id="batteryMassValue"></output></span><input id="batteryMass" type="range" min="0.005" max="8" value="1.3" step="any"></label>
+            <label class="control "><span>Масса батареи · входит в массу дрона <output id="batteryMassValue"></output></span><input id="batteryMass" type="range" min="0.005" max="8" value="1.3" step="any"></label>
+            <label class="check-control wide"><input id="batteryMassAuto" type="checkbox" checked> Пересчитывать массу батареи и дрона при смене ёмкости, напряжения и химии</label>
             <label class="control "><span>Порог напряжения ячейки <output id="cellCutoffValue"></output></span><input id="cellCutoff" type="range" min="2.5" max="3.6" value="3.2" step="0.05"></label>
             <label class="control "><span>Плановый резерв заряда <output id="reserveChargeValue"></output></span><input id="reserveCharge" type="range" min="0" max="40" value="15" step="1"></label>
           </div>
@@ -270,10 +271,10 @@
             <label class="control wide" for="obstacleSize"><span>Размер объекта <output id="obstacleSizeValue">1,0×</output></span><input id="obstacleSize" type="range" min="0.5" max="2" value="1" step="0.1"></label>
           </div>
         </details>
-        <details class="control-group" open>
+        <details class="control-group cad-group" open>
           <summary><span>08</span><strong>Своя 3D-модель / CAD</strong></summary>
           <div class="control-body">
-            <label class="control wide" for="modelFile"><span>STL или OBJ · до 16 МБ / 40 тыс. треугольников</span><input id="modelFile" type="file" accept=".stl,.obj"></label>
+            <label class="control wide cad-drop" for="modelFile"><span>STL, OBJ или 3MF · до 64 МБ. Можно перетащить файл сюда или на сцену. Большие сетки упрощаются до 40 тыс. треугольников.</span><input id="modelFile" type="file" accept=".stl,.obj,.3mf"></label>
             <p id="modelStatus" class="control-hint wide" role="status">Файл остаётся на твоём устройстве. Экспортируй из CAD корпус и раму без винтов: они моделируются отдельно.</p>
             <label class="control wide" for="modelUnits"><span>Единицы исходного файла</span><select id="modelUnits"><option value="fit">Подогнать по размеру ниже</option><option value="mm">Миллиметры</option><option value="cm">Сантиметры</option><option value="m">Метры</option><option value="in">Дюймы</option><option value="manual">Свои размеры</option></select></label>
             <p id="modelSource" class="control-hint wide">STL и OBJ не задают надёжные единицы: выбери их вручную.</p>
@@ -285,6 +286,9 @@
             <label class="control" for="modelHeight"><span>Высота Y, мм</span><input id="modelHeight" type="number" min="0" max="2000" value="560" step="any"></label>
             <label class="check-control wide"><input id="modelAspect" type="checkbox" checked> Сохранять пропорции при вводе размеров</label>
             <p id="modelDimensions" class="control-hint wide"></p>
+            <label class="control" for="modelMaterial"><span>Материал корпуса</span><select id="modelMaterial"><option value="pla">PLA · 1,24 г/см³</option><option value="petg">PETG · 1,27 г/см³</option><option value="nylon">Нейлон · 1,14 г/см³</option><option value="carbon">Углепластик · 1,6 г/см³</option><option value="aluminium">Алюминий · 2,7 г/см³</option></select></label>
+            <label class="control" for="modelInfill"><span>Заполнение, %</span><input id="modelInfill" type="number" min="5" max="100" value="100" step="5"></label>
+            <p id="modelMass" class="control-hint wide"></p>
             <button id="resetModelTransform" type="button" class="button wide">Сбросить размеры и поворот CAD</button>
             <label class="check-control wide"><input id="cadDrag" type="checkbox" disabled> Брать площадь проекции из CAD</label>
             <p id="cadDragStatus" class="control-hint wide">Масса, коэффициент сопротивления и положение моторов задаются отдельно.</p>

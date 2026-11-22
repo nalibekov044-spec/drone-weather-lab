@@ -3091,3 +3091,327 @@ select {
     padding: 14px
   }
 }
+
+/* 0.95 · CAD drop zone */
+.cad-group.dropping {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px
+}
+
+.cad-drop {
+  border: 1px dashed var(--line-bright);
+  border-radius: 6px;
+  padding: 10px
+}
+
+/* 0.95 · third redesign: the scene and the numbers fit on the first screen, settings stay beside them */
+.app-shell {
+  padding-top: 14px
+}
+
+.topbar {
+  padding-bottom: 12px;
+  align-items: center
+}
+
+.topbar h1 {
+  font-size: 22px;
+  margin: 2px 0 0
+}
+
+.topbar .unit-control,
+.topbar .activity-control,
+.topbar label {
+  font-size: 11px
+}
+
+.topbar select,
+.topbar .button {
+  min-height: 34px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-size: 13px
+}
+
+.release-notice {
+  display: none !important
+}
+
+.mode-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--bg);
+  margin-top: 4px
+}
+
+.activity-strip {
+  padding: 4px 0;
+  font-size: 11px;
+  min-height: 0
+}
+
+.activity-strip>span {
+  display: none
+}
+
+.power-strip {
+  margin-top: 8px;
+  gap: 8px
+}
+
+.power-strip>div {
+  padding: 8px 12px;
+  min-height: 0
+}
+
+.power-strip strong {
+  font-size: 14px
+}
+
+.power-strip small {
+  display: none
+}
+
+.metrics {
+  margin-top: 8px;
+  margin-bottom: 12px
+}
+
+.metric {
+  padding: 12px 16px;
+  min-height: 0
+}
+
+.metric strong {
+  font-size: 24px;
+  line-height: 1.1;
+  margin: 4px 0 2px
+}
+
+.metric small {
+  font-size: 11px
+}
+
+.controls-panel {
+  top: 52px;
+  max-height: calc(100vh - 64px)
+}
+
+/* Essential settings first: the rest is one click away. */
+.app-shell .controls-tools {
+  grid-template-columns: 1fr 1fr;
+  padding: 10px;
+  gap: 6px
+}
+
+.app-shell .controls-tools input {
+  grid-column: 1 / -1;
+  padding: 7px 10px
+}
+
+.app-shell .controls-tools .button {
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 12px
+}
+
+.controls-panel.essentials .control:not(.essential),
+.controls-panel.essentials .check-control:not(.essential),
+.controls-panel.essentials .control-help,
+.controls-panel.essentials .control-hint:not(.essential),
+.controls-panel.essentials .preset-actions,
+.controls-panel.essentials .builder-panel,
+.controls-panel.essentials .control-group:not(.has-essential) {
+  display: none !important
+}
+
+@media (max-width: 1100px) {
+  .controls-panel {
+    position: static;
+    max-height: none
+  }
+}
+
+/* 0.95 compact first screen: one header row, tabs with the run state, one band of readings, the scene right below. */
+.app-shell .topbar {
+  padding: 0 0 10px;
+  margin-bottom: 0;
+  gap: 16px;
+  align-items: center
+}
+
+.app-shell .topbar .eyebrow {
+  margin: 0 0 2px;
+  font-size: 10px
+}
+
+.app-shell .topbar h1 {
+  font-size: 20px;
+  line-height: 1.1
+}
+
+.app-shell .simulation-actions {
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end
+}
+
+/* Labels stay for screen readers and translation; the controls show their value. */
+.app-shell .simulation-actions label.unit-control {
+  font-size: 0;
+  gap: 0;
+  margin: 0
+}
+
+.app-shell .simulation-actions label.unit-control select {
+  font-size: 13px;
+  min-height: 32px;
+  padding: 4px 28px 4px 10px
+}
+
+.app-shell .simulation-actions #labTheme {
+  display: none
+}
+
+.app-shell .simulation-actions .tone-chips {
+  margin: 0 4px
+}
+
+.app-shell .simulation-actions .button {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 13px
+}
+
+.app-shell .mode-tabs {
+  margin: 0;
+  padding: 4px 0;
+  align-items: center
+}
+
+.app-shell .mode-tab {
+  min-height: 32px;
+  padding: 0 12px
+}
+
+.app-shell .mode-tabs .activity-strip {
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none
+}
+
+.app-shell .power-strip {
+  margin: 8px 0 0;
+  border-radius: 10px
+}
+
+.app-shell .power-strip>div {
+  padding: 6px 12px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  column-gap: 8px
+}
+
+.app-shell .power-strip>div>span {
+  font-size: 11px;
+  margin: 0
+}
+
+.app-shell .power-strip strong {
+  font-size: 13px;
+  margin: 0;
+  text-align: right;
+  white-space: nowrap
+}
+
+.app-shell .power-strip progress {
+  grid-column: 1 / -1;
+  height: 3px;
+  margin: 4px 0 0
+}
+
+.app-shell .metrics {
+  margin: 8px 0 10px
+}
+
+.app-shell .metric {
+  padding: 8px 14px;
+  min-width: 0
+}
+
+.app-shell .metric>span {
+  font-size: 10px
+}
+
+.app-shell .metric strong {
+  font-size: 22px;
+  margin: 2px 0 0
+}
+
+.app-shell .metric small {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis
+}
+
+#flightView>.visual-header {
+  padding: 8px 16px;
+  min-height: 0;
+  align-items: center
+}
+
+#flightView>.visual-header .panel-label,
+#flightView>.visual-header .scene-hint {
+  display: none
+}
+
+#flightView>.visual-header h2 {
+  font-size: 15px;
+  margin: 0
+}
+
+#flightView>.visual-header .scene-controls {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  gap: 14px
+}
+
+.app-shell .simulation-actions #activityMode {
+  max-width: 200px
+}
+
+@media (max-width: 1300px) {
+  .app-shell .power-strip>div {
+    grid-template-columns: 1fr
+  }
+
+  .app-shell .power-strip strong {
+    text-align: left;
+    white-space: normal
+  }
+
+  .app-shell .mode-tabs .activity-strip {
+    display: none
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell .topbar {
+    flex-wrap: wrap
+  }
+
+  .app-shell .simulation-actions {
+    justify-content: flex-start
+  }
+
+  .app-shell .mode-tabs .activity-strip {
+    display: none
+  }
+}

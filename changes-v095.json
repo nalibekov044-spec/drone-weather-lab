@@ -1,0 +1,71 @@
+{
+  "version": "0.95.0-beta",
+  "update": "Third redesign and recalculation",
+  "items": [
+    {
+      "name": "Компактный первый экран",
+      "code": "styles.css (0.95); lab-095.js / installLab095",
+      "verification": "1440 × 900: сцена с 322 px вместо 667; 1280, 1024 и 400 px без горизонтальной прокрутки"
+    },
+    {
+      "name": "Только главные параметры",
+      "code": "lab-095.js / essentials",
+      "verification": "Браузер на трёх языках; поиск ищет по всем 90"
+    },
+    {
+      "name": "Меньше перерисовок",
+      "code": "app.js / setText, updateMotorCards, updatePowerTelemetry",
+      "verification": "Изменений страницы в секунду: 168 → 67 (рус.), 369 → около 200 (англ.)"
+    },
+    {
+      "name": "Погода по месту",
+      "code": "lab-095.js / weatherPlaces, openMeteoUrl, weatherFromOpenMeteo, hourIndexFor",
+      "verification": "Подставной ответ: ближайший час, высота, ручное давление, порывы 50%, направление 370° → 10°"
+    },
+    {
+      "name": "Атмосфера против ISA",
+      "code": "physics.js / atmosphere",
+      "verification": "0, 1 000, 3 000, 5 000 м: расхождение плотности меньше 0,05%"
+    },
+    {
+      "name": "Кривая LiFePO4",
+      "code": "power-system.js / curves.lifepo4",
+      "verification": "3,40 В при 100%, 3,31 В при 50%, не убывает"
+    },
+    {
+      "name": "Масса батареи по энергии",
+      "code": "power-system.js / packEnergyWh, packSpecificEnergy; app.js / adjustBatteryMass",
+      "verification": "10 → 20 А·ч: батарея 1,3 → 2,6 кг, дрон 2,4 → 3,7 кг (браузер)"
+    },
+    {
+      "name": "Какая батарея даёт больше времени",
+      "code": "lab-095.js / batterySizeCurve",
+      "verification": "Стандартный дрон: 10 А·ч 41,9 мин, лучшая 28,75 А·ч 51,9 мин при тяге к весу 2,02"
+    },
+    {
+      "name": "Гоночный дрон по стенду",
+      "code": "physics.js / dronePresets.racing",
+      "verification": "F60 PRO V + T5147: тяга 48% → 3,2%, мощность 64% → 6,2%; тяга к весу 3,2 → 7,7"
+    },
+    {
+      "name": "Обороты гексакоптера",
+      "code": "physics.js / dronePresets.industrialHex",
+      "verification": "MN6007II KV160 P21 × 6,3: модель 5 867, таблица 5 716 об/мин; предел 5 300 против 5 420 по модели"
+    },
+    {
+      "name": "Импорт CAD: 3MF, большие файлы, перетаскивание",
+      "code": "mesh-import.js / read3mf, simplifyMesh, parseMeshAsync; mesh-worker.js; app.js / importModelFile",
+      "verification": "3MF коробка 200 000 мм³; эллипсоид 119 560 → 38 464, объём 99,9%; STL 204 160 → 30 040 (браузер)"
+    },
+    {
+      "name": "Единицы, ось и масса детали",
+      "code": "mesh-import.js / guessUnits, guessUp, meshMeasures; app.js / updateModelMass",
+      "verification": "мм и Z угаданы; 2 единицы ничего не угадывают; объём 3 769 см³ при точном 3 770"
+    },
+    {
+      "name": "Проверки",
+      "code": "scripts/verify-v095.mjs, scripts/verify-all.mjs",
+      "verification": "16 из 16 проверок проходят"
+    }
+  ]
+}

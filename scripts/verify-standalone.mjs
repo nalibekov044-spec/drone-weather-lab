@@ -3,7 +3,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const root=path.resolve(import.meta.dirname,'..');
-const html=fs.readFileSync(path.join(root,'Drone-Weather-Lab-0.94-Beta.html'),'utf8');
+const html=fs.readFileSync(path.join(root,'Drone-Weather-Lab-0.95-Beta.html'),'utf8');
 assert(!/<script[^>]+src=|<link[^>]+stylesheet|import\.meta/.test(html));
 const sources=JSON.parse(html.match(/const offlineWorkerSources = (.+);/)[1]);
 function worker(name) {
@@ -15,7 +15,7 @@ function worker(name) {
 }
 const mesh=worker('mesh-worker.js');
 const obj='v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\nf 1 3 2\nf 1 2 4\nf 2 3 4\nf 3 1 4\n';
-mesh.self.onmessage({data:{name:'tetra.obj',buffer:new TextEncoder().encode(obj).buffer}});
+await mesh.self.onmessage({data:{name:'tetra.obj',buffer:new TextEncoder().encode(obj).buffer}});
 assert(mesh.messages[0].mesh?.closed);assert.equal(mesh.messages[0].mesh.triangleCount,4);
 const cfd=worker('cfd-worker.js');
 const config={windSpeed:3,windDirection:0,verticalWind:0,downwashSpeed:0,quality:'fast',maxSteps:25,density:1.225,worldScale:0.36,frameSize:360,geometryParts:[{kind:'ellipsoid',center:[0,0,0],size:[1,1,1],role:'body'}],rotorThrusts:[0,0,0,0],rotors:4,propRadius:0.2,smagorinsky:0.12};
@@ -25,6 +25,6 @@ assert(result.field.velocityX.every(Number.isFinite));assert(result.field.stats.
 cfd.self.onmessage({data:{type:'trace',key:'offline',trace:{key:'lines',count:360,layer:'volume'}}});
 assert(cfd.messages.find(message=>message.type==='lines')?.lines.length>0);
 console.log('Standalone workers passed: embedded OBJ import, LES field and streamlines. No runtime script or stylesheet requests.');
-mesh.self.onmessage({data:{type:'analyze',triangles:new Float32Array([-1,-1,0,1,-1,0,1,1,0,-1,-1,0,1,1,0,-1,1,0])}});
+await mesh.self.onmessage({data:{type:'analyze',triangles:new Float32Array([-1,-1,0,1,-1,0,1,1,0,-1,-1,0,1,1,0,-1,1,0])}});
 const analysis=mesh.messages.find(m=>m.aerodynamics);assert(analysis);assert(Math.abs(analysis.aerodynamics.horizontal[9]-4)<1e-6);
 console.log('Standalone CAD projection worker passed.');

@@ -1,13 +1,16 @@
 // Local-only CAD mesh ingestion; no file is sent to a server.
 export const MAX_TRIANGLES = 40000;
-const LIMIT_BYTES = 16 * 1024 * 1024;
+// 0.95: files up to 64 MB and up to 2 million triangles are read; meshes above 40 000 triangles are
+// simplified by vertex clustering, so a detailed export from Fusion 360 no longer has to be redone.
+export const MAX_SOURCE_TRIANGLES = 2000000;
+export const LIMIT_BYTES = 64 * 1024 * 1024;
 
 export function parseMesh(buffer, name) {
   if (Object.prototype.toString.call(buffer) !== "[object ArrayBuffer]") throw new Error("Нужен бинарный буфер файла.");
-  if (buffer.byteLength > LIMIT_BYTES) throw new Error("Файл больше 16 МБ. Экспортируй облегчённую сетку из CAD.");
+  if (buffer.byteLength > LIMIT_BYTES) throw new Error("Файл больше 64 МБ. Экспортируй облегчённую сетку из CAD.");
   const triangles = [];
   const push = values => {
-    if (triangles.length >= MAX_TRIANGLES * 9) throw new Error("Больше 40 000 треугольников. Уменьши детализацию экспорта.");
+    if (triangles.length >= MAX_SOURCE_TRIANGLES * 9) throw new Error("Больше 2 миллионов треугольников. Уменьши детализацию экспорта.");
     if (values.length !== 9 || values.some(v => !Number.isFinite(v) || Math.abs(v) > 1e10)) throw new Error("Некорректные координаты модели.");
     triangles.push(...values);
   };
@@ -15,7 +18,7 @@ export function parseMesh(buffer, name) {
     const view = new DataView(buffer);
     const count = buffer.byteLength >= 84 ? view.getUint32(80, true) : 0;
     if (count > 0 && 84 + count * 50 === buffer.byteLength) {
-      if (count > MAX_TRIANGLES) throw new Error("Больше 40 000 треугольников. Уменьши детализацию экспорта.");
+      if (count > MAX_SOURCE_TRIANGLES) throw new Error("Больше 2 миллионов треугольников. Уменьши детализацию экспорта.");
       for (let i = 0; i < count; i++) {
         const values = [];
         for (let j = 0; j < 9; j++) values.push(view.getFloat32(84 + i * 50 + 12 + j * 4, true));
@@ -36,7 +39,7 @@ export function parseMesh(buffer, name) {
         if (v.length !== 3 || v.some(x => !Number.isFinite(x) || Math.abs(x) > 1e10)) throw new Error("Некорректная вершина OBJ.");
         vertices.push(v);
       }
-      if (vertices.length > 120000) throw new Error("Слишком много вершин.");
+      if (vertices.length > 6000000) throw new Error("Слишком много вершин.");
       if (parts[0] !== "f") continue;
       const face = parts.slice(1).filter(p => !p.startsWith("#")).map(p => {
         const n = Number(p.split("/")[0]);
@@ -46,7 +49,15 @@ export function parseMesh(buffer, name) {
       });
       for (const triangle of triangulateFace(face)) push(triangle.flat());
     }
-  } else throw new Error("Поддерживаются STL и OBJ. Из STEP / CAD сначала экспортируй сетку.");
+  } else if (/\.3mf$/i.test(name) && Array.isArray(buffer.meshTriangles)) {
+    for (const t of buffer.meshTriangles) push(t);
+  } else throw new Error("Поддерживаются STL, OBJ и 3MF. Из STEP / CAD сначала экспортируй сетку.");
+  return finishMesh(triangles, name);
+}
+
+// Shared by STL, OBJ and 3MF: centre and normalize, simplify large meshes, check closure, measure.
+function finishMesh(input, name) {
+  let triangles = input;
   if (!triangles.length) throw new Error("В файле нет треугольной геометрии.");
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
   for (let i = 0; i < triangles.length; i++) {
@@ -56,7 +67,9 @@ export function parseMesh(buffer, name) {
   const span = Math.max(...max.map((v, i) => v - min[i]));
   if (!(span > 1e-9)) throw new Error("Модель имеет нулевой размер.");
   const center = min.map((v, i) => (v + max[i]) / 2);
-  const normalized = Float32Array.from(triangles, (v, i) => (v - center[i % 3]) / span);
+  const sourceCount = triangles.length / 9;
+  let normalized = Float32Array.from(triangles, (v, i) => (v - center[i % 3]) / span);
+  if (sourceCount > MAX_TRIANGLES) normalized = simplifyMesh(normalized, MAX_TRIANGLES);
   const edges = new Map();
   let degenerate = 0;
   const key = offset => [0, 1, 2].map(a => Math.round(normalized[offset + a] * 1e6)).join(",");
@@ -71,7 +84,131 @@ export function parseMesh(buffer, name) {
     }
   }
   const badEdges = [...edges.values()].filter(n => n !== 2).length;
-  return { name, sourceBounds: { min, max }, sourceDimensions: max.map((v, i) => v - min[i]), sourceSpan: span, triangles: normalized, preview: makePreview(normalized), triangleCount: normalized.length / 9, closed: badEdges === 0 && degenerate === 0, badEdges, degenerate };
+  const sourceDimensions = max.map((v, i) => v - min[i]);
+  const measures = meshMeasures(normalized);
+  return { name, sourceBounds: { min, max }, sourceDimensions, sourceSpan: span, triangles: normalized, preview: makePreview(normalized), triangleCount: normalized.length / 9, sourceTriangleCount: sourceCount, simplified: sourceCount > MAX_TRIANGLES, closed: badEdges === 0 && degenerate === 0, badEdges, degenerate,
+    // Volume and area in source units (the mesh is stored divided by its span).
+    sourceVolume: measures.volume * span ** 3, sourceArea: measures.area * span ** 2,
+    unitGuess: guessUnits(span), upGuess: guessUp(sourceDimensions) };
+}
+
+// Vertex clustering: snap vertices to a grid and drop collapsed or repeated faces, coarsening until the
+// count fits. Shape and outline are kept; small details merge.
+export function simplifyMesh(triangles, limit) {
+  let fallback = null, tries = 0;
+  for (let resolution = 512; resolution >= 8; resolution = Math.floor(resolution * 0.85)) {
+    const out = [], seen = new Set();
+    for (let i = 0; i < triangles.length; i += 9) {
+      const points = [0, 3, 6].map(o => [0, 1, 2].map(a => Math.round(triangles[i + o + a] * resolution)));
+      const keys = points.map(p => p.join(","));
+      if (keys[0] === keys[1] || keys[1] === keys[2] || keys[0] === keys[2]) continue;
+      const sorted = [...keys].sort().join("|");
+      if (seen.has(sorted)) continue;
+      seen.add(sorted);
+      for (const p of points) out.push(p[0] / resolution, p[1] / resolution, p[2] / resolution);
+      if (out.length / 9 > limit) break;
+    }
+    if (!(out.length / 9 <= limit && out.length)) continue;
+    const result = Float32Array.from(out);
+    // Clustering can pinch thin parts; a slightly coarser grid often closes the surface again.
+    if (openEdges(result) === 0) return result;
+    fallback ??= result;
+    if (++tries >= 6) break;
+  }
+  if (fallback) return fallback;
+  throw new Error("Не удалось упростить сетку. Уменьши детализацию экспорта.");
+}
+
+function openEdges(t) {
+  const edges = new Map(), key = o => `${t[o]},${t[o + 1]},${t[o + 2]}`;
+  for (let i = 0; i < t.length; i += 9) {
+    const k = [key(i), key(i + 3), key(i + 6)];
+    for (let j = 0; j < 3; j++) {
+      const a = k[j], b = k[(j + 1) % 3], e = a < b ? `${a}|${b}` : `${b}|${a}`;
+      edges.set(e, (edges.get(e) || 0) + 1);
+    }
+  }
+  let bad = 0;
+  for (const n of edges.values()) if (n !== 2) bad++;
+  return bad;
+}
+
+// Enclosed volume by the divergence theorem (exact for a closed mesh) and surface area.
+export function meshMeasures(t) {
+  let volume = 0, area = 0;
+  for (let i = 0; i < t.length; i += 9) {
+    const ax = t[i], ay = t[i + 1], az = t[i + 2], bx = t[i + 3], by = t[i + 4], bz = t[i + 5], cx = t[i + 6], cy = t[i + 7], cz = t[i + 8];
+    volume += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6;
+    const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
+    area += Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx) / 2;
+  }
+  return { volume: Math.abs(volume), area };
+}
+
+// A drone body is usually 6 cm to 1.5 m across. The unit that puts the largest size in that range is the guess.
+export function guessUnits(span) {
+  const fits = [["mm", 1], ["cm", 10], ["m", 1000], ["in", 25.4]].filter(([, f]) => span * f >= 60 && span * f <= 1500);
+  if (fits.length === 0) return null;
+  // Millimetres first: STL from CAD is millimetres in almost all cases.
+  return fits[0][0];
+}
+
+// The thinnest axis of a flat frame is usually the vertical one.
+export function guessUp(dimensions) {
+  const order = [0, 1, 2].sort((a, b) => dimensions[a] - dimensions[b]);
+  if (dimensions[order[0]] > 0.8 * dimensions[order[1]]) return null;
+  return ["x", "y", "z"][order[0]];
+}
+
+// 3MF (Fusion 360, PrusaSlicer, Bambu Studio): a ZIP with an XML mesh. Read with the browser's own inflater.
+export async function read3mf(buffer) {
+  const bytes = new Uint8Array(buffer), view = new DataView(buffer);
+  let end = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) if (view.getUint32(i, true) === 0x06054b50) { end = i; break; }
+  if (end < 0) throw new Error("Повреждённый 3MF: это не ZIP-архив.");
+  const entries = view.getUint16(end + 10, true);
+  let offset = view.getUint32(end + 16, true);
+  const triangles = [];
+  for (let n = 0; n < entries; n++) {
+    if (view.getUint32(offset, true) !== 0x02014b50) throw new Error("Повреждённый 3MF.");
+    const method = view.getUint16(offset + 10, true), compressed = view.getUint32(offset + 20, true);
+    const nameLength = view.getUint16(offset + 28, true), extraLength = view.getUint16(offset + 30, true), commentLength = view.getUint16(offset + 32, true);
+    const local = view.getUint32(offset + 42, true);
+    const entryName = new TextDecoder().decode(bytes.subarray(offset + 46, offset + 46 + nameLength));
+    offset += 46 + nameLength + extraLength + commentLength;
+    if (!/\.model$/i.test(entryName)) continue;
+    const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+    const data = bytes.subarray(start, start + compressed);
+    let xml;
+    if (method === 0) xml = new TextDecoder().decode(data);
+    else if (method === 8) xml = await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+    else throw new Error("Этот способ сжатия 3MF не поддерживается.");
+    parse3mfModel(xml, triangles);
+  }
+  if (!triangles.length) throw new Error("В 3MF нет сетки.");
+  return triangles;
+}
+
+function parse3mfModel(xml, out) {
+  // Objects with their own vertices and triangles; build items and components are placed as exported.
+  for (const mesh of xml.matchAll(/<(?:\w+:)?mesh\b[\s\S]*?<\/(?:\w+:)?mesh>/g)) {
+    const vertices = [...mesh[0].matchAll(/<(?:\w+:)?vertex\b([^>]*)\/?>/g)].map(m => ["x", "y", "z"].map(a => Number((m[1].match(new RegExp(`\\b${a}="([^"]+)"`)) || [])[1])));
+    for (const m of mesh[0].matchAll(/<(?:\w+:)?triangle\b([^>]*)\/?>/g)) {
+      const idx = ["v1", "v2", "v3"].map(a => Number((m[1].match(new RegExp(`\\b${a}="(\\d+)"`)) || [])[1]));
+      if (idx.some(i => !vertices[i] || vertices[i].some(v => !Number.isFinite(v)))) throw new Error("Некорректные индексы 3MF.");
+      out.push(idx.flatMap(i => vertices[i]));
+    }
+  }
+}
+
+export async function parseMeshAsync(buffer, name) {
+  if (/\.3mf$/i.test(name)) {
+    if (buffer.byteLength > LIMIT_BYTES) throw new Error("Файл больше 64 МБ. Экспортируй облегчённую сетку из CAD.");
+    const triangles = await read3mf(buffer);
+    if (triangles.length > MAX_SOURCE_TRIANGLES) throw new Error("Больше 2 миллионов треугольников. Уменьши детализацию экспорта.");
+    return finishMesh(triangles.flat(), name);
+  }
+  return parseMesh(buffer, name);
 }
 
 function makePreview(triangles) {

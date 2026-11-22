@@ -1,0 +1,182 @@
+{
+  "version": "0.92.0-beta",
+  "quadAnalytic": {
+    "radiusM": 0.28,
+    "offsetM": 0.02,
+    "mostLoadedShare": 1.142857142857143,
+    "expected": 1.1428571428571428
+  },
+  "weakMotorDirection": "each of 4 motors at 85% RPM: drift towards the weak motor (0.91: away from it)",
+  "mixer": {
+    "layouts": [
+      {
+        "preset": "survey",
+        "rotors": 4,
+        "maxConstraintError": 2.220446049250313e-16
+      },
+      {
+        "preset": "racing",
+        "rotors": 4,
+        "maxConstraintError": 2.220446049250313e-16
+      },
+      {
+        "preset": "industrialHex",
+        "rotors": 6,
+        "maxConstraintError": 8.881784197001252e-16
+      },
+      {
+        "preset": "cargoOcto",
+        "rotors": 8,
+        "maxConstraintError": 3.3306690738754696e-16
+      },
+      {
+        "preset": "custom",
+        "rotors": 4,
+        "maxConstraintError": 2.220446049250313e-16
+      }
+    ],
+    "balance": [
+      {
+        "preset": "survey",
+        "mixerImbalanceNm": 3.885780586188048e-16,
+        "equalThrustImbalanceNm": 0.3530394000000003,
+        "equalThrustBalancePercent": 94.64285714285714
+      },
+      {
+        "preset": "industrialHex",
+        "mixerImbalanceNm": 3.5200373421612615e-15,
+        "equalThrustImbalanceNm": 0.7649187000000003,
+        "equalThrustBalancePercent": 96.73913043478261
+      },
+      {
+        "preset": "cargoOcto",
+        "mixerImbalanceNm": 8.579661020019128e-15,
+        "equalThrustImbalanceNm": 1.6180972500000015,
+        "equalThrustBalancePercent": 97.93103448275862
+      },
+      {
+        "preset": "custom",
+        "mixerImbalanceNm": 2.7755575615628914e-16,
+        "equalThrustImbalanceNm": 0.3530393999999999,
+        "equalThrustBalancePercent": 94.64285714285714
+      }
+    ]
+  },
+  "mission": [
+    {
+      "name": "default",
+      "complete": true,
+      "minutes": 12,
+      "distanceM": 960,
+      "tracePoints": 361,
+      "margin": {
+        "marginMinutes": 24.491307670295466,
+        "reason": "reserve",
+        "socAtEnd": 15.000000000008953
+      }
+    },
+    {
+      "name": "standard temperature",
+      "complete": true,
+      "minutes": 12,
+      "distanceM": 960,
+      "tracePoints": 361,
+      "margin": {
+        "marginMinutes": 21.884421263997734,
+        "reason": "reserve",
+        "socAtEnd": 15.000000000004768
+      }
+    },
+    {
+      "name": "manual pressure",
+      "complete": true,
+      "minutes": 12,
+      "distanceM": 960,
+      "tracePoints": 361,
+      "margin": {
+        "marginMinutes": 23.43855045622193,
+        "reason": "reserve",
+        "socAtEnd": 15.00000000000171
+      }
+    },
+    {
+      "name": "reaches reserve",
+      "complete": false,
+      "minutes": 10.690637775283982,
+      "distanceM": 567.1913325851941,
+      "tracePoints": 322,
+      "margin": null
+    },
+    {
+      "name": "heavy",
+      "complete": false,
+      "minutes": 0,
+      "distanceM": 0,
+      "tracePoints": 1,
+      "margin": null
+    }
+  ],
+  "altitudeCeiling": {
+    "hoverM": 5202.51195281744,
+    "hoverLimit": "thrust",
+    "reserve30M": 2696.8960255384445,
+    "graphFirstInfeasibleM": 5210,
+    "heavyBelowSeaLevel": true,
+    "lightAboveRange": true
+  },
+  "comparison": {
+    "rows": [
+      {
+        "key": "reserve",
+        "verdict": "worse",
+        "percent": -17.34075002388597
+      },
+      {
+        "key": "tilt",
+        "verdict": "better",
+        "percent": -14.400130103490069
+      },
+      {
+        "key": "flightMinutes",
+        "verdict": "worse",
+        "percent": -19.178175221256804
+      },
+      {
+        "key": "electricalPower",
+        "verdict": "context",
+        "percent": 23.471679477285022
+      },
+      {
+        "key": "current",
+        "verdict": "context",
+        "percent": 23.728955976629745
+      },
+      {
+        "key": "maxWind",
+        "verdict": "better",
+        "percent": 7.763181216064942
+      },
+      {
+        "key": "availableThrust",
+        "verdict": "info",
+        "percent": 8.506944444444436
+      },
+      {
+        "key": "thrustToWeight",
+        "verdict": "worse",
+        "percent": -6.563464506172857
+      }
+    ],
+    "changed": [
+      "payload",
+      "rpm"
+    ]
+  },
+  "translations": {
+    "workbenchCallsChecked": 166,
+    "dashCases": 3
+  },
+  "notes": [
+    "Checks the model against its own equations and analytic cases; no flight or bench experiment."
+  ]
+}
