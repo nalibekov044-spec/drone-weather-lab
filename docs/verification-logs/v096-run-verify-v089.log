@@ -1,0 +1,21 @@
+{
+  "version": "0.89.0-beta",
+  "baseRelease": "0.88 Beta",
+  "hotkeyCases": 140,
+  "powerBudgetCases": 180,
+  "maxPowerBudgetErrorW": 1.4779288903810084e-12,
+  "rcEnergyBalanceErrorWh": 4.3151246464923076e-16,
+  "rcStep120Seconds": {
+    "temperature": 20.143495519565622,
+    "polarization": 0.05027507089029601,
+    "outputWh": 6.670394447595125,
+    "heatWh": 0.048491097928233626,
+    "storedWh": 0.001114454476642103
+  },
+  "forecastMinutes": 23.153076082728163,
+  "limits": [
+    "All checks are numerical; real drone hardware is not calibrated.",
+    "CFD is coarse-grid and regularized, with no real-drone experimental validation.",
+    "A reviewed module and passing test suite do not prove absence of every bug."
+  ]
+}

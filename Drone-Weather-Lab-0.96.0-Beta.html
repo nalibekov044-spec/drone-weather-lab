@@ -3422,13 +3422,41 @@ select {
     display: none
   }
 }
+
+/* 0.96.0: weather by place gets the flight height and the ground type in its own rows. */
+.weather-fetch {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line)
+}
+
+.weather-fetch .weather-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px
+}
+
+.weather-fetch .weather-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--muted)
+}
+
+.weather-fetch .control-hint {
+  margin: 0;
+  overflow-wrap: anywhere
+}
 </style>
 </head>
 <body>
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.95 Beta</span></p>
+        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.96.0 Beta</span></p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
@@ -3447,7 +3475,7 @@ select {
       <p>Клавиши работают в русской и английской раскладке вне полей ввода. G и C тоже переключают графики и обтекание. R сохраняет батарею и моторы; Shift + R сбрасывает все настройки и CAD.</p>
     </section>
 
-    <div class="release-notice">0.95 · Удобнее и точнее</div>
+    <div class="release-notice">0.96.0 · Ветер на высоте полёта</div>
     <nav class="mode-tabs" aria-label="Режим визуализации" role="tablist">
       <button class="mode-tab active" id="flightTab" type="button" role="tab" aria-selected="true" aria-controls="flightView" data-view="flight">Полёт</button>
       <button class="mode-tab" id="graphTab" type="button" role="tab" aria-selected="false" aria-controls="graphView" data-view="graph">Графики</button>
@@ -3625,7 +3653,7 @@ select {
             <label class="control" for="rainRate"><span>Дождь <output id="rainRateValue">0 мм/ч</output></span><input id="rainRate" type="range" min="0" max="80" value="0" step="1"></label>
             <label class="control wide"><span>Температура воздуха</span><select id="temperatureMode"><option value="manual">Задать вручную</option><option value="standard">Стандартная атмосфера</option></select></label>
             <label class="control" for="temperature"><span>Температура <output id="temperatureValue">15 °C</output></span><input id="temperature" type="range" min="-40" max="55" value="15" step="1"></label>
-            <label class="control" for="altitude"><span>Высота <output id="altitudeValue">500 м</output></span><input id="altitude" type="range" min="0" max="6000" value="500" step="100"></label>
+            <label class="control" for="altitude"><span>Высота <output id="altitudeValue">500 м</output></span><input id="altitude" type="range" min="0" max="6000" value="500" step="10"></label>
             <label class="control" for="humidity"><span>Влажность <output id="humidityValue">45%</output></span><input id="humidity" type="range" min="0" max="100" value="45" step="5"></label>
             <label class="control" for="pressureMode"><span>Давление</span><select id="pressureMode"><option value="auto">По высоте</option><option value="manual">Задать вручную</option></select></label>
             <label class="control" for="pressureHpa"><span>Давление <output id="pressureHpaValue">954 гПа</output></span><input id="pressureHpa" type="range" min="400" max="1050" value="954" step="1" disabled></label>
@@ -4997,6 +5025,17 @@ const v095Spanish = {
 return { v095Translations, v095Spanish };
 })();
 const m12 = (() => {
+// 0.96.0 strings written in Russian: version notice.
+const v096Translations = {
+  "0.96.0 · Ветер на высоте полёта": "0.96.0 · Wind at the flight height"
+};
+const v096Spanish = {
+  "0.96.0 · Ветер на высоте полёта": "0.96.0 · Viento a la altura de vuelo"
+};
+
+return { v096Translations, v096Spanish };
+})();
+const m13 = (() => {
 const { spanish } = m3;
 const { v089Translations } = m4;
 const { v088Translations } = m5;
@@ -5006,6 +5045,7 @@ const { v092Translations, v092Spanish } = m8;
 const { v093Translations, v093Spanish } = m9;
 const { v094Translations, v094Spanish } = m10;
 const { v095Translations, v095Spanish } = m11;
+const { v096Translations, v096Spanish } = m12;
 const pairs = `
 Единицы|Units
 Метрические|Metric
@@ -5314,8 +5354,8 @@ CFD потерял устойчивость на последнем шаге. В
 с|s
 `;
 const dictionary = {"0.91 · Проверка конфигурации":"0.91 · Configuration checks",
-"Численная вязкость":"Numerical viscosity","Сравнивай сетки при одной вязкости.":"Compare grids at the same viscosity.","Быстрое · 15 тыс.":"Fast · 15k cells","Среднее · 34 тыс.":"Balanced · 34k cells","Детальнее · 65 тыс.":"Fine · 65k cells", "Мой дрон · Батареи · План · Журнал":"My drone · Batteries · Mission · Log", "Расчёт отменён":"Calculation cancelled", "Поле устарело":"Field is outdated", "Нажми «Рассчитать поток» для текущих настроек.":"Select Calculate flow for the current settings.", "0.9 · Конструктор полёта":"0.9 · Design your flight", "Заряд батареи":"Battery charge", ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations, ...v089Translations, ...v092Translations, ...v093Translations, ...v094Translations, ...v095Translations };
-Object.assign(spanish, v092Spanish, v093Spanish, v094Spanish, v095Spanish);
+"Численная вязкость":"Numerical viscosity","Сравнивай сетки при одной вязкости.":"Compare grids at the same viscosity.","Быстрое · 15 тыс.":"Fast · 15k cells","Среднее · 34 тыс.":"Balanced · 34k cells","Детальнее · 65 тыс.":"Fine · 65k cells", "Мой дрон · Батареи · План · Журнал":"My drone · Batteries · Mission · Log", "Расчёт отменён":"Calculation cancelled", "Поле устарело":"Field is outdated", "Нажми «Рассчитать поток» для текущих настроек.":"Select Calculate flow for the current settings.", "0.9 · Конструктор полёта":"0.9 · Design your flight", "Заряд батареи":"Battery charge", ...Object.fromEntries(pairs.trim().split('\n').map(line => line.split('|'))), ...additionalTranslations, ...releaseTranslations, ...v088Translations, ...v089Translations, ...v092Translations, ...v093Translations, ...v094Translations, ...v095Translations, ...v096Translations };
+Object.assign(spanish, v092Spanish, v093Spanish, v094Spanish, v095Spanish, v096Spanish);
 let language = 'ru';
 try { const stored=localStorage.getItem('drone-lab-language'),browser=typeof navigator!=='undefined'?navigator.language:'ru';language=['ru','en','es'].includes(stored)?stored:browser.startsWith('es')?'es':browser.startsWith('ru')?'ru':'en'; } catch {}
 const cache = new Map();
@@ -5385,7 +5425,7 @@ function installLanguage() {
 
 return { dictionary, rebuildDictionary, getLanguage, t, setLanguage, installLanguage };
 })();
-const m13 = (() => {
+const m14 = (() => {
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const curves = {
   lipo: {
@@ -5717,7 +5757,7 @@ function powerBudget(circuit, motorInputs, efficiencies, escEfficiency, avionics
 
 return { curves, packSpecificEnergy, packEnergyWh, batterySeries, initialBattery, openCircuitCellVoltage, batteryCircuit, stepBattery, escAvailability, stepESC, dischargeStep, forecastBattery, powerBudget };
 })();
-const m14 = (() => {
+const m15 = (() => {
 // One geometry definition for rendering, collision masks, rotor locations and CAD export.
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const builderDefaults = {
@@ -6093,7 +6133,7 @@ function displayParts(p, g, exploded = false) {
 
 return { builderDefaults, designGeometry, containsPart, triangulateParts, exportDesignSTL, visualDetails, geometryFor, displayParts };
 })();
-const m15 = (() => {
+const m16 = (() => {
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 // Educational model without motor-specific thermal calibration.
@@ -6156,7 +6196,7 @@ function stepMotorThermals(system, parameters, result, windNow, dt) {
 
 return { thermalAvailability, motorThermalResistance, motorCooling, motorTargetTemperature, stepMotorThermals };
 })();
-const m16 = (() => {
+const m17 = (() => {
 // 0.94: electrical model of a brushless motor from three datasheet numbers.
 // Kv (RPM per volt), winding resistance R (ohm, as datasheets list "internal resistance") and the idle
 // current I0 (A, usually measured at 10 V). This is the classic first-order model (M. Drela, "First-Order
@@ -6269,21 +6309,21 @@ function efficiencyCurve(spec, shaftAt, maxRpm, temperature = 25, samples = 40) 
 
 return { COPPER_TEMPERATURE_COEFFICIENT, MAGNET_TEMPERATURE_COEFFICIENT, ESC_MODULATION, motorSpec, motorConstants, motorPoint, limitedRpm, efficiencyCurve };
 })();
-const m17 = (() => {
+const m18 = (() => {
 const { maximumTipSpeed } = m2;
 const { batteryCircuit,
   initialBattery,
   escAvailability,
-  batterySeries } = m13;
+  batterySeries } = m14;
 const { builderDefaults,
   designGeometry,
-  geometryFor } = m14;
-const { thermalAvailability } = m15;
+  geometryFor } = m15;
+const { thermalAvailability } = m16;
 const { motorSpec,
   motorPoint,
   motorConstants,
   limitedRpm,
-  ESC_MODULATION } = m16;
+  ESC_MODULATION } = m17;
 const G = 9.80665;
 const INCH = 0.0254;
 
@@ -7073,13 +7113,13 @@ function motorDraw(parameters, result, rpms, shafts, temperatures = [], healths 
 
 return { G, INCH, dronePresets, baseDefaults, graphVariables, graphMetrics, pressureFromAltitude, atmosphere, rotorPositions, rotorPlanPositions, dragAreas, relativeAirflow, PROP_REFERENCE_STATE, figureOfMerit, propCoefficients, calculate, graphSeries, motorDraw };
 })();
-const m18 = (() => {
+const m19 = (() => {
 const { validateMissionStages } = m2;
 const { calculate,
-  pressureFromAltitude } = m17;
+  pressureFromAltitude } = m18;
 const { batteryCircuit,
   initialBattery,
-  dischargeStep } = m13;
+  dischargeStep } = m14;
 const cellTypes = {
   lipo: {
     nominal: 3.7,
@@ -7555,7 +7595,7 @@ function cgAllocation(cg, positions, caps, weight) {
 
 return { cellTypes, packExamples, buildPack, componentBalance, calibrateProp, missionForecast, altitudeEnvelope, cgMotorLoads, scenarioSweep, csvText, cgAllocation };
 })();
-const m19 = (() => {
+const m20 = (() => {
 // 0.92: small line chart for the flight log, mission plan and altitude ceiling.
 // Colours come from the active theme, so the charts follow theme changes like the main graph.
 function palette() {
@@ -7762,8 +7802,8 @@ function drawLineChart(canvas, options) {
 
 return { stepDigits, niceTicks, drawLineChart };
 })();
-const m20 = (() => {
-const { t } = m12;
+const m21 = (() => {
+const { t } = m13;
 // Inputs and saved designs keep their original units. Conversion is a view concern.
 const definitions = {
   kg: ["кг", "lb", 2.20462262185], mm: ["мм", "in", 1 / 25.4],
@@ -7821,7 +7861,7 @@ function shortcutAction(event) {
 
 return { parameterUnits, unitSpec, toDisplay, fromDisplay, parseExact, validateExact, graphKinds, shortcutBindings, shortcutAction };
 })();
-const m21 = (() => {
+const m22 = (() => {
 const add = (a, b, s = 1) => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s];
 const norm = a => { const l = Math.hypot(...a) || 1; return a.map(v => v / l); };
 
@@ -7895,7 +7935,7 @@ function traceLines(field, config, count, layer) {
 
 return { sampleField, traceLines };
 })();
-const m22 = (() => {
+const m23 = (() => {
 const labText = {"Not converged: force differences also include iteration error.":["Поле не установилось: разница сил включает итерационную ошибку.","Sin converger: la diferencia de fuerzas incluye error iterativo."],
 "Calculation activity":["Работа расчётов", "Actividad de cálculo"],"Visible tab":["Видимая вкладка", "Pestaña visible"],"Site has focus":["Только при фокусе", "Solo con foco"],"Allow background":["Разрешить в фоне", "Permitir en segundo plano"],"Background work can be throttled or frozen by your browser. Returning does not fast-forward the flight.":["Браузер может замедлить или заморозить фоновые расчёты. При возвращении время полёта не перескакивает.", "El navegador puede ralentizar o congelar el cálculo en segundo plano. Al volver no se adelanta el vuelo."],"Waiting for activity":["Ожидание активности", "Esperando actividad"],"Calculating in background":["Расчёт в фоне", "Calculando en segundo plano"],"Calculations active":["Расчёт разрешён", "Cálculo permitido"],"Match numerical viscosity across grids":["Одинаковая численная вязкость", "Igualar viscosidad numérica entre mallas"],"Grid comparison":["Сравнение сеток", "Comparación de mallas"],"Compare forces with the same viscosity and settings. A small residual or a small difference between two grids does not prove accuracy.":["Сравнивай силы при одной вязкости и настройках. Малая невязка или разница между двумя сетками не доказывает точность.", "Compara fuerzas con igual viscosidad y ajustes. Un residuo pequeño o poca diferencia entre dos mallas no demuestra precisión."],"Grid":["Сетка", "Malla"],"Cell · mm":["Ячейка · мм", "Celda · mm"],"Viscosity · m²/s":["Вязкость · м²/с", "Viscosidad · m²/s"],"Force XYZ · N":["Сила XYZ · Н", "Fuerza XYZ · N"],"Change · N":["Разница · Н", "Diferencia · N"],"Convergence":["Установление", "Convergencia"],"Converged":["Установился", "Convergente"],"Not converged":["Не установился", "Sin converger"],"Enter a name":["Введи название", "Introduce un nombre"],"Slice is outdated":["Срез устарел: обнови после расчёта", "Corte desactualizado: recalcula"],"Expand panels":["Развернуть панели", "Expandir paneles"],"Custom draft":["Свой черновик", "Borrador propio"],"Active configuration":["Рабочая конфигурация", "Configuración actual"],"Geometry, power and airflow":["Геометрия, питание и обтекание", "Geometría, energía y flujo"],
   "Battery charge history":["История заряда батареи","Historial de carga de batería"], "Flow speed slice":["Срез скорости потока","Corte de velocidad del flujo"],
@@ -8588,7 +8628,7 @@ Object.assign(labText, {
 
 return { labText };
 })();
-const m23 = (() => {
+const m24 = (() => {
 // 0.94: published static bench data used to check the model. Values are copied from the manufacturer's
 // load-test tables; the power column is the electrical input (supply voltage × current), so it includes the ESC.
 // Air density in the tests is not stated; the comparison assumes 20 °C at sea level (1.204 kg/m³).
@@ -8660,14 +8700,14 @@ const benchReferences = [{
 
 return { benchReferences };
 })();
-const m24 = (() => {
+const m25 = (() => {
 // 0.94: checking the model against measurements. Bench tables (RPM, thrust, voltage, current or power) and
 // flight logs (time, voltage, current) are read from CSV; the model is evaluated at the measured speeds.
 const { calculate,
-  baseDefaults } = m17;
+  baseDefaults } = m18;
 const { motorSpec,
   motorPoint,
-  motorConstants } = m16;
+  motorConstants } = m17;
 const G = 9.80665;
 const INCH = 0.0254;
 
@@ -8926,12 +8966,12 @@ function compareFlightLog(p, rows) {
 
 return { parseMeasurementCSV, compareBench, fitPropeller, compareFlightLog };
 })();
-const m25 = (() => {
+const m26 = (() => {
 // 0.94: what will overheat first and when, from the present losses. Each part is a first-order thermal model
 // (the same ones the simulation integrates), so the time to a limit has a closed form:
 //   T(t) = target + (T₀ − target)·e^(−t/τ)   ⇒   t = τ · ln((target − T₀) / (target − limit)).
 const { motorTargetTemperature,
-  motorCooling } = m15;
+  motorCooling } = m16;
 const THERMAL_LIMITS = {
   motorWear: 110,
   motorSmoke: 145,
@@ -9083,7 +9123,7 @@ const overloadScenarios = [{
 
 return { THERMAL_LIMITS, timeToReach, thermalForecast, overloadScenarios };
 })();
-const m26 = (() => {
+const m27 = (() => {
 // 0.94: texts of the validation tab, the temperature panel and the overload tests. English → [Russian, Spanish].
 const v094LabText = {
   's': ['с', 's'],
@@ -9235,26 +9275,26 @@ const v094LabText = {
 
 return { v094LabText };
 })();
-const m27 = (() => {
+const m28 = (() => {
 // 0.94: model check against measurements, live temperatures with a forecast, overload demonstrations
 // and motor failure in flight. Installed by the workbench, which supplies its helpers and the app API.
-const { benchReferences } = m23;
+const { benchReferences } = m24;
 const { parseMeasurementCSV,
   compareBench,
   fitPropeller,
-  compareFlightLog } = m24;
+  compareFlightLog } = m25;
 const { thermalForecast,
   overloadScenarios,
-  THERMAL_LIMITS } = m25;
+  THERMAL_LIMITS } = m26;
 const { efficiencyCurve,
   motorSpec,
   motorPoint,
-  ESC_MODULATION } = m16;
+  ESC_MODULATION } = m17;
 const { calculate,
-  baseDefaults } = m17;
-const { drawLineChart } = m19;
-const { labText } = m22;
-const { v094LabText } = m26;
+  baseDefaults } = m18;
+const { drawLineChart } = m20;
+const { labText } = m23;
+const { v094LabText } = m27;
 for (const [key, value] of Object.entries(v094LabText))
   if (!(key in labText)) labText[key] = value;
 
@@ -9786,7 +9826,7 @@ function installLab094(api, h) {
 
 return { installLab094 };
 })();
-const m28 = (() => {
+const m29 = (() => {
 // 0.95: texts of weather by place, battery size and the main-settings switch. English → [Russian, Spanish].
 const v095LabText = {
   'WEATHER BY PLACE': ['ПОГОДА ПО МЕСТУ', 'TIEMPO POR LUGAR'],
@@ -9841,16 +9881,158 @@ const v095LabText = {
 
 return { v095LabText };
 })();
-const m29 = (() => {
+const m30 = (() => {
+// 0.96.0: texts of the wind at the flight height and the pressure that follows the altitude. English → [Russian, Spanish].
+const v096LabText = {
+  'Flight height above the ground, m': ['Высота полёта над землёй, м', 'Altura de vuelo sobre el suelo, m'],
+  'Ground': ['Местность', 'Terreno'],
+  'Water or ice': ['Вода или лёд', 'Agua o hielo'],
+  'Open ground': ['Открытая местность', 'Terreno abierto'],
+  'Town or forest': ['Посёлок, лес, город', 'Pueblo, bosque o ciudad'],
+  'from the forecast levels': ['по уровням прогноза', 'según los niveles del pronóstico'],
+  'above 180 m, extended from the forecast levels': ['выше 180 м, продолжение уровней прогноза',
+    'por encima de 180 m, prolongando los niveles del pronóstico'
+  ],
+  'by the power law from 10 m': ['по степенному закону от 10 м', 'por la ley potencial desde 10 m'],
+  'wind at 10 m': ['ветер на 10 м', 'viento a 10 m'],
+  'at flight height': ['на высоте полёта', 'a la altura de vuelo'],
+  'at 10 m': ['на 10 м', 'a 10 m'],
+  'flight': ['полёт', 'vuelo'],
+  'Check the flight height: from 2 to 500 m.': ['Проверь высоту полёта: от 2 до 500 м.',
+    'Revisa la altura de vuelo: de 2 a 500 m.'
+  ],
+  'Pressure moved with the altitude:': ['Давление пересчитано на новую высоту:', 'La presión se ajustó a la nueva altitud:']
+};
+
+return { v096LabText };
+})();
+const m31 = (() => {
+// 0.96.0: wind at the flight height and the air at that height.
+// The forecast gives wind at 10, 80, 120 and 180 m above the ground. Between levels the speed is interpolated
+// on a logarithmic height scale; below the first level and when only the 10 m wind is known, the Hellmann power
+// law v = v10 · (z / 10)^a is used. Above the top level the exponent comes from the two highest levels.
+// Hellmann exponents for neutral air (Wikipedia, "Wind gradient", Hellmann exponent table).
+const hellmannExponents = {
+  water: 0.10,
+  open: 0.16,
+  built: 0.34
+};
+
+const forecastLevels = [10, 80, 120, 180];
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const rad = Math.PI / 180;
+
+// Levels with a finite speed and direction, lowest first. Models without upper levels give only the 10 m wind.
+function forecastProfile(data, index) {
+  const h = data?.hourly || {};
+  return forecastLevels.map(height => ({
+    height,
+    speed: Number(h[`wind_speed_${height}m`]?.[index]),
+    direction: Number(h[`wind_direction_${height}m`]?.[index])
+  })).filter(l => Number.isFinite(l.speed) && l.speed >= 0 && Number.isFinite(l.direction) && h[
+    `wind_speed_${l.height}m`]?.[index] !== null);
+}
+
+function windAtHeight(profile, height, exponent = hellmannExponents.open) {
+  const levels = (profile || []).filter(l => Number.isFinite(l.height) && l.height > 0 && Number.isFinite(l.speed) && l
+    .speed >= 0 && Number.isFinite(l.direction)).sort((a, b) => a.height - b.height);
+  if (!levels.length || !Number.isFinite(height)) throw Error('wind-profile');
+  const z = Math.max(1, height),
+    first = levels[0],
+    last = levels.at(-1),
+    direction = d => (d % 360 + 360) % 360;
+  if (z <= first.height) return {
+    speed: first.speed * (z / first.height) ** exponent,
+    direction: direction(first.direction),
+    method: levels.length > 1 && z === first.height ? 'forecast' : 'power'
+  };
+  if (z >= last.height) {
+    let a = exponent;
+    if (levels.length > 1) {
+      const below = levels.at(-2);
+      if (below.speed > 0.1 && last.speed > 0.1) a = clamp(Math.log(last.speed / below.speed) / Math.log(last
+        .height / below.height), 0, 0.6);
+    }
+    return {
+      speed: last.speed * (z / last.height) ** a,
+      direction: direction(last.direction),
+      method: levels.length > 1 ? (z === last.height ? 'forecast' : 'extrapolated') : 'power'
+    };
+  }
+  const j = levels.findIndex((l, i) => l.height <= z && levels[i + 1].height > z),
+    lo = levels[j],
+    hi = levels[j + 1];
+  const t = Math.log(z / lo.height) / Math.log(hi.height / lo.height);
+  // Direction through the wind vector, so 350° and 10° average to 0°, not 180°.
+  const x = (1 - t) * Math.sin(lo.direction * rad) + t * Math.sin(hi.direction * rad),
+    y = (1 - t) * Math.cos(lo.direction * rad) + t * Math.cos(hi.direction * rad);
+  return {
+    speed: lo.speed + (hi.speed - lo.speed) * t,
+    direction: direction(Math.atan2(x, y) / rad),
+    method: 'forecast'
+  };
+}
+
+// Pressure and temperature a height dz above a point, with the standard lapse rate of 6.5 K per km.
+function airAbove(pressureHpa, temperatureC, dz) {
+  const t0 = temperatureC + 273.15;
+  return {
+    pressureHpa: pressureHpa * Math.max(0.05, 1 - 0.0065 * dz / t0) ** 5.25588,
+    temperature: temperatureC - 0.0065 * dz
+  };
+}
+
+// The forecast hour at the flight height: wind from the profile, air pressure and temperature lifted from the
+// ground (temperature is given at 2 m), altitude = ground + flight height. `surface` is weatherFromOpenMeteo's result.
+function liftToFlightHeight(surface, profile, height = 30, terrain = 'open') {
+  const v = surface.values,
+    levels = profile?.length ? profile : [{
+      height: 10,
+      speed: v.windSpeed,
+      direction: v.windDirection
+    }];
+  const exponent = hellmannExponents[terrain] ?? hellmannExponents.open;
+  const wind = windAtHeight(levels, height, exponent);
+  const air = airAbove(v.pressureHpa, v.temperature, height - 2);
+  const ground = v.altitude;
+  return {
+    ...surface,
+    ground,
+    height,
+    wind10: v.windSpeed,
+    profile: levels,
+    method: wind.method,
+    values: {
+      ...v,
+      windSpeed: wind.speed,
+      windDirection: wind.direction,
+      altitude: ground + Math.max(0, height),
+      pressureHpa: air.pressureHpa,
+      temperature: air.temperature
+    }
+  };
+}
+
+return { hellmannExponents, forecastLevels, forecastProfile, windAtHeight, airAbove, liftToFlightHeight };
+})();
+const m32 = (() => {
 // 0.95: weather for a real place and time (Open-Meteo, free, no key) and the battery size that flies longest.
 const { calculate,
-  baseDefaults } = m17;
+  baseDefaults } = m18;
 const { packEnergyWh,
-  packSpecificEnergy } = m13;
-const { drawLineChart } = m19;
-const { labText } = m22;
-const { v095LabText } = m28;
-for (const [key, value] of Object.entries(v095LabText))
+  packSpecificEnergy } = m14;
+const { drawLineChart } = m20;
+const { labText } = m23;
+const { v095LabText } = m29;
+const { v096LabText } = m30;
+const { forecastProfile,
+  liftToFlightHeight,
+  airAbove } = m31;
+for (const [key, value] of Object.entries({
+    ...v095LabText,
+    ...v096LabText
+  }))
   if (!(key in labText)) labText[key] = value;
 
 const $ = id => document.getElementById(id);
@@ -9864,7 +10046,8 @@ const weatherPlaces = [
 ];
 
 function openMeteoUrl(latitude, longitude) {
-  const fields = 'temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation';
+  // 0.96.0: wind at 80, 120 and 180 m too, for the wind at the flight height.
+  const fields = 'temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation,wind_speed_80m,wind_speed_120m,wind_speed_180m,wind_direction_80m,wind_direction_120m,wind_direction_180m';
   return `https://api.open-meteo.com/v1/forecast?latitude=${latitude.toFixed(4)}&longitude=${longitude.toFixed(4)}&hourly=${fields}&wind_speed_unit=ms&timezone=auto&forecast_days=3`;
 }
 
@@ -10011,9 +10194,50 @@ function installLab095(api, h) {
     const box = document.createElement('div');
     box.className = 'weather-fetch wide';
     box.innerHTML =
-      `<span class="panel-label">${k('WEATHER BY PLACE')}</span><div class="weather-row"><select id="v95Place" aria-label="${escape(L('Place'))}">${weatherPlaces.map(([id, name]) => `<option value="${id}">${k(name)}</option>`).join('')}<option value="custom">${k('Coordinates')}</option></select><select id="v95When" aria-label="${escape(L('Time'))}"><option value="0">${k('Now')}</option><option value="3">${k('In 3 hours')}</option><option value="24">${k('Tomorrow, same time')}</option><option value="48">${k('In 2 days')}</option></select></div><div class="weather-row" id="v95Coords" hidden><input id="v95Lat" type="number" step="0.0001" min="-90" max="90" value="43.2380" aria-label="${escape(L('Latitude'))}"><input id="v95Lon" type="number" step="0.0001" min="-180" max="180" value="76.9460" aria-label="${escape(L('Longitude'))}"></div><button type="button" class="button" id="v95Fetch">${k('Get the forecast')}</button><p class="control-hint" id="v95WeatherStatus">${k('Forecast from Open-Meteo: free, no account. Needs internet; the rest of the simulator works offline.')}</p>`;
+      `<span class="panel-label">${k('WEATHER BY PLACE')}</span><div class="weather-row"><select id="v95Place" aria-label="${escape(L('Place'))}">${weatherPlaces.map(([id, name]) => `<option value="${id}">${k(name)}</option>`).join('')}<option value="custom">${k('Coordinates')}</option></select><select id="v95When" aria-label="${escape(L('Time'))}"><option value="0">${k('Now')}</option><option value="3">${k('In 3 hours')}</option><option value="24">${k('Tomorrow, same time')}</option><option value="48">${k('In 2 days')}</option></select></div><div class="weather-row" id="v95Coords" hidden><input id="v95Lat" type="number" step="0.0001" min="-90" max="90" value="43.2380" aria-label="${escape(L('Latitude'))}"><input id="v95Lon" type="number" step="0.0001" min="-180" max="180" value="76.9460" aria-label="${escape(L('Longitude'))}"></div><div class="weather-row"><label class="weather-field"><span>${k('Flight height above the ground, m')}</span><input id="v96Height" type="number" min="2" max="500" step="1" value="30"></label><label class="weather-field"><span>${k('Ground')}</span><select id="v96Terrain"><option value="water">${k('Water or ice')}</option><option value="open" selected>${k('Open ground')}</option><option value="built">${k('Town or forest')}</option></select></label></div><button type="button" class="button" id="v95Fetch">${k('Get the forecast')}</button><p class="control-hint essential" id="v95WeatherStatus">${k('Forecast from Open-Meteo: free, no account. Needs internet; the rest of the simulator works offline.')}</p>`;
     body.prepend(box);
     $('v95Place').addEventListener('change', () => $('v95Coords').hidden = $('v95Place').value !== 'custom');
+    // Inputs are clamped to their own limits before they are applied (a 7 000 m peak still fits the 6 000 m slider).
+    const fit = (id, v) => Math.min(Number($(id).max), Math.max(Number($(id).min), v));
+    let forecast = null,
+      pressureRef = null,
+      applyingForecast = false;
+    function applyForecast() {
+      const height = Math.min(500, Math.max(2, Number($('v96Height').value) || 30));
+      const surface = weatherFromOpenMeteo(forecast.data, forecast.index);
+      const lifted = liftToFlightHeight(surface, forecastProfile(forecast.data, forecast.index), height, $('v96Terrain')
+        .value);
+      const v = lifted.values;
+      const values = {
+        ...v,
+        altitude: fit('altitude', Math.round(v.altitude)),
+        pressureHpa: fit('pressureHpa', v.pressureHpa),
+        windSpeed: fit('windSpeed', v.windSpeed),
+        temperature: fit('temperature', v.temperature),
+        humidity: fit('humidity', v.humidity),
+        rainRate: fit('rainRate', v.rainRate),
+        gusts: fit('gusts', v.gusts)
+      };
+      applyingForecast = true;
+      applyParameters(values);
+      applyingForecast = false;
+      api.invalidate();
+      // The pressure now belongs to this altitude: if the altitude is moved by hand, the pressure follows it.
+      const now = getParameters();
+      pressureRef = {
+        altitude: now.altitude,
+        pressureHpa: values.pressureHpa,
+        temperature: values.temperature,
+        shown: now.pressureHpa
+      };
+      const method = {
+        forecast: L('from the forecast levels'),
+        extrapolated: L('above 180 m, extended from the forecast levels'),
+        power: L('by the power law from 10 m')
+      } [lifted.method];
+      $('v95WeatherStatus').textContent =
+        `${L(forecast.placeName)} · ${lifted.time.replace('T', ' ')} · ${fmt(values.temperature, 1)} °C · ${L('wind at 10 m')} ${fmt(lifted.wind10, 1)} ${L('m/s')}, ${L('at flight height')} (${fmt(height, 0)} ${L('m')}) ${fmt(v.windSpeed, 1)} ${L('m/s')}, ${method} · ${L('gusts to')} ${fmt(lifted.gust, 1)} ${L('m/s')} ${L('at 10 m')} · ${fmt(values.pressureHpa, 0)} ${L('hPa')} · ${L('ground')} ${fmt(lifted.ground, 0)} ${L('m')}, ${L('flight')} ${fmt(values.altitude, 0)} ${L('m')}.`;
+    }
     $('v95Fetch').addEventListener('click', async () => {
       const place = weatherPlaces.find(p => p[0] === $('v95Place').value);
       const lat = place ? place[2] : Number($('v95Lat').value),
@@ -10026,20 +10250,49 @@ function installLab095(api, h) {
         const response = await fetch(openMeteoUrl(lat, lon));
         if (!response.ok) throw Error('weather-http');
         const data = await response.json();
-        const {
-          values,
-          time,
-          gust
-        } = weatherFromOpenMeteo(data, hourIndexFor(data, Number($('v95When').value)));
-        applyParameters(values);
-        api.invalidate();
-        status.textContent =
-          `${L(place ? place[1] : 'Coordinates')} · ${time.replace('T', ' ')} · ${fmt(values.temperature, 1)} °C · ${L('wind')} ${fmt(values.windSpeed, 1)} ${L('m/s')}, ${L('gusts to')} ${fmt(gust, 1)} ${L('m/s')} · ${fmt(values.pressureHpa, 0)} ${L('hPa')} · ${L('ground')} ${fmt(values.altitude, 0)} ${L('m')}. ${L('Wind is given at 10 m above the ground.')}`;
+        forecast = {
+          data,
+          index: hourIndexFor(data, Number($('v95When').value)),
+          placeName: place ? place[1] : 'Coordinates'
+        };
+        applyForecast();
       } catch {
+        forecast = null;
         status.textContent = L('Could not load the forecast. Check the internet connection and try again.');
       } finally {
         $('v95Fetch').disabled = false;
       }
+    });
+    for (const id of ['v96Height', 'v96Terrain']) $(id).addEventListener('change', () => {
+      if (!forecast) return;
+      try {
+        applyForecast();
+      } catch {
+        $('v95WeatherStatus').textContent = L('Check the flight height: from 2 to 500 m.');
+      }
+    });
+    // Moving the altitude by hand after a forecast: the pressure follows (standard lapse rate), unless the
+    // pressure itself was edited or switched back to automatic.
+    $('altitude')?.addEventListener('input', () => {
+      const p = getParameters();
+      if (applyingForecast || !pressureRef || p.pressureMode !== 'manual' || Math.abs(p.pressureHpa - pressureRef.shown) >
+        0.51) return;
+      const air = airAbove(pressureRef.pressureHpa, pressureRef.temperature, p.altitude - pressureRef.altitude);
+      applyingForecast = true;
+      applyParameters({
+        pressureHpa: fit('pressureHpa', air.pressureHpa)
+      });
+      applyingForecast = false;
+      pressureRef.shown = getParameters().pressureHpa;
+      api.invalidate();
+      $('v95WeatherStatus').textContent =
+        `${L('Pressure moved with the altitude:')} ${fmt(p.altitude, 0)} ${L('m')} → ${fmt(pressureRef.shown, 0)} ${L('hPa')}.`;
+    });
+    for (const id of ['pressureHpa', 'pressureMode']) $(id)?.addEventListener('input', () => {
+      if (!applyingForecast) pressureRef = null;
+    });
+    $('pressureMode')?.addEventListener('change', () => {
+      if (!applyingForecast) pressureRef = null;
     });
   }
 
@@ -10126,12 +10379,12 @@ function installLab095(api, h) {
 
 return { weatherPlaces, openMeteoUrl, weatherFromOpenMeteo, hourIndexFor, batterySizeCurve, installLab095 };
 })();
-const m30 = (() => {
+const m33 = (() => {
 const { gridIdentity,
   compareGridResults } = m1;
 const { inputNumber,
   validateMissionStages } = m2;
-const { getLanguage } = m12;
+const { getLanguage } = m13;
 const { buildPack,
   packExamples,
   componentBalance,
@@ -10141,18 +10394,18 @@ const { buildPack,
   altitudeEnvelope,
   cgMotorLoads,
   cgAllocation,
-  csvText } = m18;
+  csvText } = m19;
 const { calculate,
-  rotorPlanPositions } = m17;
+  rotorPlanPositions } = m18;
 const { drawLineChart,
-  stepDigits } = m19;
+  stepDigits } = m20;
 const { toDisplay,
-  unitSpec } = m20;
-const { geometryFor } = m14;
-const { sampleField } = m21;
-const { labText } = m22;
-const { installLab094 } = m27;
-const { installLab095 } = m29;
+  unitSpec } = m21;
+const { geometryFor } = m15;
+const { sampleField } = m22;
+const { labText } = m23;
+const { installLab094 } = m28;
+const { installLab095 } = m32;
 const $ = id => document.getElementById(id);
 const escape = s => String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
 const L = s => getLanguage() === 'en' ? s : (labText[s]?.[getLanguage() === 'es' ? 1 : 0] || s);
@@ -10252,7 +10505,7 @@ function installWorkbench(api) {
     `<div class="activity-strip"><output id="activityState" role="status"></output><span>${k('Background work can be throttled or frozen by your browser. Returning does not fast-forward the flight.')}</span></div>`
     );
   document.querySelector('.release-notice').innerHTML =
-    `<div><span class="version-orbit">.95</span><div>${k('Active configuration')}<small>${k('Geometry, power and airflow')}</small></div></div><div class="release-tags">CAD · ENERGY · CFD</div>`;
+    `<div><span class="version-orbit">.96</span><div>${k('Active configuration')}<small>${k('Geometry, power and airflow')}</small></div></div><div class="release-tags">CAD · ENERGY · CFD</div>`;
   document.querySelector('.controls-panel').insertAdjacentHTML('afterbegin',
     `<div class="controls-tools"><input id="controlSearch" type="search" placeholder="${L('Find a parameter')}" aria-label="${L('Find a parameter')}">${button('collapseControls','Collapse panels')}</div>`
   );
@@ -11629,8 +11882,8 @@ function installWorkbench(api) {
 
 return { installWorkbench };
 })();
-const m31 = (() => {
-const { calculate } = m17;
+const m34 = (() => {
+const { calculate } = m18;
 const weatherKeys = ['windSpeed', 'windDirection', 'gusts', 'gustFrequency', 'turbulence', 'verticalWind', 'rainRate', 'temperature', 'altitude', 'humidity', 'pressureMode', 'pressureHpa', 'icing', 'windTransition'];
 // 0.92: +1 means a larger value is better for the drone, -1 means a smaller value is better.
 // 0.93.1: 0 means no verdict: more raw thrust is not better by itself (thrust / weight already judges it).
@@ -11672,8 +11925,8 @@ function changedParameters(a, b, ignore = weatherKeys) {
 
 return { weatherKeys, metricDirections, compareConfigurations, changedParameters };
 })();
-const m32 = (() => {
-const { t } = m12;
+const m35 = (() => {
+const { t } = m13;
 const TAU = Math.PI * 2;
 
 function colors() {
@@ -11890,8 +12143,8 @@ class GraphRenderer {
 
 return { GraphRenderer };
 })();
-const m33 = (() => {
-const { geometryFor, triangulateParts, visualDetails, displayParts } = m14;
+const m36 = (() => {
+const { geometryFor, triangulateParts, visualDetails, displayParts } = m15;
 const vertex = `
 precision mediump float;
 attribute vec3 position;
@@ -12135,15 +12388,15 @@ class GPUScene {
 
 return { GPUScene };
 })();
-const m34 = (() => {
+const m37 = (() => {
 const { matchedViscosity } = m1;
-const { GPUScene } = m33;
-const { t } = m12;
-const { rotorPositions } = m17;
+const { GPUScene } = m36;
+const { t } = m13;
+const { rotorPositions } = m18;
 const { geometryFor,
   triangulateParts,
-  displayParts } = m14;
-const { sampleField } = m21;
+  displayParts } = m15;
+const { sampleField } = m22;
 const TAU = Math.PI * 2;
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -13381,13 +13634,13 @@ class DroneScene3D {
 
 return { DroneScene3D };
 })();
-const m35 = (() => {
+const m38 = (() => {
 const { t,
-  getLanguage } = m12;
+  getLanguage } = m13;
 const { parameterUnits,
   toDisplay,
   unitSpec,
-  validateExact } = m20;
+  validateExact } = m21;
 function installExactControls(controls, getSystem) {
   const entries = [];
   for (const slider of controls) {
@@ -13496,7 +13749,7 @@ function installExactControls(controls, getSystem) {
 
 return { installExactControls };
 })();
-const m36 = (() => {
+const m39 = (() => {
 // Local-only CAD mesh ingestion; no file is sent to a server.
 const MAX_TRIANGLES = 40000;
 // 0.95: files up to 64 MB and up to 2 million triangles are read; meshes above 40 000 triangles are
@@ -13870,9 +14123,9 @@ function meshAerodynamics(triangles) {
 
 return { MAX_TRIANGLES, MAX_SOURCE_TRIANGLES, LIMIT_BYTES, parseMesh, simplifyMesh, meshMeasures, guessUnits, guessUp, read3mf, parseMeshAsync, transformMesh, voxelizeMesh, meshBounds, orientedDimensions, fitMesh, projectedMeshArea, meshAerodynamics };
 })();
-const m37 = (() => {
+const m40 = (() => {
 const { createActivityLoop } = m0;
-const { installWorkbench } = m30;
+const { installWorkbench } = m33;
 const { batteryCircuit,
   initialBattery,
   stepBattery,
@@ -13883,13 +14136,13 @@ const { batteryCircuit,
   packSpecificEnergy,
   forecastBattery,
   powerBudget,
-  curves } = m13;
+  curves } = m14;
 const { t,
   getLanguage,
   setLanguage,
-  installLanguage } = m12;
+  installLanguage } = m13;
 const { compareConfigurations,
-  changedParameters } = m31;
+  changedParameters } = m34;
 const { baseDefaults,
   calculate,
   dronePresets,
@@ -13900,28 +14153,28 @@ const { baseDefaults,
   relativeAirflow,
   dragAreas,
   motorDraw,
-  rotorPlanPositions } = m17;
-const { cgAllocation } = m18;
-const { GraphRenderer } = m32;
-const { DroneScene3D } = m34;
+  rotorPlanPositions } = m18;
+const { cgAllocation } = m19;
+const { GraphRenderer } = m35;
+const { DroneScene3D } = m37;
 const { stepMotorThermals,
-  thermalAvailability } = m15;
+  thermalAvailability } = m16;
 const { unitSpec,
   parameterUnits,
   toDisplay,
   fromDisplay,
   graphKinds,
-  shortcutAction } = m20;
-const { installExactControls } = m35;
+  shortcutAction } = m21;
+const { installExactControls } = m38;
 const { transformMesh,
   fitMesh,
   meshBounds,
-  orientedDimensions } = m36;
+  orientedDimensions } = m39;
 const { builderDefaults,
   designGeometry,
   geometryFor,
-  exportDesignSTL } = m14;
-const { sampleField } = m21;
+  exportDesignSTL } = m15;
+const { sampleField } = m22;
 const $ = id => document.getElementById(id);
 const numberIds = [
   "mass", "payload", "frameSize", "rotors", "diameter", "pitch", "dragArea", "dragCoefficient",
@@ -15442,7 +15695,7 @@ $("exportReport").addEventListener("click", () => {
   const matchingCFD = airflowScene.cfd.fieldKey === airflowScene.cfd.desiredKey && airflowScene.cfd
     .status === "ready";
   const report = {
-    version: "0.95.0-beta",
+    version: "0.96.0-beta",
     enduranceForecast: state.forecast,
     powerBudget: state.powerBudget,
     battery: state.battery,
@@ -15496,7 +15749,7 @@ $("exportReport").addEventListener("click", () => {
   }));
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "drone-weather-lab-v0.95-beta-report.json";
+  anchor.download = "drone-weather-lab-v0.96.0-beta-report.json";
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });

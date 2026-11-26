@@ -1,0 +1,5 @@
+{"wind":6,"imported":false,"elapsedMs":1521,"maxSpeed":12.339942949705993,"residual":0.025051873568456416,"solidCells":13,"lines":144,"traceMs":109,"effectiveRe":35.099999999999966}
+{"wind":0,"imported":false,"elapsedMs":1152,"maxSpeed":11.739969298135469,"residual":0.1113991337713812,"solidCells":13,"lines":144,"traceMs":29,"effectiveRe":35.099999999999966}
+{"wind":20,"imported":false,"elapsedMs":1107,"maxSpeed":21.546542948081754,"residual":0.0035981221589624075,"solidCells":13,"lines":144,"traceMs":103,"effectiveRe":35.099999999999966}
+{"wind":6,"imported":true,"elapsedMs":1380,"maxSpeed":12.885124026935987,"residual":0.02651940370925549,"solidCells":174,"lines":132,"traceMs":107,"effectiveRe":35.099999999999966}
+Physics, CFD, mesh topology, voxelization, streamlines, syntax and HTML IDs passed.

@@ -1,0 +1,41 @@
+{
+  "version": "0.96.0-beta",
+  "update": "Wind at the flight height",
+  "items": [
+    {
+      "name": "Ветер на высоте полёта",
+      "code": "wind-profile.js / windAtHeight, forecastProfile, liftToFlightHeight; lab-095.js / applyForecast",
+      "verification": "Уровни 10, 80, 120, 180 м точно; 28 м → 6,5 м/с; выше 180 м показатель по двум верхним уровням, не больше 0,6"
+    },
+    {
+      "name": "Степенной закон по местности",
+      "code": "wind-profile.js / hellmannExponents",
+      "verification": "5 м/с на 10 м → на 100 м: 6,30 (вода), 7,23 (открытая), 10,94 (город)"
+    },
+    {
+      "name": "Давление и температура на высоте полёта",
+      "code": "wind-profile.js / airAbove",
+      "verification": "ISA 1 000, 3 000, 5 000 м в пределах 0,1%"
+    },
+    {
+      "name": "Давление следует за высотой после прогноза",
+      "code": "lab-095.js / pressureRef",
+      "verification": "Браузер: высота 3 000 м → 704 гПа; после ручной правки давления связь отключается"
+    },
+    {
+      "name": "Итог прогноза виден в режиме главных параметров",
+      "code": "lab-095.js / v95WeatherStatus",
+      "verification": "Браузер, скриншот раздела погоды"
+    },
+    {
+      "name": "Шаг высоты 10 м",
+      "code": "index.html / altitude",
+      "verification": "Браузер: высота 2 290 м ставится точно"
+    },
+    {
+      "name": "Проверки",
+      "code": "scripts/verify-v096.mjs, scripts/verify-all.mjs",
+      "verification": "17 из 17 проверок проходят"
+    }
+  ]
+}

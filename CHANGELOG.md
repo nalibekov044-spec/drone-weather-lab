@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.96.0 Beta
+
+Wind at the flight height, the first step towards 1.0.
+
+- The weather section has the flight height above the ground (2 to 500 m) and the ground type. The wind comes from the Open-Meteo levels at 10, 80, 120 and 180 m, interpolated on a logarithmic height scale; below 10 m, or with only the 10 m wind, the Hellmann power law is used (water 0.10, open ground 0.16, town 0.34).
+- Pressure and temperature are lifted to the flight height with the standard lapse rate; from sea level this matches the ISA table within 0.1%.
+- After a forecast, moving the altitude by hand moves the pressure with it.
+- The forecast summary was hidden when only the main settings were shown; it is always visible now.
+- The altitude slider moves in 10 m steps instead of 100 m.
+
 ## 0.95 Beta
 
 Third redesign and recalculation.

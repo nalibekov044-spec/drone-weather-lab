@@ -1,0 +1,169 @@
+{
+  "version": "0.85.0-beta",
+  "purpose": "Numerical checks, not experimental drone validation",
+  "shearWave": [
+    {
+      "mode": "BGK",
+      "n": 32,
+      "steps": 200,
+      "latticeViscosity": 0.10000000000000002,
+      "measured": 0.00230418470884816,
+      "expected": 0.0023126060957586216,
+      "relativeError": 0.0036415137562364475
+    },
+    {
+      "mode": "TRT",
+      "n": 32,
+      "steps": 200,
+      "latticeViscosity": 0.10000000000000002,
+      "measured": 0.002308658434501591,
+      "expected": 0.0023126060957586216,
+      "relativeError": 0.0017070184430763025
+    }
+  ],
+  "uniformMassImbalance": 0,
+  "actuator": {
+    "forceN": [
+      -6.889775763796457e-10,
+      -3.999999959205668,
+      1.8147176799460096e-9
+    ],
+    "torqueNm": 0.059999999883949585
+  },
+  "sphere": {
+    "cells": 14725,
+    "solidCells": 81,
+    "meanDensity": 0.999982818446512,
+    "densityDrift": -0.000017181553487954915,
+    "surfaceForce": [
+      1.3492640250561505,
+      0,
+      0
+    ],
+    "meanSurfaceForce": [
+      1.3473389823789428,
+      0,
+      0
+    ],
+    "forceResidual": 0.005396261955596264,
+    "forceSamples": 10,
+    "massFlow": {
+      "incoming": 8.36375912465553,
+      "outgoing": 8.371862961434582,
+      "net": 0.008103836779051576,
+      "relativeImbalance": 0.0009684536060105131
+    },
+    "smagorinsky": 0.12,
+    "maxEddyViscosity": 0.008407110615126917,
+    "boundaryMethod": "non-equilibrium extrapolation, velocity inlet / density outlet",
+    "iterations": 800,
+    "residual": 0.00016135356560266655,
+    "converged": false,
+    "clampedCells": 0,
+    "maxLatticeMach": 0.14385288407452645,
+    "maxDensityDeviation": 0.09781196713447571,
+    "divergenceRms": 0.14232773374643118,
+    "spacingM": 0.072,
+    "simulatedTime": 1.248,
+    "worldScale": 0.36,
+    "appliedThrust": 0,
+    "requestedThrust": 0,
+    "diskNodes": [
+      8,
+      8,
+      8,
+      8
+    ],
+    "underresolvedDisks": [],
+    "convergenceCriteria": {
+      "velocity": 0.001,
+      "force": 0.005,
+      "massFlow": 0.01,
+      "densityDrift": 0.01,
+      "consecutiveChecks": 3
+    },
+    "appliedTorques": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "effectiveReynolds": 30.857142857142808,
+    "numericalViscosity": 0.03500000000000006,
+    "elapsedMs": 6104,
+    "maxSpeed": 3.2700109303491462,
+    "minPressure": -2.371366024017334,
+    "maxPressure": 5.8964524269104,
+    "maxVorticity": 21.75540107362899,
+    "reynolds": 73935.28106047599,
+    "method": "D3Q19 TRT + Guo + Smagorinsky LES"
+  },
+  "drone": {
+    "cells": 14725,
+    "solidCells": 16,
+    "meanDensity": 0.9998030810390174,
+    "densityDrift": -0.00019691896098261719,
+    "surfaceForce": [
+      4.46925644209181,
+      -2.849915957968999,
+      2.9182827104645797
+    ],
+    "meanSurfaceForce": [
+      11.660246782085546,
+      -3.0436353298674588,
+      7.990804081016854
+    ],
+    "forceResidual": 0.004281242962875151,
+    "forceSamples": 10,
+    "massFlow": {
+      "incoming": 29.83692647201694,
+      "outgoing": 29.86366091731924,
+      "net": 0.026734445302299292,
+      "relativeImbalance": 0.0008956174962886427
+    },
+    "smagorinsky": 0.12,
+    "maxEddyViscosity": 0.017306135811472584,
+    "boundaryMethod": "non-equilibrium extrapolation, velocity inlet / density outlet",
+    "iterations": 200,
+    "residual": 0.025229396757771545,
+    "converged": false,
+    "clampedCells": 0,
+    "maxLatticeMach": 0.23263777248683387,
+    "maxDensityDeviation": 0.05707602947950363,
+    "divergenceRms": 0.7646131747954742,
+    "spacingM": 0.07777777777777778,
+    "simulatedTime": 0.1685185185185185,
+    "worldScale": 0.3888888888888889,
+    "appliedThrust": 30.400615,
+    "requestedThrust": 30.400615,
+    "diskNodes": [
+      30,
+      30,
+      30,
+      30
+    ],
+    "underresolvedDisks": [],
+    "convergenceCriteria": {
+      "velocity": 0.001,
+      "force": 0.005,
+      "massFlow": 0.01,
+      "densityDrift": 0.01,
+      "consecutiveChecks": 3
+    },
+    "appliedTorques": [
+      0.15263458000939653,
+      -0.15263458000939653,
+      0.15263458000939653,
+      -0.15263458000939653
+    ],
+    "effectiveReynolds": 35.099999999999966,
+    "numericalViscosity": 0.09572649572649583,
+    "elapsedMs": 1879,
+    "maxSpeed": 12.400421175960014,
+    "minPressure": -36.50250244140625,
+    "maxPressure": 21.222932815551758,
+    "maxVorticity": 93.52241614698116,
+    "reynolds": 216053.40281208628,
+    "method": "D3Q19 TRT + Guo + Smagorinsky LES"
+  }
+}

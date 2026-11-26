@@ -1,14 +1,19 @@
-# Drone Weather Lab 0.95 Beta
+# Drone Weather Lab 0.96.0 Beta
 
 [Русский](README.md) · [English](README.en.md)
 
-El simulador muestra cómo el viento, la altitud, las hélices, los motores y la batería afectan a un multicóptero. En la 0.95 la interfaz se rediseñó por tercera vez.
+El simulador muestra cómo el viento, la altitud, las hélices, los motores y la batería afectan a un multicóptero. La 0.96.0 lleva el viento del pronóstico a la altura de vuelo.
 
 ## Cómo abrirlo
 
-Descomprime el archivo y abre **Drone-Weather-Lab-0.95-Beta.html** o `Start.cmd`.
+Descomprime el archivo y abre **Drone-Weather-Lab-0.96.0-Beta.html** o `Start.cmd`.
 
-## Novedades
+## Novedades de la 0.96.0
+
+- Viento a la altura de vuelo: niveles del pronóstico a 10, 80, 120 y 180 m, ley potencial por debajo de 10 m, presión y temperatura a esa altura.
+- La presión sigue a la altitud después de cargar un pronóstico.
+
+## Lo que trajo la 0.95
 
 - Tercer rediseño: la escena empieza en 322 px en lugar de 667. Por defecto solo se ven los ajustes principales.
 - Tiempo por lugar: pronóstico de Open-Meteo para Almaty, Shymbulak, Big Almaty Lake, Medeu, Astana o tus coordenadas.
@@ -18,4 +23,4 @@ Descomprime el archivo y abre **Drone-Weather-Lab-0.95-Beta.html** o `Start.cmd`
 
 ## Límites
 
-El modelo no se ha comparado con un vuelo real. Las pruebas están en `docs/VERIFICATION-0.95.md`.
+El modelo no se ha comparado con un vuelo real. Las pruebas están en `docs/VERIFICATION-0.96.0.md`.

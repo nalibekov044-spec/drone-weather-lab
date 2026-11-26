@@ -3415,3 +3415,31 @@ select {
     display: none
   }
 }
+
+/* 0.96.0: weather by place gets the flight height and the ground type in its own rows. */
+.weather-fetch {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line)
+}
+
+.weather-fetch .weather-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px
+}
+
+.weather-fetch .weather-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--muted)
+}
+
+.weather-fetch .control-hint {
+  margin: 0;
+  overflow-wrap: anywhere
+}

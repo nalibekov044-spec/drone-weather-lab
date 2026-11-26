@@ -11,13 +11,13 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.95 Beta</span></p>
+        <p class="eyebrow">DRONE WEATHER LAB <span class="release-tag">0.96.0 Beta</span></p>
         <h1>Drone Weather Lab</h1>
       </div>
       <div class="simulation-actions">
         <label class="unit-control">Язык<select id="language"><option value="ru">Русский</option><option value="en">English</option><option value="es">Español</option></select></label>
         <label class="unit-control">Единицы<select id="unitSystem"><option value="metric">Метрические</option><option value="imperial">Имперские</option></select></label>
-        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.95-Beta.html" download>Скачать для запуска без установки</a>
+        <a id="downloadOffline" class="button" href="Drone-Weather-Lab-0.96.0-Beta.html" download>Скачать для запуска без установки</a>
         <button id="showShortcuts" class="button" type="button" aria-expanded="false" aria-controls="shortcutHelp">Клавиши <kbd>?</kbd></button>
         <button id="toggleSimulation" class="button button-primary" type="button">Пауза</button>
         <button id="resetSimulation" class="button" type="button">Сбросить</button>
@@ -30,7 +30,7 @@
       <p>Клавиши работают в русской и английской раскладке вне полей ввода. G и C тоже переключают графики и обтекание. R сохраняет батарею и моторы; Shift + R сбрасывает все настройки и CAD.</p>
     </section>
 
-    <div class="release-notice">0.95 · Удобнее и точнее</div>
+    <div class="release-notice">0.96.0 · Ветер на высоте полёта</div>
     <nav class="mode-tabs" aria-label="Режим визуализации" role="tablist">
       <button class="mode-tab active" id="flightTab" type="button" role="tab" aria-selected="true" aria-controls="flightView" data-view="flight">Полёт</button>
       <button class="mode-tab" id="graphTab" type="button" role="tab" aria-selected="false" aria-controls="graphView" data-view="graph">Графики</button>
@@ -208,7 +208,7 @@
             <label class="control" for="rainRate"><span>Дождь <output id="rainRateValue">0 мм/ч</output></span><input id="rainRate" type="range" min="0" max="80" value="0" step="1"></label>
             <label class="control wide"><span>Температура воздуха</span><select id="temperatureMode"><option value="manual">Задать вручную</option><option value="standard">Стандартная атмосфера</option></select></label>
             <label class="control" for="temperature"><span>Температура <output id="temperatureValue">15 °C</output></span><input id="temperature" type="range" min="-40" max="55" value="15" step="1"></label>
-            <label class="control" for="altitude"><span>Высота <output id="altitudeValue">500 м</output></span><input id="altitude" type="range" min="0" max="6000" value="500" step="100"></label>
+            <label class="control" for="altitude"><span>Высота <output id="altitudeValue">500 м</output></span><input id="altitude" type="range" min="0" max="6000" value="500" step="10"></label>
             <label class="control" for="humidity"><span>Влажность <output id="humidityValue">45%</output></span><input id="humidity" type="range" min="0" max="100" value="45" step="5"></label>
             <label class="control" for="pressureMode"><span>Давление</span><select id="pressureMode"><option value="auto">По высоте</option><option value="manual">Задать вручную</option></select></label>
             <label class="control" for="pressureHpa"><span>Давление <output id="pressureHpaValue">954 гПа</output></span><input id="pressureHpa" type="range" min="400" max="1050" value="954" step="1" disabled></label>

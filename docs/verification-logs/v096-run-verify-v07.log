@@ -1,0 +1,2 @@
+v0.7 passed: unit round trips, decimal validation, typing-safe shortcuts, short overload, delayed fire, cooling, irreversible wear, failed motor and timestep invariance.
+{"burstTemperature":72.18903077893758,"severeTemperature":224.32437231424115,"fireAt60s":1,"healthAt60s":0}

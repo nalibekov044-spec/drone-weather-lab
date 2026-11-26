@@ -1,0 +1,37 @@
+{
+  "version": "0.96.0-beta",
+  "powerLaw": {
+    "water": 6.295,
+    "open": 7.227,
+    "built": 10.939
+  },
+  "levels": {
+    "at28m": 6.5,
+    "at300m": 11.42
+  },
+  "isaPressure": [
+    {
+      "altitude": 1000,
+      "model": 898.75,
+      "table": 898.76
+    },
+    {
+      "altitude": 3000,
+      "model": 701.09,
+      "table": 701.12
+    },
+    {
+      "altitude": 5000,
+      "model": 540.2,
+      "table": 540.48
+    }
+  ],
+  "flight": {
+    "wind10": 7.2,
+    "wind50": 9.44,
+    "wind120": 11,
+    "pressure50": 769.5,
+    "minutes10": 39.3,
+    "minutes120": 37.3
+  }
+}
